@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,7 +19,7 @@ async function sf(url: string, opts: RequestInit = {}, ms = 9000): Promise<Respo
   } catch { return null; }
 }
 
-/* ── CRYPTO: CoinGecko ───────────────────────────────── */
+/* CRYPTO: CoinGecko */
 const CG_IDS = "bitcoin,ethereum,solana,binancecoin,ripple,dogecoin,cardano,avalanche-2,chainlink,polkadot,litecoin,ondo-finance,sui,aptos,pepe,injective-protocol,stellar,vechain,internet-computer,filecoin,hedera-hashgraph,algorand,floki,the-open-network,tron,optimism,arbitrum,uniswap,cosmos,near,shiba-inu";
 const CG_MAP: Record<string,string> = {
   bitcoin:"BTCUSDT",ethereum:"ETHUSDT",solana:"SOLUSDT",binancecoin:"BNBUSDT",
@@ -49,7 +49,7 @@ async function fetchCG(): Promise<Record<string,PD>> {
   } catch { return {}; }
 }
 
-/* ── Finnhub: US Stocks ─────────────────────────────── */
+/* Finnhub: US Stocks */
 const FH_STOCK_SYMS = ["AAPL","TSLA","NVDA","MSFT","AMZN","META","GOOGL","AMD","NFLX","JPM","V","WMT","BABA"];
 
 async function fetchFinnhubStocks(): Promise<Record<string,PD>> {
@@ -68,8 +68,7 @@ async function fetchFinnhubStocks(): Promise<Record<string,PD>> {
   return out;
 }
 
-/* ── Finnhub: ETF-based indices ──────────────────────── */
-// SPY = S&P 500, QQQ = Nasdaq 100, DIA = Dow Jones
+/* Finnhub: ETF-based indices */
 const FH_ETF_MAP: [string, string][] = [
   ["SPY","SPX"], ["QQQ","NDX"], ["DIA","DJI"],
 ];
@@ -84,7 +83,6 @@ async function fetchIndices(): Promise<Record<string,PD>> {
       if (d.c > 0) {
         const chg = d.pc > 0 ? ((d.c - d.pc) / d.pc) * 100 : 0;
         out[key] = { price: safe(d.c), chg: safe(chg), source: "finnhub" };
-        // Also store under ETF symbol so ticker route can use it
         out[etf] = { price: safe(d.c), chg: safe(chg), source: "finnhub" };
       }
     } catch {}
@@ -92,49 +90,60 @@ async function fetchIndices(): Promise<Record<string,PD>> {
   return out;
 }
 
-/* ── open.er-api.com: Forex ──────────────────────────── */
+/* Frankfurter: Forex with REAL % change */
 async function fetchForex(): Promise<Record<string,PD>> {
   const out: Record<string,PD> = {};
   try {
-    const r = await sf("https://open.er-api.com/v6/latest/USD", {}, 8000);
-    if (!r?.ok) return out;
-    const d = await r.json();
-    if (!d.rates) return out;
-    const rates = d.rates as Record<string,number>;
-    const pairs: [string, string, boolean][] = [
-      // [currency, outputKey, isInverse]
-      ["EUR","EURUSD",true],  // EUR/USD = 1/rates.EUR
-      ["GBP","GBPUSD",true],
-      ["TRY","USDTRY",false], // USD/TRY = rates.TRY
-      ["JPY","USDJPY",false],
-      ["CHF","USDCHF",false],
-      ["CAD","USDCAD",false],
-    ];
-    for (const [ccy, key, inverse] of pairs) {
-      const rate = safe(rates[ccy]);
-      if (rate > 0) {
-        const price = inverse ? +(1/rate).toFixed(5) : +rate.toFixed(4);
-        out[key] = { price, chg: 0, source: "er-api" };
-      }
-    }
-    // EURTRY derived from EUR and TRY
-    if (rates.EUR > 0 && rates.TRY > 0) {
-      out["EURTRY"] = { price: +(rates.TRY / rates.EUR).toFixed(4), chg: 0, source: "er-api" };
+    const yday = new Date(); yday.setDate(yday.getDate() - 1);
+    const ydayStr = yday.toISOString().split("T")[0];
+    const [todayR, yrR] = await Promise.all([
+      sf("https://api.frankfurter.app/latest?base=USD&symbols=EUR,GBP,TRY,JPY,CHF,CAD", {}, 8000),
+      sf(`https://api.frankfurter.app/${ydayStr}?base=USD&symbols=EUR,GBP,TRY,JPY,CHF,CAD`, {}, 6000),
+    ]);
+    const today = todayR?.ok ? await todayR.json() : null;
+    const yest  = yrR?.ok   ? await yrR.json()   : null;
+    const tr = today?.rates as Record<string,number> | undefined;
+    const yr = yest?.rates  as Record<string,number> | undefined;
+    if (!tr) return out;
+
+    const pct = (cur: number, prev: number) => (prev > 0 && cur > 0 ? ((cur - prev) / prev) * 100 : 0);
+    const n = (x: unknown) => safe(x);
+
+    const eur = n(tr.EUR); const yEur = yr ? n(yr.EUR) : 0;
+    const gbp = n(tr.GBP); const yGbp = yr ? n(yr.GBP) : 0;
+    const tryR = n(tr.TRY); const yTry = yr ? n(yr.TRY) : 0;
+    const jpy = n(tr.JPY); const yJpy = yr ? n(yr.JPY) : 0;
+    const chf = n(tr.CHF); const yChf = yr ? n(yr.CHF) : 0;
+    const cad = n(tr.CAD); const yCad = yr ? n(yr.CAD) : 0;
+
+    if (eur > 0) { const p = 1/eur; out["EURUSD"] = { price: +p.toFixed(5), chg: pct(p, yEur>0?1/yEur:0), source: "frankfurter" }; }
+    if (gbp > 0) { const p = 1/gbp; out["GBPUSD"] = { price: +p.toFixed(5), chg: pct(p, yGbp>0?1/yGbp:0), source: "frankfurter" }; }
+    if (tryR > 0) out["USDTRY"] = { price: +tryR.toFixed(4), chg: pct(tryR, yTry), source: "frankfurter" };
+    if (jpy > 0)  out["USDJPY"] = { price: +jpy.toFixed(3),  chg: pct(jpy, yJpy),  source: "frankfurter" };
+    if (chf > 0)  out["USDCHF"] = { price: +chf.toFixed(5),  chg: pct(chf, yChf),  source: "frankfurter" };
+    if (cad > 0)  out["USDCAD"] = { price: +cad.toFixed(5),  chg: pct(cad, yCad),  source: "frankfurter" };
+    if (eur > 0 && tryR > 0) {
+      const eurtry = tryR / eur;
+      const yEurtry = (yEur > 0 && yTry > 0) ? yTry / yEur : 0;
+      out["EURTRY"] = { price: +eurtry.toFixed(4), chg: pct(eurtry, yEurtry), source: "frankfurter" };
     }
   } catch {}
   return out;
 }
 
-/* ── Stooq: metals + energy (no API key) ────────────── */
+/* Stooq: metals + energy */
 async function fetchStooq(sym: string): Promise<PD | null> {
   try {
     const r = await sf(`https://stooq.com/q/l/?s=${sym}&f=sd2t2ohlcv&h&e=json`, {}, 8000);
     if (!r?.ok) return null;
-    const d = await r.json();
-    const item = Array.isArray(d.symbols) ? d.symbols[0] : null;
+    const raw = await r.text();
+    const sanitized = raw.replace(/:(\s*[,}])/g, ":null$1");
+    let d: { symbols?: unknown[] };
+    try { d = JSON.parse(sanitized); } catch { return null; }
+    const item = Array.isArray(d.symbols) ? d.symbols[0] as Record<string,unknown> : null;
     if (!item) return null;
-    const close = safe(item.Close || item.close || item.Last);
-    const open  = safe(item.Open  || item.open);
+    const close = safe(item.c || item.Close || item.close || item.Last);
+    const open  = safe(item.o || item.Open  || item.open);
     if (close <= 0) return null;
     const chg = open > 0 ? ((close - open) / open) * 100 : 0;
     return { price: close, chg: safe(chg), source: "stooq" };
@@ -144,10 +153,10 @@ async function fetchStooq(sym: string): Promise<PD | null> {
 async function fetchCommodities(): Promise<Record<string,PD>> {
   const out: Record<string,PD> = {};
   const [gold, silver, wti, brent] = await Promise.all([
-    fetchStooq("xauusd"),   // Gold
-    fetchStooq("xagusd"),   // Silver
-    fetchStooq("clusd"),    // WTI crude
-    fetchStooq("lcousd"),   // Brent crude (London ICE)
+    fetchStooq("xauusd"),
+    fetchStooq("xagusd"),
+    fetchStooq("cl.f"),
+    fetchStooq("lco.f"),
   ]);
   if (gold)   out["XAUUSD"] = gold;
   if (silver) out["XAGUSD"] = silver;
@@ -156,10 +165,9 @@ async function fetchCommodities(): Promise<Record<string,PD>> {
   return out;
 }
 
-/* ── ON-DEMAND ───────────────────────────────────────── */
+/* ON-DEMAND: single symbol lookup */
 async function fetchOnDemand(sym: string): Promise<PD | null> {
   const upper = sym.toUpperCase();
-  // Try Binance for crypto
   try {
     const binSym = upper.endsWith("USDT") ? upper : upper + "USDT";
     const r = await sf(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binSym}`, {}, 4000);
@@ -169,7 +177,6 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
       if (p > 0) return { price: p, chg: safe(d.priceChangePercent), source: "binance" };
     }
   } catch {}
-  // CoinGecko for crypto by id
   try {
     const id = upper.toLowerCase().replace("usdt","");
     const r = await sf(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&x_cg_demo_api_key=${CG_KEY}`, {}, 5000);
@@ -178,7 +185,6 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
       if (d[id]?.usd > 0) return { price: d[id].usd, chg: safe(d[id].usd_24h_change), source: "coingecko" };
     }
   } catch {}
-  // Finnhub for stocks
   try {
     const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${upper}&token=${FH_KEY}`, {}, 4000);
     if (r?.ok) {
@@ -186,7 +192,6 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
       if (d.c > 0) return { price: safe(d.c), chg: safe(d.pc > 0 ? ((d.c-d.pc)/d.pc)*100 : 0), source: "finnhub" };
     }
   } catch {}
-  // Stooq fallback (metals/forex)
   try {
     const stooqSym = upper.replace("/","").toLowerCase();
     const pd = await fetchStooq(stooqSym);
@@ -195,10 +200,12 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
   return null;
 }
 
-/* ── MAIN ─────────────────────────────────────────────── */
+/* MAIN */
 export async function GET(req: NextRequest) {
   const start = Date.now();
-  const symsParam = new URL(req.url).searchParams.get("symbols");
+  const sp = new URL(req.url).searchParams;
+  // Support both ?symbols=A,B,C and ?symbol=A (singular)
+  const symsParam = sp.get("symbols") || sp.get("symbol");
 
   if (symsParam) {
     const requested = symsParam.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -213,7 +220,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Bulk — all parallel
+  // Bulk - all parallel
   const [cgData, stocks, commodities, forex, indices] = await Promise.all([
     fetchCG(),
     fetchFinnhubStocks(),
@@ -227,7 +234,6 @@ export async function GET(req: NextRequest) {
     for (const [k,v] of Object.entries(src)) prices[k] = v;
   }
 
-  // Alias NDX from QQQ if not already set
   if (prices["NDX"] && !prices["COMP"]) prices["COMP"] = { ...prices["NDX"] };
 
   const count = Object.keys(prices).length;
