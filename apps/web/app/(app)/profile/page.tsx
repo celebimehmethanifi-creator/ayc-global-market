@@ -22,15 +22,15 @@ const PLAN_FEATURES = {
 
 const TABS = [
   {id:"profile", label:"Profil",      icon:User},
-  {id:"security",label:"Güvenlik",    icon:Shield},
+  {id:"security",label:"GÃ¼venlik",    icon:Shield},
   {id:"notif",   label:"Bildirimler", icon:Bell},
   {id:"plan",    label:"Abonelik",    icon:CreditCard},
 ];
 
 const RISK_LEVELS = [
-  {value:"low",    label:"Düşük",   desc:"Muhafazakâr, sermaye koruma öncelikli", color:"#10b981"},
+  {value:"low",    label:"DÃ¼Ã¾Ã¼k",   desc:"MuhafazakÃ¢r, sermaye koruma Ã¶ncelikli", color:"#10b981"},
   {value:"medium", label:"Orta",    desc:"Dengeli risk/getiri profili",           color:"#f59e0b"},
-  {value:"high",   label:"Yüksek",  desc:"Agresif, yüksek getiri odaklı",         color:"#ef4444"},
+  {value:"high",   label:"YÃ¼ksek",  desc:"Agresif, yÃ¼ksek getiri odaklÃ½",         color:"#ef4444"},
 ];
 
 export default function ProfilePage() {
@@ -112,7 +112,7 @@ export default function ProfilePage() {
           color:"#ef4444",fontSize:13,fontWeight:600
         }}>
           <LogOut size={15} color="#ef4444" />
-          Çıkış Yap
+          Ã‡Ã½kÃ½Ã¾ Yap
         </button>
       </div>
 
@@ -123,10 +123,10 @@ export default function ProfilePage() {
             <div style={{
               background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:18,padding:24
             }}>
-              <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:20}}>Kişisel Bilgiler</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:20}}>KiÃ¾isel Bilgiler</div>
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
                 <div>
-                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Görünen Ad</label>
+                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>GÃ¶rÃ¼nen Ad</label>
                   <input
                     type="text"
                     defaultValue={profile?.display_name || ""}
@@ -138,7 +138,7 @@ export default function ProfilePage() {
                     }}
                     onFocus={e => e.target.style.borderColor="rgba(139,92,246,0.5)"}
                     onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"}
-                    placeholder="Görünen adınızı girin"
+                    placeholder="GÃ¶rÃ¼nen adÃ½nÃ½zÃ½ girin"
                   />
                 </div>
                 <div>
@@ -155,7 +155,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Arayüz Dili</label>
+                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>ArayÃ¼z Dili</label>
                   <select
                     defaultValue={profile?.language || "tr"}
                     onChange={e => setLanguage(e.target.value)}
@@ -182,7 +182,7 @@ export default function ProfilePage() {
                   transition:"all 0.3s"
                 }}
               >
-                {saved ? <><Check size={14} /> Kaydedildi</> : "Değişiklikleri Kaydet"}
+                {saved ? <><Check size={14} /> Kaydedildi</> : "DeÃ°iÃ¾iklikleri Kaydet"}
               </button>
             </div>
 
@@ -194,7 +194,7 @@ export default function ProfilePage() {
                 <Shield size={15} color="var(--primary)" /> Risk Profili
               </div>
               <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:18}}>
-                Risk toleransınız sinyallerin gösterim sıklığı ve kalkan eşiklerini etkiler
+                Risk toleransÃ½nÃ½z sinyallerin gÃ¶sterim sÃ½klÃ½Ã°Ã½ ve kalkan eÃ¾iklerini etkiler
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
                 {RISK_LEVELS.map(r => (
@@ -240,7 +240,7 @@ export default function ProfilePage() {
             background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:18,padding:24,
             display:"flex",flexDirection:"column",gap:16
           }}>
-            <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>Güvenlik Ayarlari</div>
+            <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>GÃ¼venlik Ayarlari</div>
             {[
               {label:"Sifre Degistir",          icon:Lock,  color:"var(--primary)", action:"Degistir"},
               {label:"Iki Faktorlu Dogrulama",  icon:Shield,color:"#10b981",        action:"Aktifles"},
@@ -287,12 +287,12 @@ export default function ProfilePage() {
           }}>
             <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:20}}>Bildirim Tercihleri</div>
             {[
-              {label:"Yüksek guvenli sinyaller",    desc:"82%+ güven skorlu sinyaller",        on:true,  color:"#10b981"},
+              {label:"YÃ¼ksek guvenli sinyaller",    desc:"82%+ gÃ¼ven skorlu sinyaller",        on:true,  color:"#10b981"},
               {label:"Kalkan uyarilari",             desc:"Drawdown ve risk uyarilari",          on:true,  color:"#ef4444"},
               {label:"Sabah brifing",                desc:"Her gun saat 08:30 piyasa ozeti",     on:true,  color:"#8b5cf6"},
               {label:"Fiyat alarmlari",              desc:"Ayarladiginiz alarm esiklerine ulasim",on:true, color:"#00d4ff"},
               {label:"Makro haberler",               desc:"FED, enflasyon, jeopolitik gelismeler",on:false,color:"#f59e0b"},
-              {label:"Haftalik rapor",               desc:"Pazar aksamı performans ozeti",       on:false, color:"#6b7280"},
+              {label:"Haftalik rapor",               desc:"Pazar aksamÃ½ performans ozeti",       on:false, color:"#6b7280"},
             ].map((n, i) => (
               <div key={i} style={{
                 display:"flex",alignItems:"center",gap:14,padding:"14px 0",

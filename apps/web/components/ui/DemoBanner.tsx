@@ -35,15 +35,15 @@ export function DemoBanner() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, color: "#f59e0b" }}>
-              E–›T›M HESABI
+              E√ê√ùT√ùM HESABI
             </span>
             <span style={{
               fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4,
               background: "rgba(245,158,11,0.2)", color: "#f59e0b", letterSpacing: 0.5,
-            }}>‹CRETS›Z</span>
+            }}>√úCRETS√ùZ</span>
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
-            Eitim hesab˝ ∑ $10.000 sanal bakiye ile piyasalar˝ inceleyin
+            E√∞itim hesab√Ω ¬∑ $10.000 sanal bakiye ile piyasalar√Ω inceleyin
           </div>
         </div>
       </div>
@@ -52,7 +52,7 @@ export function DemoBanner() {
       <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 2 }}>
-            DEMO BAK›YE
+            DEMO BAK√ùYE
           </div>
           <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "var(--font-mono)", color: "#fff" }}>
             ${fmt(totalValue)}
@@ -70,7 +70,7 @@ export function DemoBanner() {
         {demo.openTrades.length > 0 && (
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 2 }}>
-              A«IK POZ›SYON
+              A√áIK POZ√ùSYON
             </div>
             <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "var(--font-mono)", color: "var(--gold)" }}>
               {demo.openTrades.length}
@@ -89,7 +89,7 @@ export function DemoBanner() {
         }}>
           <Sparkles size={14} color="#fff" />
           <span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
-            GerÁek Hesap AÁ
+            Ger√ßek Hesap A√ß
           </span>
           <ChevronRight size={14} color="#fff" />
         </div>
