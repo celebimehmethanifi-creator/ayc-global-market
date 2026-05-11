@@ -166,26 +166,55 @@ async function fetchCommodities(): Promise<Record<string,PD>> {
   return out;
 }
 
-/* ON-DEMAND: single symbol lookup */
+/* ON-DEMAND: single symbol lookup - smart routing */
+const CG_ID_MAP: Record<string, string> = {
+  BTC:"bitcoin",ETH:"ethereum",SOL:"solana",BNB:"binancecoin",XRP:"ripple",
+  DOGE:"dogecoin",ADA:"cardano",AVAX:"avalanche-2",LINK:"chainlink",
+  DOT:"polkadot",LTC:"litecoin",ONDO:"ondo-finance",SUI:"sui",APT:"aptos",
+  PEPE:"pepe",INJ:"injective-protocol",XLM:"stellar",VET:"vechain",
+  ICP:"internet-computer",FIL:"filecoin",HBAR:"hedera-hashgraph",
+  ALGO:"algorand",FLOKI:"floki",TON:"the-open-network",TRX:"tron",
+  OP:"optimism",ARB:"arbitrum",UNI:"uniswap",ATOM:"cosmos",
+  NEAR:"near",SHIB:"shiba-inu",
+};
+const STOCK_SET = new Set(["AAPL","TSLA","NVDA","MSFT","AMZN","META","GOOGL","AMD","NFLX","JPM","V","WMT","BABA","SPY","QQQ","DIA"]);
+const COMMODITY_SET: Record<string, string> = {
+  XAUUSD:"xauusd",XAGUSD:"xagusd",GOLD:"xauusd",SILVER:"xagusd",
+  OIL:"cl.f",WTI:"cl.f",BRENT:"lco.f",
+};
+
 async function fetchOnDemand(sym: string): Promise<PD | null> {
-  const upper = sym.toUpperCase();
-  try {
-    const binSym = upper.endsWith("USDT") ? upper : upper + "USDT";
-    const r = await sf(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binSym}`, {}, 4000);
-    if (r?.ok) {
-      const d = await r.json();
-      const p = parseFloat(d.lastPrice||"0");
-      if (p > 0) return { price: p, chg: safe(d.priceChangePercent), source: "binance" };
-    }
-  } catch {}
-  try {
-    const id = upper.toLowerCase().replace("usdt","");
-    const r = await sf(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&x_cg_demo_api_key=${CG_KEY}`, {}, 5000);
-    if (r?.ok) {
-      const d = await r.json();
-      if (d[id]?.usd > 0) return { price: d[id].usd, chg: safe(d[id].usd_24h_change), source: "coingecko" };
-    }
-  } catch {}
+  const upper = sym.toUpperCase().replace("USDT","").replace("/","");
+  if (COMMODITY_SET[upper]) return fetchStooq(COMMODITY_SET[upper]);
+  if (STOCK_SET.has(upper)) {
+    try {
+      const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${upper}&token=${FH_KEY}`, {}, 6000);
+      if (r?.ok) {
+        const d = await r.json();
+        if (d.c > 0) return { price: safe(d.c), chg: safe(d.pc > 0 ? ((d.c-d.pc)/d.pc)*100 : 0), source: "finnhub" };
+      }
+    } catch {}
+    return null;
+  }
+  const cgId = CG_ID_MAP[upper];
+  if (cgId) {
+    try {
+      const r = await sf(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true&x_cg_demo_api_key=${CG_KEY}`, {}, 7000);
+      if (r?.ok) {
+        const d = await r.json();
+        if (d[cgId]?.usd > 0) return { price: d[cgId].usd, chg: safe(d[cgId].usd_24h_change), source: "coingecko" };
+      }
+    } catch {}
+    try {
+      const r = await sf(`https://api.binance.com/api/v3/ticker/24hr?symbol=${upper}USDT`, {}, 4000);
+      if (r?.ok) {
+        const d = await r.json();
+        const p = parseFloat(d.lastPrice||"0");
+        if (p > 0) return { price: p, chg: safe(d.priceChangePercent), source: "binance" };
+      }
+    } catch {}
+    return null;
+  }
   try {
     const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${upper}&token=${FH_KEY}`, {}, 4000);
     if (r?.ok) {
@@ -194,9 +223,13 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
     }
   } catch {}
   try {
-    const stooqSym = upper.replace("/","").toLowerCase();
-    const pd = await fetchStooq(stooqSym);
-    if (pd) return pd;
+    const binSym = upper.endsWith("USDT") ? upper : upper + "USDT";
+    const r = await sf(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binSym}`, {}, 4000);
+    if (r?.ok) {
+      const d = await r.json();
+      const p = parseFloat(d.lastPrice||"0");
+      if (p > 0) return { price: p, chg: safe(d.priceChangePercent), source: "binance" };
+    }
   } catch {}
   return null;
 }
