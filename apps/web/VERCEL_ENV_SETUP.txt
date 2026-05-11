@@ -1,0 +1,8 @@
+﻿Vercel Dashboard > Project Settings > Environment Variables eklenecekler:
+
+NEXT_PUBLIC_API_URL = https://YOUR_BACKEND_URL (Railway/Render/VPS backend URL)
+
+NOT: Backend deploy edilmeden önce localhost:8000 kullan.
+Stripe canlıya geçmek için:
+  STRIPE_SECRET_KEY = sk_live_...  (payment_router.py üzerinden)
+  STRIPE_WEBHOOK_SECRET = whsec_...

@@ -1,0 +1,25 @@
+{
+    "name":  "neura",
+    "version":  "0.1.0",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "turbo run dev",
+                    "build":  "turbo run build",
+                    "lint":  "turbo run lint",
+                    "type-check":  "turbo run type-check",
+                    "db:migrate":  "cd infra \u0026\u0026 python -m alembic upgrade head",
+                    "db:seed":  "python scripts/seed_assets.py"
+                },
+    "devDependencies":  {
+                            "turbo":  "^2.0.0"
+                        },
+    "engines":  {
+                    "node":  "\u003e=20",
+                    "pnpm":  "\u003e=9"
+                },
+    "pnpm":  {
+                 "onlyBuiltDependencies":  [
+                                               "unrs-resolver"
+                                           ]
+             }
+}
