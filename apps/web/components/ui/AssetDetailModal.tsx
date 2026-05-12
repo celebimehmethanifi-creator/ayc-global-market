@@ -84,84 +84,21 @@ function normDir(d:string|undefined): Dir {
   return "NEUTRAL";
 }
 
-// ─── TradingView Chart ──────────────────────────────────────────
+// ─── Professional Chart (lightweight-charts) ─────────────────────
+import ProfessionalChart from '@/components/ui/ProfessionalChart';
+
 function TVChart({ symbol, market, tf, onTfChange }: { symbol: string; market: string; tf: string; onTfChange: (tf: string) => void }) {
-  // Map our tf codes to TradingView interval codes
-  const TV_TF: Record<string,string> = { "1D":"D", "1W":"W", "1M":"M", "3M":"3M", "1Y":"12M" };
-
-  // Map symbol to TradingView format
-  function toTVSymbol(sym: string, mkt: string): string {
-    if (mkt === "crypto" || sym.endsWith("USDT")) {
-      const base = sym.replace("USDT","");
-      return `BINANCE:${base}USDT`;
-    }
-    if (mkt === "bist" || sym.endsWith(".IS")) return `BIST:${sym.replace(".IS","")}`;
-    if (sym === "SPX" || sym === "S&P500" || sym === "SPY") return sym === "SPY" ? "AMEX:SPY" : "SP:SPX";
-    if (sym === "NDX" || sym === "NASDAQ" || sym === "QQQ") return sym === "QQQ" ? "NASDAQ:QQQ" : "NASDAQ:NDX";
-    if (sym === "DJI" || sym === "DIA") return sym === "DIA" ? "AMEX:DIA" : "DJ:DJI";
-    if (sym === "VIX") return "CBOE:VIX";
-    if (sym === "DAX") return "XETR:DAX";
-    if (sym === "BIST100") return "BIST:XU100";
-    if (sym === "XAUUSD" || sym === "XAU") return "OANDA:XAUUSD";
-    if (sym === "XAGUSD" || sym === "XAG") return "OANDA:XAGUSD";
-    if (sym === "WTIUSD" || sym === "WTI") return "NYMEX:CL1!";
-    if (sym === "BRENT") return "NYMEX:BB1!";
-    if (sym === "EURUSD") return "OANDA:EURUSD";
-    if (sym === "USDTRY") return "OANDA:USDTRY";
-    if (sym === "GBPUSD") return "OANDA:GBPUSD";
-    if (sym === "USDJPY") return "OANDA:USDJPY";
-    // NYSE stocks
-    const NYSE_SYMS = new Set(["JPM","V","WMT","BAC","JNJ","XOM","PG","KO","DIS","MA","UNH","HD","CVX","ABBV","MRK","LLY","PFE","ABT","TMO","NKE"]);
-    if (NYSE_SYMS.has(sym)) return `NYSE:${sym}`;
-    // Default: NASDAQ for tech stocks
-    return `NASDAQ:${sym}`;
-  }
-
-  const tvSym = toTVSymbol(symbol, market);
-  const tvInterval = TV_TF[tf] || "D";
-
-  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(tvSym)}&interval=${tvInterval}&hidesidetoolbar=0&hidetoptoolbar=0&timezone=exchange&theme=dark&style=1&locale=tr&toolbar_bg=%23131722&enable_publishing=false&hide_legend=0&hide_volume=0&withdateranges=1&showpopupbutton=1&saveimage=1&hideideas=1&overrides=%7B%22mainSeriesProperties.candleStyle.upColor%22%3A%22%2326d782%22%2C%22mainSeriesProperties.candleStyle.downColor%22%3A%22%23f6465d%22%2C%22mainSeriesProperties.candleStyle.borderUpColor%22%3A%22%2326d782%22%2C%22mainSeriesProperties.candleStyle.borderDownColor%22%3A%22%23f6465d%22%7D`;
-
   return (
-    <div style={{ position:"relative" }}>
-      {/* TF selector */}
-      <div style={{ display:"flex", gap:2, padding:"8px 12px 4px", borderBottom:"1px solid var(--b1)" }}>
-        {["1D","1W","1M","3M","1Y"].map(t => (
-          <button
-            key={t}
-            onClick={() => onTfChange(t)}
-            style={{
-              padding:"3px 10px", borderRadius:"var(--r-sm)",
-              fontSize:11, fontWeight:700, cursor:"pointer", border:"none",
-              background: tf===t ? "var(--gold)" : "var(--bg-hover)",
-              color: tf===t ? "#0C0E16" : "var(--t3)",
-            }}
-          >
-            {t}
-          </button>
-        ))}
-        <span style={{ marginLeft:"auto", fontSize:9, color:"var(--t4)", alignSelf:"center" }}>
-          TradingView
-        </span>
-      </div>
-      {/* Chart iframe — no sandbox attribute, allow fullscreen */}
-      <div style={{ height: 520, background:"var(--bg-panel)" }}>
-        <iframe
-          key={tvSym + tvInterval}
-          src={src}
-          id="tv_chart"
-          width="100%"
-          height="520"
-          style={{ display:"block", border:"none", width:"100%", height:"100%" }}
-          allowFullScreen
-          allow="fullscreen"
-        />
-      </div>
-    </div>
+    <ProfessionalChart
+      symbol={symbol}
+      market={market}
+      initialTf={tf}
+      height={420}
+    />
   );
 }
 
-// ─── AI Opinion card ────────────────────────────────────────────
+// ─── Opinion Card ───────────────────────────────────────────────
 function OpinionCard({ op, idx }: { op:Opinion; idx:number }) {
   const dir = normDir(op.direction);
   const cfg = DIR_CFG[dir];
