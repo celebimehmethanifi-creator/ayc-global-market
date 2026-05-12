@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
+const SITE_URL = "https://aycmarket.com";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -10,6 +12,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  alternates: {
+    canonical: "/",
+  },
   title: "AYC Global Market - Piyasa Analiz Platformu",
   description:
     "Kripto, hisse, BIST, forex ve emtia piyasalarinda gercek zamanli analiz, sinyal ve risk yonetimi.",

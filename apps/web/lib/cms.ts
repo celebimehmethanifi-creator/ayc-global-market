@@ -1,15 +1,15 @@
 ﻿/**
  * CMS Integration Layer - WordPress REST API (Headless)
- * WordPress: http://aycmarket.com/wp-json/wp/v2/
+ * WordPress: https://blog.aycmarket.com/wp-json/wp/v2/
  * Falls back to hardcoded defaults when CMS is unavailable
  *
  * WordPress'te icerikleri duzenlemek icin:
- * - http://aycmarket.com/wp-admin adresine gir
+ * - https://blog.aycmarket.com/wp-admin adresine gir
  * - Sayfalar bolumunden site ayarlarini duzenle
  * - Yazilar bolumunden duyurulari yonet
  */
 
-const WP_URL = process.env.NEXT_PUBLIC_WP_URL || 'http://aycmarket.com';
+const WP_URL = process.env.NEXT_PUBLIC_WP_URL || "https://blog.aycmarket.com";
 const WP_API = `${WP_URL}/wp-json/wp/v2`;
 
 interface CmsCache { [key: string]: { data: any; ts: number }; }

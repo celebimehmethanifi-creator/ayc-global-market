@@ -37,6 +37,7 @@ WEB_DASHBOARD_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "dashboard" / "pa
 WEB_PROFESSIONAL_CHART = ROOT / "apps" / "web" / "components" / "ui" / "ProfessionalChart.tsx"
 WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
 WEB_ASSET_UNIVERSE = ROOT / "apps" / "web" / "lib" / "markets" / "asset-universe.ts"
+WEB_MIDDLEWARE = ROOT / "apps" / "web" / "middleware.ts"
 WEB_VERCEL_SETUP = ROOT / "apps" / "web" / "VERCEL_ENV_SETUP.txt"
 ENV_EXAMPLE = ROOT / ".env.example"
 PNPM_WORKSPACE = ROOT / "pnpm-workspace.yaml"
@@ -207,6 +208,25 @@ def test_refresh_store_warning_is_exposed_in_health_and_docs():
     assert "rotation state su an in-memory tutulur" in vercel_text
 
 
+def test_domain_strategy_is_canonical_apex_with_optional_app_alias_redirect():
+    middleware_text = read_text(WEB_MIDDLEWARE)
+    vercel_text = read_text(WEB_VERCEL_SETUP)
+    env_text = read_text(ENV_EXAMPLE)
+
+    assert 'const CANONICAL_DOMAIN = "aycmarket.com";' in middleware_text
+    assert 'const APP_ALIAS_DOMAIN = "app.aycmarket.com";' in middleware_text
+    assert 'const WWW_DOMAIN = "www.aycmarket.com";' in middleware_text
+    assert 'const BLOG_DOMAIN = "blog.aycmarket.com";' in middleware_text
+    assert "url.pathname = \"/coming-soon\"" not in middleware_text
+    assert "APP_ALIAS_REDIRECT" in middleware_text
+    assert "www -> apex" in middleware_text
+
+    assert "NEXT_PUBLIC_SITE_URL=<https://aycmarket.com>" in vercel_text
+    assert "APP_ALIAS_REDIRECT=<0-or-1>" in vercel_text
+    assert "NEXT_PUBLIC_SITE_URL=<https://aycmarket.com>" in env_text
+    assert "APP_ALIAS_REDIRECT=<0-or-1>" in env_text
+
+
 def test_internal_services_cors_are_not_wildcard_in_production():
     for path in [AI_SERVICE_MAIN, DATA_SERVICE_MAIN, SIGNAL_SERVICE_MAIN, DATA_MARKET_PROXY]:
         text = read_text(path)
@@ -280,7 +300,7 @@ def test_professional_chart_supports_fullscreen_controls_and_escape_close():
 
 def test_mobile_api_client_defaults_to_canonical_production_domain():
     text = read_text(MOBILE_API_CLIENT)
-    assert "https://app.aycmarket.com" in text
+    assert "https://aycmarket.com" in text
     assert "EXPO_PUBLIC_API_URL" in text
 
 

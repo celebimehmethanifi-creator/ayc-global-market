@@ -1,18 +1,28 @@
 ﻿import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PRODUCTION_DOMAIN = "aycmarket.com";
+const CANONICAL_DOMAIN = "aycmarket.com";
+const APP_ALIAS_DOMAIN = "app.aycmarket.com";
+const WWW_DOMAIN = "www.aycmarket.com";
+const BLOG_DOMAIN = "blog.aycmarket.com";
+const APP_ALIAS_REDIRECT =
+  process.env.APP_ALIAS_REDIRECT === "1" ||
+  process.env.APP_ALIAS_REDIRECT === "true";
 const WP_ORIGIN = "http://176.62.166.130";
 
 const BAD_BOTS = [
-  "scrapy", "python-requests", "go-http-client", "wget", "curl/",
+  "scrapy", "python-requests", "go-http-client", "wget",
   "libwww", "jakarta", "okhttp", "masscan", "zgrab", "nuclei",
   "sqlmap", "nikto", "nmap", "dirbuster", "gobuster", "wfuzz",
 ];
 
 function isBadBot(ua: string): boolean {
   const lower = ua.toLowerCase();
-  return BAD_BOTS.some(b => lower.includes(b));
+  return BAD_BOTS.some((b) => lower.includes(b));
+}
+
+function normalizeHost(hostHeader: string): string {
+  return hostHeader.split(":")[0].toLowerCase().trim();
 }
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -23,7 +33,7 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 export function middleware(req: NextRequest) {
-  const host = req.headers.get("host") || "";
+  const host = normalizeHost(req.headers.get("host") || "");
   const pathname = req.nextUrl.pathname;
   const ua = req.headers.get("user-agent") || "";
 
@@ -33,33 +43,33 @@ export function middleware(req: NextRequest) {
 
   if (pathname.startsWith("/api/") && !ua) {
     return new NextResponse(JSON.stringify({ error: "Forbidden" }), {
-      status: 403, headers: { "Content-Type": "application/json" },
+      status: 403,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
   let response: NextResponse;
 
-  // WordPress admin proxy: aycmarket.com/wp-admin, /wp-login, /wp-content, /wp-includes, /wp-json
-  if ((host === PRODUCTION_DOMAIN || host === `www.${PRODUCTION_DOMAIN}`) &&
-      (pathname.startsWith("/wp-admin") || pathname.startsWith("/wp-login") ||
-       pathname.startsWith("/wp-content") || pathname.startsWith("/wp-includes") ||
-       pathname.startsWith("/wp-json") || pathname.startsWith("/wp-cron"))) {
+  // Canonicalization: www -> apex
+  if (host === WWW_DOMAIN) {
+    const url = req.nextUrl.clone();
+    url.protocol = "https";
+    url.host = CANONICAL_DOMAIN;
+    response = NextResponse.redirect(url, { status: 308 });
+  } else if (host === APP_ALIAS_DOMAIN && APP_ALIAS_REDIRECT) {
+    // Optional mode: app subdomain can redirect to canonical apex.
+    const url = req.nextUrl.clone();
+    url.protocol = "https";
+    url.host = CANONICAL_DOMAIN;
+    response = NextResponse.redirect(url, { status: 308 });
+  } else if (host === BLOG_DOMAIN) {
+    // Blog traffic is isolated to WordPress and does not affect app routes.
     const wpUrl = new URL(pathname + req.nextUrl.search, WP_ORIGIN);
-    return NextResponse.rewrite(wpUrl, {
-      headers: { "Host": "aycmarket.com", "X-Forwarded-Proto": "https" },
+    response = NextResponse.rewrite(wpUrl, {
+      headers: { "Host": BLOG_DOMAIN, "X-Forwarded-Proto": "https" },
     });
-  }
-
-  // aycmarket.com/www.aycmarket.com -> coming-soon (wp-admin haric)
-  if (host === PRODUCTION_DOMAIN || host === `www.${PRODUCTION_DOMAIN}`) {
-    if (!pathname.startsWith("/api/")) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/coming-soon";
-      response = NextResponse.rewrite(url);
-    } else {
-      response = NextResponse.next();
-    }
   } else {
+    // Canonical apex and app alias (alias mode) serve the live app and /api/v1.
     response = NextResponse.next();
   }
 
@@ -67,7 +77,8 @@ export function middleware(req: NextRequest) {
     response.headers.set(k, v);
   });
 
-  const reqId = req.headers.get("x-request-id") || Math.random().toString(36).slice(2, 18);
+  const reqId =
+    req.headers.get("x-request-id") || Math.random().toString(36).slice(2, 18);
   response.headers.set("X-Request-Id", reqId);
   response.headers.delete("X-Powered-By");
   response.headers.delete("Server");
@@ -80,4 +91,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon\\.ico|ayc-logo\\.png|manifest\\.json).*)",
   ],
 };
-

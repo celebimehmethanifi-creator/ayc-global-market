@@ -12,7 +12,7 @@ const ContentSecurityPolicy = `
   media-src 'none';
   connect-src 'self' wss: ws: https:;
   frame-src 'self' https://s.tradingview.com https://www.tradingview.com https://charting-library.tradingview.com https://widget.tradingview.com;
-  frame-ancestors 'self' https://aycmarket.com http://aycmarket.com;
+  frame-ancestors 'self' https://aycmarket.com https://app.aycmarket.com https://www.aycmarket.com https://blog.aycmarket.com http://aycmarket.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
