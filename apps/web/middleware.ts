@@ -50,8 +50,18 @@ export function middleware(req: NextRequest) {
     });
   }
 
-  // aycmarket.com -> show the trading platform (not coming-soon anymore)
-  response = NextResponse.next();
+  // aycmarket.com/www.aycmarket.com -> coming-soon (wp-admin haric)
+  if (host === PRODUCTION_DOMAIN || host === `www.${PRODUCTION_DOMAIN}`) {
+    if (!pathname.startsWith("/api/")) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/coming-soon";
+      response = NextResponse.rewrite(url);
+    } else {
+      response = NextResponse.next();
+    }
+  } else {
+    response = NextResponse.next();
+  }
 
   Object.entries(SECURITY_HEADERS).forEach(([k, v]) => {
     response.headers.set(k, v);
@@ -70,3 +80,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon\\.ico|ayc-logo\\.png|manifest\\.json).*)",
   ],
 };
+
