@@ -1,4 +1,4 @@
-// build:202605111838
+﻿// build:202605111838
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -151,18 +151,42 @@ async function fetchStooq(sym: string): Promise<PD | null> {
   } catch { return null; }
 }
 
+const AV_KEY = process.env.ALPHAVANTAGE_API_KEY || "63T2IM69L6OSSR51";
+
+async function fetchAV(symbol: string): Promise<PD | null> {
+  try {
+    const r = await sf(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${AV_KEY}`, {}, 10000);
+    if (!r?.ok) return null;
+    const d = await r.json();
+    const q = d["Global Quote"];
+    if (!q) return null;
+    const price = safe(q["05. price"]);
+    const prev = safe(q["08. previous close"]);
+    if (price <= 0) return null;
+    const chg = prev > 0 ? ((price - prev) / prev) * 100 : 0;
+    return { price, chg: safe(chg), source: "alphavantage" };
+  } catch { return null; }
+}
+
 async function fetchCommodities(): Promise<Record<string,PD>> {
   const out: Record<string,PD> = {};
   const [gold, silver, wti, brent] = await Promise.all([
-    fetchStooq("xauusd"),
-    fetchStooq("xagusd"),
-    fetchStooq("cl.f"),
-    fetchStooq("lco.f"),
+    fetchStooq("xauusd"), fetchStooq("xagusd"), fetchStooq("cl.f"), fetchStooq("lco.f"),
   ]);
-  if (gold)   out["XAUUSD"] = gold;
+  if (gold) out["XAUUSD"] = gold;
   if (silver) out["XAGUSD"] = silver;
-  if (wti)    out["WTIUSD"] = wti;
-  if (brent)  out["BRENT"]  = brent;
+  if (wti) out["WTIUSD"] = wti;
+  if (brent) out["BRENT"] = brent;
+  // Alpha Vantage fallback for missing
+  const missing: [string,string][] = [];
+  if (!out["XAUUSD"]) missing.push(["XAUUSD","XAUUSD"]);
+  if (!out["XAGUSD"]) missing.push(["XAGUSD","XAGUSD"]);
+  if (!out["WTIUSD"]) missing.push(["WTIUSD","CL=F"]);
+  if (!out["BRENT"]) missing.push(["BRENT","BZ=F"]);
+  for (const [key, avSym] of missing) {
+    const av = await fetchAV(avSym);
+    if (av) out[key] = av;
+  }
   return out;
 }
 
@@ -185,7 +209,7 @@ const COMMODITY_SET: Record<string, string> = {
 
 async function fetchOnDemand(sym: string): Promise<PD | null> {
   const upper = sym.toUpperCase().replace("USDT","").replace("/","");
-  if (COMMODITY_SET[upper]) return fetchStooq(COMMODITY_SET[upper]);
+  if (COMMODITY_SET[upper]) { const stooqR = await fetchStooq(COMMODITY_SET[upper]); if (stooqR) return stooqR; return fetchAV(upper); }
   if (STOCK_SET.has(upper)) {
     try {
       const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${upper}&token=${FH_KEY}`, {}, 6000);
@@ -276,6 +300,7 @@ export async function GET(req: NextRequest) {
     { headers: { "Cache-Control": "no-store", "X-Price-Count": String(count) } }
   );
 }
+
 
 
 
