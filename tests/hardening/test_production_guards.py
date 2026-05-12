@@ -32,11 +32,16 @@ WEB_HEALTH_PROVIDERS = ROOT / "apps" / "web" / "app" / "api" / "v1" / "health" /
 WEB_OHLCV_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "ohlcv" / "[symbol]" / "route.ts"
 WEB_PROFILE_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "profile" / "page.tsx"
 WEB_MARKET_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "market" / "page.tsx"
+WEB_MARKETS_ALIAS_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "markets" / "page.tsx"
+WEB_DASHBOARD_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "dashboard" / "page.tsx"
+WEB_PROFESSIONAL_CHART = ROOT / "apps" / "web" / "components" / "ui" / "ProfessionalChart.tsx"
 WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
 WEB_ASSET_UNIVERSE = ROOT / "apps" / "web" / "lib" / "markets" / "asset-universe.ts"
 WEB_VERCEL_SETUP = ROOT / "apps" / "web" / "VERCEL_ENV_SETUP.txt"
 ENV_EXAMPLE = ROOT / ".env.example"
 PNPM_WORKSPACE = ROOT / "pnpm-workspace.yaml"
+MOBILE_API_CLIENT = ROOT / "apps" / "mobile" / "src" / "api" / "client.ts"
+MOBILE_APP_ROOT = ROOT / "apps" / "mobile"
 AI_SERVICE_MAIN = ROOT / "services" / "ai-service" / "main.py"
 DATA_SERVICE_MAIN = ROOT / "services" / "data-service" / "main.py"
 SIGNAL_SERVICE_MAIN = ROOT / "services" / "signal-service" / "main.py"
@@ -181,7 +186,11 @@ def test_exchange_connect_ui_is_disabled_in_production():
     exchange_test_text = read_text(WEB_EXCHANGE_TEST)
 
     assert "const IS_PRODUCTION = process.env.NODE_ENV === \"production\";" in brokers_text
-    assert ("Productionda Kapali" in brokers_text) or ("Production'da Kapalı" in brokers_text)
+    assert (
+        ("Productionda Kapali" in brokers_text)
+        or ("Production'da Kapalı" in brokers_text)
+        or ("Production’da Kapalı" in brokers_text)
+    )
     assert "const IS_PRODUCTION = process.env.NODE_ENV === \"production\";" in exchanges_text
     assert ("Productionda Kapali" in exchanges_text) or ("Production'da Kapalı" in exchanges_text)
     assert "Production ortaminda istemciden dogrudan API secret onboarding kapali." in exchange_test_text
@@ -243,6 +252,36 @@ def test_web_smoke_pages_exist_for_signup_login_dashboard():
     assert (ROOT / "apps" / "web" / "app" / "(auth)" / "signup" / "page.tsx").exists()
     assert (ROOT / "apps" / "web" / "app" / "(auth)" / "signin" / "page.tsx").exists()
     assert (ROOT / "apps" / "web" / "app" / "(app)" / "dashboard" / "page.tsx").exists()
+
+
+def test_markets_alias_route_redirects_to_market_page():
+    text = read_text(WEB_MARKETS_ALIAS_PAGE)
+    assert "redirect(\"/market\")" in text
+
+
+def test_dashboard_uses_live_alarm_feed_and_dynamic_market_pulse():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert 'queryKey: ["dashboard-alarms", tick]' in text
+    assert "MOCK_ALARMS.map" not in text
+    assert "computeMarketPulse(signals, movers)" in text
+    assert "EMPTY_ALARM_HINT" in text
+    assert "Market Nabzı" in text
+    assert "Veri: {dataStatus}" in text
+
+
+def test_professional_chart_supports_fullscreen_controls_and_escape_close():
+    text = read_text(WEB_PROFESSIONAL_CHART)
+    assert "setIsFullscreen(true)" in text
+    assert "closeFullscreen" in text
+    assert 'e.key === "Escape"' in text
+    assert "chart-fullscreen" in text
+    assert "screen.orientation" in text
+
+
+def test_mobile_api_client_defaults_to_canonical_production_domain():
+    text = read_text(MOBILE_API_CLIENT)
+    assert "https://app.aycmarket.com" in text
+    assert "EXPO_PUBLIC_API_URL" in text
 
 
 def test_asset_universe_contains_required_symbols_and_multilingual_aliases():
@@ -329,4 +368,21 @@ def test_mojibake_patterns_absent_in_user_facing_web_ui():
             text = path.read_text(encoding="utf-8", errors="ignore")
             if any(token in text for token in bad_tokens):
                 offenders.append(str(path))
+    assert offenders == []
+
+
+def test_mojibake_patterns_absent_in_mobile_sources():
+    bad_tokens = ["Ã", "Â", "ý", "þ", "ð", "Ð", "Ý", "Þ", "\ufffd"]
+    offenders: list[str] = []
+    for path in MOBILE_APP_ROOT.rglob("*"):
+        if "node_modules" in path.parts:
+            continue
+        if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx", ".json", ".md"}:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except (PermissionError, OSError):
+            continue
+        if any(token in text for token in bad_tokens):
+            offenders.append(str(path))
     assert offenders == []

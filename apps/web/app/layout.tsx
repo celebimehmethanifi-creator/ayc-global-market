@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   robots: "index, follow",
   openGraph: {
     title: "AYC Global Market",
-    description: "Gercek zamanli piyasa analizi ve akilli sinyal platformu",
+    description: "Gerçek zamanlı piyasa analizi ve akıllı sinyal platformu",
     type: "website",
     locale: "tr_TR",
     siteName: "AYC Global Market",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "AYC Global Market",
-    description: "Gercek zamanli piyasa analizi ve akilli sinyal platformu",
+    description: "Gerçek zamanlı piyasa analizi ve akıllı sinyal platformu",
   },
   icons: { icon: "/favicon.ico", apple: "/ayc-logo.png" },
   appleWebApp: {

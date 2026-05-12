@@ -12,12 +12,12 @@ const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Ana Ekran" },
   { href: "/market", icon: TrendingUp, label: "Piyasalar" },
   { href: "/signals", icon: Zap, label: "Sinyaller" },
-  { href: "/portfolio", icon: Briefcase, label: "Portfoy" },
+  { href: "/portfolio", icon: Briefcase, label: "Portföy" },
   { href: "/exchanges", icon: Link2, label: "Borsalar" },
   { href: "/alarms", icon: Bell, label: "Alarmlar" },
   { href: "/copilot", icon: MessageSquare, label: "AI Copilot", pro: true },
   { href: "/social", icon: Users, label: "Sosyal Radar" },
-  { href: "/trades", icon: LineChart, label: "Islemlerim" },
+  { href: "/trades", icon: LineChart, label: "İşlemlerim" },
   { href: "/profile", icon: User, label: "Profil" },
 ];
 
@@ -73,8 +73,8 @@ export function Sidebar() {
       <div className="px-3 pb-4">
         <Link href="/subscribe">
           <div className="rounded-xl p-3 border text-center cursor-pointer transition-all hover:opacity-90" style={{background:"rgba(201,160,64,0.08)", borderColor:"rgba(201,160,64,0.25)"}}>
-            <div className="text-xs font-bold mb-1" style={{color:"#e8bc52"}}>Pro&apos;ya Gec</div>
-            <div className="text-[10px]" style={{color:"rgba(244,247,255,0.4)"}}>Sinirsiz sinyal + AI Copilot</div>
+            <div className="text-xs font-bold mb-1" style={{color:"#e8bc52"}}>Pro&apos;ya Geç</div>
+            <div className="text-[10px]" style={{color:"rgba(244,247,255,0.4)"}}>Sınırsız sinyal + AI Copilot</div>
           </div>
         </Link>
       </div>

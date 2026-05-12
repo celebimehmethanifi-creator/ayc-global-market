@@ -19,25 +19,25 @@ type SimulationReport = {
 };
 
 const OUTCOME_META: Record<ScenarioOutcome, {color:string;bg:string;label:string}> = {
-  WIN_HIGH:    {color:"var(--up)",   bg:"rgba(16,185,129,0.1)",  label:"Yuksek Kar"},
-  WIN_MED:     {color:"var(--up)",   bg:"rgba(16,185,129,0.07)", label:"Orta Kar"},
-  NEUTRAL:     {color:"var(--t3)",   bg:"var(--bg-hover)",       label:"Notr"},
-  LOSS_MED:    {color:"var(--down)", bg:"rgba(239,68,68,0.07)",  label:"Orta Kayip"},
-  LOSS_HIGH:   {color:"var(--down)", bg:"rgba(239,68,68,0.1)",   label:"Yuksek Kayip"},
-  LIQUIDATION: {color:"var(--down)", bg:"rgba(239,68,68,0.15)",  label:"Likidatasyon"},
+  WIN_HIGH:    {color:"var(--up)",   bg:"rgba(16,185,129,0.1)",  label:"Yüksek Kâr"},
+  WIN_MED:     {color:"var(--up)",   bg:"rgba(16,185,129,0.07)", label:"Orta Kâr"},
+  NEUTRAL:     {color:"var(--t3)",   bg:"var(--bg-hover)",       label:"Nötr"},
+  LOSS_MED:    {color:"var(--down)", bg:"rgba(239,68,68,0.07)",  label:"Orta Kayıp"},
+  LOSS_HIGH:   {color:"var(--down)", bg:"rgba(239,68,68,0.1)",   label:"Yüksek Kayıp"},
+  LIQUIDATION: {color:"var(--down)", bg:"rgba(239,68,68,0.15)",  label:"Likidasyon"},
 };
 
 const MOCK: SimulationReport = {
   symbol:"BTCUSDT", price:81250, direction:"LONG",
   recommended:"Tetik Bekle",
-  key_insight:"R/R 2.1 ve guven %72 - makul. Tetik onayiyla giriste sahte kirilim riski %40 azalir. Kelly onerir: %9 pozisyon.",
+  key_insight:"R/R 2.1 ve güven %72 - makul. Tetik onayıyla girişte sahte kırılım riski %40 azalır. Kelly önerisi: %9 pozisyon.",
   scenarios:[
-    {name:"Simdi Gir",     description:"Market price'dan hemen gir",     outcome:"WIN_MED",   expected_pnl_pct:1.8, max_loss_pct:2.4,  probability:62, risk_reward:1.8,  kelly_size:0.07, verdict:"Kabul edilebilir R/R 1.8. Slippage riski var."},
-    {name:"Tetik Bekle",   description:"$81,319 kirilimini bekle",        outcome:"WIN_HIGH",  expected_pnl_pct:2.3, max_loss_pct:1.9,  probability:72, risk_reward:2.1,  kelly_size:0.09, verdict:"En verimli giris. R/R 2.1. Sahte kirilim riski %40 duser."},
-    {name:"Stop Koymadan", description:"Stop-loss olmadan ac",            outcome:"LOSS_HIGH", expected_pnl_pct:0.4, max_loss_pct:6.2,  probability:57, risk_reward:0.6,  kelly_size:0.0,  verdict:"CVaR: %6.2. Stop olmadan acik pozisyon.", warning:"KALKAN: Stop koymadan pozisyon acmak risk kurallarini ihlal eder."},
-    {name:"3x Kaldirac",   description:"3x kaldiracla ayni pozisyon",     outcome:"LIQUIDATION",expected_pnl_pct:3.8,max_loss_pct:30.0,  probability:47, risk_reward:1.2,  kelly_size:0.0,  verdict:"3x kaldirac - likideasyon %30 mesafede.", warning:"KALKAN AKTIF: Kripto icin 3x yuksek risk. Kelly = 0."},
-    {name:"Bekle / Gec",   description:"Simdi hic islem yapma",           outcome:"NEUTRAL",   expected_pnl_pct:0.0, max_loss_pct:0.0,  probability:100,risk_reward:0.0,  kelly_size:0.0,  verdict:"Firsat maliyeti var ama sermaye korunur."},
-    {name:"Yari Pozisyon", description:"%50 pozisyon, tetikle tamamla",   outcome:"WIN_MED",   expected_pnl_pct:1.1, max_loss_pct:1.0,  probability:68, risk_reward:2.0,  kelly_size:0.05, verdict:"Konservatif. Kayip %1 siniri, kar potansiyeli korunur."},
+    {name:"Şimdi Gir",     description:"Piyasa fiyatından hemen gir",     outcome:"WIN_MED",   expected_pnl_pct:1.8, max_loss_pct:2.4,  probability:62, risk_reward:1.8,  kelly_size:0.07, verdict:"Kabul edilebilir R/R 1.8. Slippage riski var."},
+    {name:"Tetik Bekle",   description:"$81,319 kırılımını bekle",        outcome:"WIN_HIGH",  expected_pnl_pct:2.3, max_loss_pct:1.9,  probability:72, risk_reward:2.1,  kelly_size:0.09, verdict:"En verimli giriş. R/R 2.1. Sahte kırılım riski %40 düşer."},
+    {name:"Stopsuz",       description:"Stop-loss olmadan aç",            outcome:"LOSS_HIGH", expected_pnl_pct:0.4, max_loss_pct:6.2,  probability:57, risk_reward:0.6,  kelly_size:0.0,  verdict:"CVaR: %6.2. Stopsuz açık pozisyon.", warning:"KALKAN: Stopsuz pozisyon açmak risk kurallarını ihlal eder."},
+    {name:"3x Kaldıraç",   description:"3x kaldıraçla aynı pozisyon",     outcome:"LIQUIDATION",expected_pnl_pct:3.8,max_loss_pct:30.0,  probability:47, risk_reward:1.2,  kelly_size:0.0,  verdict:"3x kaldıraç - likidasyon %30 mesafede.", warning:"KALKAN AKTİF: Kripto için 3x yüksek risk. Kelly = 0."},
+    {name:"Bekle / Geç",   description:"Şimdi hiç işlem yapma",           outcome:"NEUTRAL",   expected_pnl_pct:0.0, max_loss_pct:0.0,  probability:100,risk_reward:0.0,  kelly_size:0.0,  verdict:"Fırsat maliyeti var ama sermaye korunur."},
+    {name:"Yarı Pozisyon", description:"%50 pozisyon, tetikle tamamla",   outcome:"WIN_MED",   expected_pnl_pct:1.1, max_loss_pct:1.0,  probability:68, risk_reward:2.0,  kelly_size:0.05, verdict:"Konservatif. Kayıp %1 sınırı, kâr potansiyeli korunur."},
   ],
 };
 
@@ -52,7 +52,7 @@ function ScenarioCard({s,recommended}:{s:ScenarioResult;recommended:string}) {
       borderRadius:"var(--r-xl)",padding:"16px 18px",
       position:"relative",
     }}>
-      {isRec && <div style={{position:"absolute",top:10,right:12,fontSize:8,fontWeight:800,letterSpacing:"0.08em",color:"var(--gold)",background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.3)",padding:"2px 8px",borderRadius:4}}>ONERILEN</div>}
+      {isRec && <div style={{position:"absolute",top:10,right:12,fontSize:8,fontWeight:800,letterSpacing:"0.08em",color:"var(--gold)",background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.3)",padding:"2px 8px",borderRadius:4}}>ÖNERİLEN</div>}
       <div style={{marginBottom:10}}>
         <div style={{fontFamily:"var(--font-head)",fontSize:14,fontWeight:800,color:"var(--t1)",marginBottom:3}}>{s.name}</div>
         <div style={{fontSize:11,color:"var(--t3)"}}>{s.description}</div>
@@ -103,15 +103,15 @@ export default function ScenarioPage() {
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <Calculator size={18} color="var(--info)"/>
           <div>
-            <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>Senaryo Simulatoru</h1>
-            <p style={{fontSize:12,color:"var(--t3)",margin:0}}>Kelly Criterion · CVaR · 6 Senaryo Karsilastirmasi</p>
+            <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>Senaryo Simülatörü</h1>
+            <p style={{fontSize:12,color:"var(--t3)",margin:0}}>Kelly Criterion · CVaR · 6 Senaryo Karşılaştırması</p>
           </div>
         </div>
       </div>
 
       <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:20}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:16}}>
-          {([["symbol","Sembol","BTCUSDT"],["price","Giris Fiyati","81250"],["confidence","Guven %","72"],["volatility","Volatilite %","3.0"],["leverage","Kaldirac","1"]] as const).map(([k,label,ph])=>(
+          {([["symbol","Sembol","BTCUSDT"],["price","Giriş Fiyatı","81250"],["confidence","Güven %","72"],["volatility","Volatilite %","3.0"],["leverage","Kaldıraç","1"]] as const).map(([k,label,ph])=>(
             <div key={k}>
               <div style={{fontSize:10,fontWeight:700,color:"var(--t4)",letterSpacing:"0.06em",marginBottom:6}}>{label.toUpperCase()}</div>
               <input value={(form as any)[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} placeholder={ph}
@@ -119,7 +119,7 @@ export default function ScenarioPage() {
             </div>
           ))}
           <div>
-            <div style={{fontSize:10,fontWeight:700,color:"var(--t4)",letterSpacing:"0.06em",marginBottom:6}}>YON</div>
+            <div style={{fontSize:10,fontWeight:700,color:"var(--t4)",letterSpacing:"0.06em",marginBottom:6}}>YÖN</div>
             <select value={form.direction} onChange={e=>setForm(f=>({...f,direction:e.target.value}))}
               style={{width:"100%",background:"var(--bg-hover)",border:"1px solid var(--b1)",borderRadius:"var(--r-md)",padding:"8px 12px",color:"var(--t1)",fontSize:12,outline:"none",boxSizing:"border-box"}}>
               <option value="LONG">LONG</option><option value="SHORT">SHORT</option>
@@ -128,18 +128,18 @@ export default function ScenarioPage() {
         </div>
         <button onClick={()=>refetch()} style={{display:"flex",alignItems:"center",gap:6,padding:"10px 20px",background:"var(--gold)",border:"none",borderRadius:"var(--r-md)",color:"var(--bg)",fontFamily:"inherit",fontSize:12,fontWeight:800,cursor:"pointer"}}>
           <RefreshCw size={12} style={{animation:isFetching?"spin 1s linear infinite":"none"}}/>
-          Simulasyonu Calistir
+          Simülasyonu Çalıştır
         </button>
       </div>
 
       <div style={{background:"rgba(96,165,250,0.06)",border:"1px solid rgba(96,165,250,0.2)",borderRadius:"var(--r-xl)",padding:"14px 18px",display:"flex",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
         <Zap size={14} color="var(--info)" style={{flexShrink:0,marginTop:2}}/>
         <div style={{flex:1,minWidth:200}}>
-          <div style={{fontSize:10,fontWeight:700,color:"var(--info)",letterSpacing:"0.08em",marginBottom:4}}>TEMEL ICGORU</div>
+          <div style={{fontSize:10,fontWeight:700,color:"var(--info)",letterSpacing:"0.08em",marginBottom:4}}>TEMEL İÇGÖRÜ</div>
           <div style={{fontSize:12,color:"var(--t1)",lineHeight:1.6}}>{report.key_insight}</div>
         </div>
         <div style={{flexShrink:0,textAlign:"center"}}>
-          <div style={{fontSize:9,color:"var(--t4)",marginBottom:2}}>ONERILEN</div>
+          <div style={{fontSize:9,color:"var(--t4)",marginBottom:2}}>ÖNERİLEN</div>
           <div style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:800,color:"var(--gold)",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.2)",padding:"4px 10px",borderRadius:"var(--r-md)"}}>{report.recommended}</div>
         </div>
       </div>

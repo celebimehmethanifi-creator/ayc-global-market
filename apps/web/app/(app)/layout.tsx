@@ -306,7 +306,7 @@ function DemoBanner() {
         onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background="var(--gold-dim)";}}
         onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background="transparent";}}
       >
-        GERCEK HESAP AC {" >"}
+        GERÇEK HESAP AÇ {" >"}
       </a>
     </div>
   );
@@ -345,7 +345,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
   const tierLabel = authState.tier === "elite" ? "ELITE" : authState.tier === "pro" ? "PRO" : "FREE";
 
   return (
-    <header style={{
+    <header className="app-topbar" style={{
       height:44, display:"flex", alignItems:"center", justifyContent:"space-between",
       padding:"0 12px", gap:10,
       background:"var(--bg-panel)", borderBottom:"1px solid var(--b1)",
@@ -469,9 +469,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <div className="app-root" style={{display:"flex",flexDirection:"column",height:"100dvh",overflow:"hidden"}}>
         {/* Demo mode banner */}
-        <DemoModeWrapper/>
+        <div className="app-demo-banner"><DemoModeWrapper/></div>
         {/* Ticker - full width */}
-        <div style={{height:32,flexShrink:0}}><MarketTicker/></div>
+        <div className="app-ticker" style={{height:32,flexShrink:0}}><MarketTicker/></div>
 
         {/* TopBar */}
         <TopBar onCmdOpen={() => setCmdOpen(true)} onMenuOpen={() => setDrawerOpen(true)}/>

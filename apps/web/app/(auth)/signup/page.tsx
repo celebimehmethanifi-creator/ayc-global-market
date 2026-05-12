@@ -22,12 +22,12 @@ export default function SignUpPage() {
     setLoading(true);
 
     if (!name || !email || !password) {
-      setError("Tum alanlar gerekli.");
+      setError("Tüm alanlar gerekli.");
       setLoading(false);
       return;
     }
     if (password.length < 8) {
-      setError("Sifre en az 8 karakter olmali.");
+      setError("Şifre en az 8 karakter olmalı.");
       setLoading(false);
       return;
     }
@@ -51,7 +51,7 @@ export default function SignUpPage() {
       localStorage.setItem("ayc_show_welcome", "1");
       router.push("/dashboard?welcome=1");
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Kayit basarisiz.");
+      setError(err?.response?.data?.detail || "Kayıt başarısız.");
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export default function SignUpPage() {
       <div style={{ width: "100%", maxWidth: 440 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <h1 style={{ margin: 0, color: "var(--t1)" }}>AYC Global Market</h1>
-          <p style={{ marginTop: 6, color: "var(--t3)", fontSize: 13 }}>Ucretsiz hesap olustur</p>
+          <p style={{ marginTop: 6, color: "var(--t3)", fontSize: 13 }}>Ücretsiz hesap oluştur</p>
         </div>
 
         <div
@@ -108,7 +108,7 @@ export default function SignUpPage() {
               gap: 6,
             }}
           >
-            <Zap size={14} /> Demo ile basla
+            <Zap size={14} /> Demo ile başla
           </button>
         </div>
 
@@ -162,7 +162,7 @@ export default function SignUpPage() {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: 6, fontSize: 12, color: "var(--t2)" }}>Sifre</label>
+            <label style={{ display: "block", marginBottom: 6, fontSize: 12, color: "var(--t2)" }}>Şifre</label>
             <div style={{ position: "relative" }}>
               <input
                 type={showPass ? "text" : "password"}
@@ -226,14 +226,14 @@ export default function SignUpPage() {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? "Kayit yapiliyor..." : "Hesap olustur"}
+            {loading ? "Kayıt yapılıyor..." : "Hesap oluştur"}
           </button>
         </form>
 
         <p style={{ textAlign: "center", marginTop: 14, color: "var(--t3)", fontSize: 12 }}>
-          Zaten hesabin var mi?{" "}
+          Zaten hesabın var mı?{" "}
           <Link href="/signin" style={{ color: "var(--gold)", textDecoration: "none" }}>
-            Giris yap
+            Giriş yap
           </Link>
         </p>
       </div>

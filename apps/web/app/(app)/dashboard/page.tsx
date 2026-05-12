@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 
 
@@ -6,7 +6,7 @@ import { NewsWidget } from "@/components/ui/NewsWidget";
 
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 
 
@@ -100,7 +100,17 @@ type CausalCard = { symbol:string; primary_cause:string; primary_conf:number; na
 
 
 
-type AlarmItem = { time:string; symbol:string; msg:string; type:"warn"|"info"|"danger" };
+type AlarmItem = {
+  id?: string;
+  time:string;
+  symbol:string;
+  msg:string;
+  type:"warn"|"info"|"danger";
+  createdAt?: string;
+  source?: string;
+  isLive?: boolean;
+  isDemo?: boolean;
+};
 
 
 
@@ -116,27 +126,27 @@ const MOCK_SIGNALS: Signal[] = [
 
 
 
-  {id:"s1",symbol:"BTCUSDT",name:"Bitcoin",   direction:"LONG",  confidence:88,price:81000, change_24h:1.82,market:"crypto",  reason:"Hacim patlamasi + momentum kirilimi. 5/6 motor LONG.",  age:"2dk"},
+  {id:"s1",symbol:"BTCUSDT",name:"Bitcoin",   direction:"LONG",  confidence:88,price:81000, change_24h:1.82,market:"crypto",  reason:"Hacim patlaması + momentum kırılımı. 5/6 motor LONG.",  age:"2dk"},
 
 
 
-  {id:"s2",symbol:"XAUUSD", name:"Altin",     direction:"LONG",  confidence:79,price:4700,  change_24h:0.28,market:"precious",reason:"Fed belirsizligi + guvenli liman talebi. RSI 58.",        age:"8dk"},
+  {id:"s2",symbol:"XAUUSD", name:"Altın",     direction:"LONG",  confidence:79,price:4700,  change_24h:0.28,market:"precious",reason:"Fed belirsizliği + güvenli liman talebi. RSI 58.",        age:"8dk"},
 
 
 
-  {id:"s3",symbol:"NVDA",   name:"NVIDIA",    direction:"LONG",  confidence:83,price:220,  change_24h:3.15,market:"us",      reason:"Kurumsal birikim + AI chip dongusu. Bollinger kirilim.", age:"15dk"},
+  {id:"s3",symbol:"NVDA",   name:"NVIDIA",    direction:"LONG",  confidence:83,price:220,  change_24h:3.15,market:"us",      reason:"Kurumsal birikim + AI chip döngüsü. Bollinger kırılımı.", age:"15dk"},
 
 
 
-  {id:"s4",symbol:"ETHUSDT",name:"Ethereum",  direction:"LONG",  confidence:72,price:2500,  change_24h:2.41,market:"crypto",  reason:"DeFi buyumesi + L2 aktivite artisi.",                   age:"22dk"},
+  {id:"s4",symbol:"ETHUSDT",name:"Ethereum",  direction:"LONG",  confidence:72,price:2500,  change_24h:2.41,market:"crypto",  reason:"DeFi büyümesi + L2 aktivite artışı.",                   age:"22dk"},
 
 
 
-  {id:"s5",symbol:"TSLA",   name:"Tesla",     direction:"SHORT", confidence:76,price:445,  change_24h:-2.84,market:"us",     reason:"Direnc kirilamadi + zayif momentum + hacim dususu.",    age:"35dk"},
+  {id:"s5",symbol:"TSLA",   name:"Tesla",     direction:"SHORT", confidence:76,price:445,  change_24h:-2.84,market:"us",     reason:"Direnç kırılamadı + zayıf momentum + hacim düşüşü.",    age:"35dk"},
 
 
 
-  {id:"s6",symbol:"THYAO",  name:"THY",       direction:"LONG",  confidence:71,price:290, change_24h:1.20,market:"turkey", reason:"Turizm sezonu + teknik destek bolgesi.",                 age:"51dk"},
+  {id:"s6",symbol:"THYAO",  name:"THY",       direction:"LONG",  confidence:71,price:290, change_24h:1.20,market:"turkey", reason:"Turizm sezonu + teknik destek bölgesi.",                 age:"51dk"},
 
 
 
@@ -148,34 +158,17 @@ const MOCK_SIGNALS: Signal[] = [
 
 
 
-const MOCK_MOVERS: Mover[] = [
-
-
-
-  {sym:"SOL", name:"Solana",  price:96,  chg:+4.81, cat:"Kripto"},
-
-
-
-  {sym:"NVDA",name:"NVIDIA",  price:220, chg:+3.15, cat:"ABD"},
-
-
-
-  {sym:"BTC", name:"Bitcoin", price:81000, chg:+1.82, cat:"Kripto"},
-
-
-
-  {sym:"ETH", name:"Ethereum",price:2500,  chg:+2.41, cat:"Kripto"},
-
-
-
-  {sym:"TSLA",name:"Tesla",   price:445,   chg:-2.84, cat:"ABD"},
-
-
-
-  {sym:"XAU", name:"Altin",   price:4700,  chg:+0.28, cat:"Emtia"},
-
-
-
+const MOVER_SEEDS: Array<Pick<Mover, "sym" | "name" | "cat">> = [
+  { sym:"BTC",   name:"Bitcoin",  cat:"Kripto" },
+  { sym:"ETH",   name:"Ethereum", cat:"Kripto" },
+  { sym:"SOL",   name:"Solana",   cat:"Kripto" },
+  { sym:"XAUUSD",name:"Altın",    cat:"Emtia"  },
+  { sym:"USDTRY",name:"Dolar/TL", cat:"Forex"  },
+  { sym:"AAPL",  name:"Apple",    cat:"ABD"    },
+  { sym:"NVDA",  name:"NVIDIA",   cat:"ABD"    },
+  { sym:"TSLA",  name:"Tesla",    cat:"ABD"    },
+  { sym:"THYAO", name:"THYAO",    cat:"BIST"   },
+  { sym:"XU100", name:"BIST 100", cat:"Endeks" },
 ];
 
 
@@ -200,7 +193,7 @@ const MOCK_CAUSAL: CausalCard = {
 
 
 
-  narrative:"Bitcoin'deki %1.82 gunluk yukselis hareketinin birincil nedeni **hacim anomalisi** (YUKSEK guven, %78). 5.2x ortalama hacim -> kurumsal alim isareti. Teknik kirilim (68/100) ikincil faktor olarak destekliyor. Manipulasyon riski dusuk.",
+  narrative:"Bitcoin'deki %1.82 günlük yükseliş hareketinin birincil nedeni **hacim anomalisi** (YÜKSEK güven, %78). 5.2x ortalama hacim -> kurumsal alım isareti. Teknik kirilim (68/100) ikincil faktör olarak destekliyor. Manipülasyon riski düşük.",
 
 
 
@@ -216,23 +209,15 @@ const MOCK_CAUSAL: CausalCard = {
 
 
 
-const MOCK_ALARMS: AlarmItem[] = [
-
-
-
-  {time:"02:14",symbol:"BTCUSDT",msg:"SETUP: Kurulum olustu, tetik $81,319 bekleniyor",type:"info"},
-
-
-
-  {time:"01:58",symbol:"XAUUSD", msg:"TRIGGER: 5/6 motor LONG. Tetik $3,308 onaylandi",type:"warn"},
-
-
-
-  {time:"01:32",symbol:"NVDA",   msg:"KALKAN: Sahte kirilim riski -> bloke edildi",      type:"danger"},
-
-
-
-];
+const EMPTY_ALARM_HINT: AlarmItem = {
+  id: "empty",
+  time: "şimdi",
+  symbol: "SİSTEM",
+  msg: "Henüz alarm bulunmuyor. Alarm kurduğunuzda burada canlı olarak görünecek.",
+  type: "info",
+  isLive: false,
+  isDemo: true,
+};
 
 
 
@@ -244,7 +229,7 @@ const CAUSE_LABELS: Record<string,string> = {
 
 
 
-  TECHNICAL_BREAKOUT:"Teknik Kirilim",
+  TECHNICAL_BREAKOUT:"Teknik Kırılım",
 
 
 
@@ -252,7 +237,7 @@ const CAUSE_LABELS: Record<string,string> = {
 
 
 
-  NEWS_CATALYST:"Haber Katalizoru",
+  NEWS_CATALYST:"Haber Katalizörü",
 
 
 
@@ -260,11 +245,11 @@ const CAUSE_LABELS: Record<string,string> = {
 
 
 
-  LIQUIDITY_EVENT:"Likidite Degisimi",
+  LIQUIDITY_EVENT:"Likidite Değişimi",
 
 
 
-  MANIPULATION_SIGNAL:"Manipulasyon",
+  MANIPULATION_SIGNAL:"Manipülasyon",
 
 
 
@@ -293,6 +278,60 @@ const STAGE_COLOR: Record<string,string> = {
 
 
 };
+
+function relativeTimeFromIso(iso?: string): string {
+  if (!iso) return "şimdi";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "şimdi";
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  if (diffSec < 60) return `${diffSec}s önce`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}dk önce`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}sa önce`;
+  const diffDay = Math.floor(diffHour / 24);
+  return `${diffDay}g önce`;
+}
+
+function pulseLabel(score: number): string {
+  if (score <= 24) return "Aşırı Korku";
+  if (score <= 44) return "Korku";
+  if (score <= 55) return "Nötr";
+  if (score <= 74) return "Açgözlülük";
+  return "Aşırı Açgözlülük";
+}
+
+function computeMarketPulse(signals: Signal[], movers: Mover[]) {
+  const validMovers = movers.filter((m) => Number.isFinite(m.chg));
+  const avgChange = validMovers.length
+    ? validMovers.reduce((sum, m) => sum + m.chg, 0) / validMovers.length
+    : 0;
+  const volatility = validMovers.length
+    ? validMovers.reduce((sum, m) => sum + Math.abs(m.chg), 0) / validMovers.length
+    : 0;
+  const longRatio = signals.length
+    ? signals.filter((s) => s.direction === "LONG").length / signals.length
+    : 0.5;
+  const advanceCount = validMovers.filter((m) => m.chg > 0).length;
+  const declineCount = validMovers.filter((m) => m.chg < 0).length;
+  const breadth = validMovers.length
+    ? (advanceCount - declineCount) / validMovers.length
+    : 0;
+
+  let score = 50 + avgChange * 3.8 + (longRatio - 0.5) * 30 + breadth * 12 - Math.max(0, volatility - 4) * 2.2;
+  score = Math.round(Math.max(0, Math.min(100, score)));
+
+  return {
+    score,
+    label: pulseLabel(score),
+    updatedAt: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    advanceCount,
+    declineCount,
+    volatility,
+    avgChange,
+  };
+}
 
 
 
@@ -376,7 +415,7 @@ function DirBadge({d}:{d:Dir}) {
 
 
 
-    : {bg:"rgba(148,163,184,0.1)",border:"var(--b1)",color:"var(--t3)",text:"NOTR"};
+    : {bg:"rgba(148,163,184,0.1)",border:"var(--b1)",color:"var(--t3)",text:"NÖTR"};
 
 
 
@@ -900,6 +939,12 @@ export default function DashboardPage() {
 
   });
 
+  const { data: alarmData } = useQuery({
+    queryKey: ["dashboard-alarms", tick],
+    queryFn: () => api.get("/alarms").then((r) => r.data).catch(() => null),
+    staleTime: 25000,
+  });
+
 
 
 
@@ -1012,21 +1057,83 @@ export default function DashboardPage() {
 
   // Apply live prices to movers  
 
-  const movers: Mover[] = MOCK_MOVERS.map(m => {
+  const movers: Mover[] = useMemo(() => {
+    const fromSeeds = MOVER_SEEDS.map((m) => {
+      const keys = [
+        m.sym,
+        m.sym.replace("/", ""),
+        m.sym + "USDT",
+        m.sym.replace("USDT", ""),
+      ].map((k) => k.toUpperCase());
+      for (const key of keys) {
+        const lp = livePrices[key];
+        if (lp && lp.price > 0) return { ...m, price: lp.price, chg: lp.chg };
+      }
+      return { ...m, price: 0, chg: 0 };
+    }).filter((m) => m.price > 0);
 
-    const keys = [m.sym, m.sym + "USDT", m.sym.replace("USDT",""), "XAU" === m.sym ? "XAUUSD" : m.sym];
+    const fromSignals = signals
+      .filter((s) => Number.isFinite(s.price) && s.price > 0)
+      .map((s) => ({
+        sym: s.symbol.toUpperCase(),
+        name: s.name,
+        price: s.price,
+        chg: Number.isFinite(s.change_24h) ? s.change_24h : 0,
+        cat: s.market || "Piyasa",
+      }));
 
-    for (const k of keys) {
-
-      const lp = livePrices[k.toUpperCase()];
-
-      if (lp && lp.price > 0) return { ...m, price: lp.price, chg: lp.chg };
-
+    const merged = [...fromSeeds, ...fromSignals];
+    const unique = new Map<string, Mover>();
+    for (const item of merged) {
+      const key = item.sym.toUpperCase();
+      if (!unique.has(key) || Math.abs(item.chg) > Math.abs(unique.get(key)!.chg)) {
+        unique.set(key, item);
+      }
     }
+    return Array.from(unique.values())
+      .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
+      .slice(0, 8);
+  }, [livePrices, signals]);
 
-    return m;
+  const alarms: AlarmItem[] = useMemo(() => {
+    const raw = Array.isArray(alarmData?.alarms) ? alarmData.alarms : [];
+    const normalized = raw
+      .map((item: any) => {
+        const createdAt = typeof item?.created_at === "string" ? item.created_at : undefined;
+        const symbol = String(item?.condition?.symbol || item?.symbol || "—").toUpperCase();
+        const alarmType = String(item?.alarm_type || "alarm").toLowerCase();
+        const conditionMsg =
+          item?.condition?.operator && item?.condition?.value
+            ? `${symbol} ${item.condition.operator} ${item.condition.value}`
+            : "";
+        const message = String(item?.message || item?.condition?.message || conditionMsg || "Yeni alarm bildirimi");
+        const type: AlarmItem["type"] =
+          alarmType.includes("risk") || alarmType.includes("danger")
+            ? "danger"
+            : alarmType.includes("warn")
+              ? "warn"
+              : "info";
+        return {
+          id: String(item?.id || `${symbol}-${createdAt || Date.now()}`),
+          time: relativeTimeFromIso(createdAt),
+          symbol,
+          msg: message,
+          type,
+          createdAt,
+          source: "api",
+          isLive: true,
+          isDemo: false,
+        } as AlarmItem;
+      })
+      .sort((a: AlarmItem, b: AlarmItem) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      });
+    return normalized.length ? normalized.slice(0, 5) : [EMPTY_ALARM_HINT];
+  }, [alarmData]);
 
-  });
+  const marketPulse = useMemo(() => computeMarketPulse(signals, movers), [signals, movers]);
 
 
 
@@ -1047,6 +1154,9 @@ export default function DashboardPage() {
 
 
   const longCount = signals.filter(s=>s.direction==="LONG").length;
+  const priceEntries = Object.values(livePrices);
+  const freshPriceCount = priceEntries.filter((entry) => Date.now() - entry.ts < 45000).length;
+  const dataStatus = freshPriceCount >= 8 ? "Canlı" : freshPriceCount > 0 ? "Gecikmeli" : "Fallback";
 
 
 
@@ -1102,7 +1212,7 @@ export default function DashboardPage() {
 
 
 
-              Gercek zamanli piyasa istihbarat merkezi
+              Gerçek zamanlı piyasa istihbarat merkezi
 
 
 
@@ -1142,7 +1252,7 @@ export default function DashboardPage() {
 
 
 
-            <span style={{fontSize:10,fontWeight:700,color:"var(--up)"}}>3 AI MOTOR AKTIF</span>
+            <span style={{fontSize:10,fontWeight:700,color:"var(--up)"}}>3 AI MOTOR AKTİF</span>
 
 
 
@@ -1174,7 +1284,7 @@ export default function DashboardPage() {
 
 
 
-            Guncelle
+            Güncelle
 
 
 
@@ -1236,7 +1346,7 @@ export default function DashboardPage() {
 
 
 
-          sub={`${longCount} LONG \u00b7 ${signals.length-longCount} SHORT/NOTR`}
+          sub={`${longCount} LONG \u00b7 ${signals.length-longCount} SHORT/NÖTR`}
 
 
 
@@ -1244,11 +1354,11 @@ export default function DashboardPage() {
 
 
 
-        <StatBadge icon={Shield}   label="KALKAN" value="AKTIF"
+        <StatBadge icon={Shield}   label="KALKAN" value="AKTİF"
 
 
 
-          sub="4 risk filtresi calisiyor" color="var(--up)"/>
+          sub="4 risk filtresi çalışıyor" color="var(--up)"/>
 
 
 
@@ -1410,72 +1520,33 @@ export default function DashboardPage() {
 
           {/* Market Pulse */}
 
-
-
           <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:16}}>
-
-
-
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12}}>
-
-
-
               <Activity size={12} color="var(--info)"/>
-
-
-
-              <span style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>Market Nabzi</span>
-
-
-
+              <span style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>Market Nabzı</span>
             </div>
-
-
 
             <div style={{textAlign:"center",marginBottom:10}}>
-
-
-
-              <div style={{fontFamily:"var(--font-mono)",fontSize:32,fontWeight:800,color:"var(--gold)"}}>62</div>
-
-
-
-              <div style={{fontSize:10,fontWeight:700,color:"var(--gold)",letterSpacing:"0.1em"}}>ACGOZLULUK</div>
-
-
-
+              <div style={{fontFamily:"var(--font-mono)",fontSize:32,fontWeight:800,color:"var(--gold)"}}>{marketPulse.score}</div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--gold)",letterSpacing:"0.04em"}}>{marketPulse.label.toUpperCase()}</div>
             </div>
-
-
 
             <div style={{height:6,background:"linear-gradient(to right,var(--down),var(--gold),var(--up))",borderRadius:3,position:"relative",marginBottom:8}}>
-
-
-
-              <div style={{position:"absolute",top:-2,left:"60%",transform:"translateX(-50%)",
-
-
-
+              <div style={{position:"absolute",top:-2,left:`${marketPulse.score}%`,transform:"translateX(-50%)",
                 width:10,height:10,borderRadius:"50%",background:"white",border:"2px solid var(--gold)"}}/>
-
-
-
             </div>
-
-
 
             <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"var(--t4)"}}>
-
-
-
-              <span>Korku</span><span>Notr</span><span>Acgozluluk</span>
-
-
-
+              <span>Korku</span><span>Nötr</span><span>Açgözlülük</span>
             </div>
-
-
-
+            <div style={{marginTop:8,fontSize:9,color:"var(--t4)",display:"flex",justifyContent:"space-between"}}>
+              <span>Yükselen: {marketPulse.advanceCount}</span>
+              <span>Düşen: {marketPulse.declineCount}</span>
+            </div>
+            <div style={{marginTop:6,fontSize:9,color:"var(--t4)",display:"flex",justifyContent:"space-between"}}>
+              <span>Veri: {dataStatus}</span>
+              <span>Güncellendi: {marketPulse.updatedAt}</span>
+            </div>
           </div>
 
 
@@ -1508,7 +1579,7 @@ export default function DashboardPage() {
 
 
 
-                background:"rgba(16,185,129,0.1)",padding:"2px 6px",borderRadius:4}}>AKTIF</span>
+                background:"rgba(16,185,129,0.1)",padding:"2px 6px",borderRadius:4}}>AKTİF</span>
 
 
 
@@ -1520,15 +1591,15 @@ export default function DashboardPage() {
 
 
 
-              {label:"Sahte Kirilim Filtresi",  active:true},
+              {label:"Sahte Kırılım Filtresi",  active:true},
 
 
 
-              {label:"Gec Giris Filtresi",       active:true},
+              {label:"Geç Giriş Filtresi",       active:true},
 
 
 
-              {label:"Risk/Odul Filtresi",        active:true},
+              {label:"Risk/Ödül Filtresi",        active:true},
 
 
 
@@ -1536,7 +1607,7 @@ export default function DashboardPage() {
 
 
 
-              {label:"Intikam Islemi Kilidi",     active:true},
+              {label:"İntikam İşlemi Kilidi",     active:true},
 
 
 
@@ -1592,7 +1663,7 @@ export default function DashboardPage() {
 
 
 
-              <span style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>En Cok Hareket</span>
+              <span style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>En Çok Hareket</span>
 
 
 
@@ -1712,11 +1783,11 @@ export default function DashboardPage() {
 
 
 
-            {MOCK_ALARMS.map((a,i)=>(
+            {alarms.map((a)=>(
 
 
 
-              <div key={i} style={{padding:"6px 0",borderBottom:"1px solid var(--b1)"}}>
+              <div key={a.id || `${a.symbol}-${a.time}`} style={{padding:"6px 0",borderBottom:"1px solid var(--b1)"}}>
 
 
 
@@ -1732,7 +1803,19 @@ export default function DashboardPage() {
 
 
 
-                    <div style={{fontSize:9,color:"var(--t3)",marginBottom:1}}>{a.time}   {a.symbol}</div>
+                    <div style={{fontSize:9,color:"var(--t3)",marginBottom:1,display:"flex",gap:6,alignItems:"center"}}>
+                      <span>{a.time}</span>
+                      <span>{a.symbol}</span>
+                      <span style={{
+                        fontSize:8,
+                        padding:"1px 4px",
+                        borderRadius:4,
+                        border:"1px solid var(--b1)",
+                        color:a.isLive ? "var(--up)" : "var(--t4)",
+                      }}>
+                        {a.isLive ? "Canlı" : "Demo"}
+                      </span>
+                    </div>
 
 
 
@@ -1874,11 +1957,11 @@ export default function DashboardPage() {
 
               fontSize: 28,
 
-            }}>‰</div>
+            }}>AI</div>
 
             <div style={{ fontSize: 22, fontWeight: 900, color: "var(--t1)", marginBottom: 8 }}>
 
-              AYC Global Market&apos;e Hos Geldiniz!
+              AYC Global Market&apos;e Hoş Geldiniz!
 
             </div>
 
@@ -1904,9 +1987,9 @@ export default function DashboardPage() {
 
             <div style={{ fontSize: 14, color: "var(--t2)", lineHeight: 1.6, marginBottom: 24 }}>
 
-              Demo hesabiniz hazir. Istediginiz varligi secin, yapay zeka size analiz
+              Demo hesabınız hazır. İstediğiniz varlığı seçin, yapay zeka size analiz
 
-              sunacak ve sanal para ile hemen islem yapabilirsiniz.
+              sunacak ve sanal para ile hemen işlem yapabilirsiniz.
 
             </div>
 
@@ -1914,11 +1997,11 @@ export default function DashboardPage() {
 
               {[
 
-                { step: "1", label: "Sinyaller", sub: "AI sinyal sec" },
+                { step: "1", label: "Sinyaller", sub: "AI sinyal seç" },
 
-                { step: "2", label: "Demo Islem", sub: "Guvenle dene" },
+                { step: "2", label: "Demo İşlem", sub: "Guvenle dene" },
 
-                { step: "3", label: "Portfoy", sub: "Takip et" },
+                { step: "3", label: "Portföy", sub: "Takip et" },
 
               ].map(({ step, label, sub }) => (
 
@@ -1960,7 +2043,7 @@ export default function DashboardPage() {
 
             >
 
-              Hemen Islem Yapmaya Basla
+              Hemen İşlem Yapmaya Başla
 
             </button>
 
@@ -1985,6 +2068,7 @@ export default function DashboardPage() {
 
 
 }
+
 
 
 

@@ -31,9 +31,9 @@ TEMEL KURALLAR:
 - Kesinlikle kazandirmayi vaat etme. Riskten bahset.
 - Teknik analiz, fundamental analiz ve makro ekonomiyi birlestir.
 - Psikolojik kalkan aktif: FOMO, panik, intikam islemi tespitinde uyar.
-- Turkce yaz. ASCII harfleri kullan (g,s,i,u,o,c).
+- Türkce yaz. ASCII harfleri kullan (g,s,i,u,o,c).
 - Kisa, net, actionable cevaplar ver.
-- Her cevabin sonuna uyari ekle: Bu yatirim tavsiyesi degildir.`;
+- Her cevabin sonuna uyari ekle: Bu yatırım tavsiyesi değildir.`;
 
 interface EmotionResult {
   dominant: string;
@@ -133,15 +133,15 @@ async function callGemini(prompt: string): Promise<string> {
 function syntheticResponse(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('btc') || m.includes('bitcoin')) {
-    return `**Bitcoin (BTC) Analizi**\n\nBitcoin, kripto para piyasasinin lider varligi olarak kuresel makro kosullardan onemli olcude etkilenmektedir.\n\n**Teknik Gorunum:**\n- Fiyat kritik destek/direnc bolgelerini test ediyor\n- RSI gostergesi mevcut momentum hakkinda ipuclari veriyor\n- Hacim analizi trend gucunu teyit etmeli\n\n**Risk Faktorleri:**\n- Yuksek volatilite her zaman mevcut\n- Duzenleyici haberler ani hareketler yaratabilir\n- Makro ekonomik kosullar (Fed kararlari, dolar endeksi) kritik\n\nUYARI: Bu yatirim tavsiyesi degildir. Kendi arastirmanizi yapin.`;
+    return `**Bitcoin (BTC) Analizi**\n\nBitcoin, kripto para piyasasının lider varligi olarak küresel makro koşullardan önemli ölçüde etkilenmektedir.\n\n**Teknik Görünüm:**\n- Fiyat kritik destek/direnç bolgelerini test ediyor\n- RSI göstergesi mevcut momentum hakkında ipuçları veriyor\n- Hacim analizi trend gücünü teyit etmeli\n\n**Risk Faktörleri:**\n- Yüksek volatilite her zaman mevcut\n- Düzenleyici haberler ani hareketler yaratabilir\n- Makro ekonomik kosullar (Fed kararları, dolar endeksi) kritik\n\nUYARI: Bu yatırım tavsiyesi değildir. Kendi araştırmanızı yapın.`;
   }
   if (m.includes('altin') || m.includes('gold') || m.includes('xau')) {
-    return `**Altin (XAU/USD) Analizi**\n\nAltin, jeopolitik belirsizlik ve enflasyon endiselerinin yuksek oldugu donemlerde guvenli liman olarak one cikmaktadir.\n\n**Temel Gorunum:**\n- Fed faiz kararlari altini dogrudan etkiliyor\n- Dolar endeksi (DXY) ile ters korelasyon guclu\n- Merkez bankasi alimlari talep tarafini destekliyor\n\nUYARI: Bu yatirim tavsiyesi degildir. Portfoy cesitlendirmesi icin bir uzmana danisin.`;
+    return `**Altın (XAU/USD) Analizi**\n\nAltın, jeopolitik belirsizlik ve enflasyon endişelerinin yüksek olduğu dönemlerde güvenli liman olarak öne çıkmaktadır.\n\n**Temel Görünüm:**\n- Fed faiz kararları altını doğrudan etkiliyor\n- Dolar endeksi (DXY) ile ters korelasyon güçlü\n- Merkez bankası alımları talep tarafını destekliyor\n\nUYARI: Bu yatırım tavsiyesi değildir. Portföy çeşitlendirmesi için bir uzmana danışın.`;
   }
   if (m.includes('bist') || m.includes('thyao') || m.includes('turk') || m.includes('borsa')) {
-    return `**BIST / Turk Hisse Senetleri Analizi**\n\nTurk borsasi, enflasyon dinamikleri, TCMB kararlari ve kuresel risk istahindan etkilenmektedir.\n\n**Makro Faktorler:**\n- TCMB faiz politikasi kritik belirleyici\n- Enflasyon verileri sirket karliligini etkiliyor\n- Yabanci yatirimci akislari izlenmeli\n\nUYARI: Bu yatirim tavsiyesi degildir. BIST yatirimlarinda vergi ve duzenleyici konulara dikkat edin.`;
+    return `**BIST / Türk Hisse Senetleri Analizi**\n\nTürk borsası, enflasyon dinamikleri, TCMB kararları ve küresel risk iştahından etkilenmektedir.\n\n**Makro Faktörler:**\n- TCMB faiz politikası kritik belirleyici\n- Enflasyon verileri şirket kârlılığını etkiliyor\n- Yabanci yatırımcı akışları izlenmeli\n\nUYARI: Bu yatırım tavsiyesi değildir. BIST yatırımlarında vergi ve düzenleyici konulara dikkat edin.`;
   }
-  return `**AYC Global Market AI Copilot**\n\nPiyasa degerlendirilmesi:\n- Kuresel piyasalar makro ekonomik gelismelere duyarliligini korumaktadir\n- Teknik analiz ve temel analizi birlestiren yaklasim en saglikli sonuclari verir\n- Risk yonetimi her yatirim stratejisinin temel unsurudur\n\n**Dikkat edilmesi gereken faktorler:**\n1. Merkez bankasi kararlari ve faiz politikalari\n2. Jeopolitik gelismeler\n3. Sirket/sektor bazli haberler\n4. Teknik destek/direnc seviyeleri\n\nDaha spesifik bir varlik veya piyasa hakkinda analiz yapmami ister misiniz?\n\nUYARI: Bu yatirim tavsiyesi degildir. Lisansli bir finansal danismana basvurun.`;
+  return `**AYC Global Market AI Copilot**\n\nPiyasa değerlendirilmesi:\n- Kuresel piyasalar makro ekonomik gelişmelere duyarlılığını korumaktadır\n- Teknik analiz ve temel analizi birleştiren yaklaşım en sağlıklı sonuçları verir\n- Risk yönetimi her yatirim stratejisinin temel unsurudur\n\n**Dikkat edilmesi gereken faktörler:**\n1. Merkez bankası kararları ve faiz politikaları\n2. Jeopolitik gelişmeler\n3. Sirket/sektor bazli haberler\n4. Teknik destek/direnç seviyeleri\n\nDaha spesifik bir varlik veya piyasa hakkında analiz yapmamı ister misiniz?\n\nUYARI: Bu yatırım tavsiyesi değildir. Lisansli bir finansal danismana başvurun.`;
 }
 
 async function getSymbolPrice(symbol: string): Promise<{ price: number; chg: number }> {
@@ -170,7 +170,7 @@ interface AnalysisResult {
 
 async function deepAnalysis(symbol: string, side: 'buy' | 'sell', amount: number): Promise<AnalysisResult> {
   const { price, chg } = await getSymbolPrice(symbol);
-  if (price === 0) return { approved: false, reason: 'Fiyat verisi alinamadi', riskScore: 100, targetPrice: 0, stopLoss: 0, summary: 'Veri hatasi' };
+  if (price === 0) return { approved: false, reason: 'Fiyat verisi alınamadı', riskScore: 100, targetPrice: 0, stopLoss: 0, summary: 'Veri hatası' };
 
   const prompt = `Analyze ${symbol} for ${side} order. Current price: $${price}, 24h change: ${chg > 0 ? '+' : ''}${chg.toFixed(2)}%, Amount: $${amount}
 
@@ -205,7 +205,7 @@ Respond ONLY with JSON:
 
   return {
     approved: false,
-    reason: 'AI analiz hatasi',
+    reason: 'AI analiz hatası',
     riskScore: 80,
     targetPrice: price * (side === 'buy' ? 1.05 : 0.95),
     stopLoss: price * (side === 'buy' ? 0.97 : 1.03),
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
         const gptText = gptRes.status === 'fulfilled' ? gptRes.value : '';
         const claudeText = claudeRes.status === 'fulfilled' ? claudeRes.value : '';
         if (gptText && claudeText) {
-          const consensusMsg = [{ role: 'user', content: `GPT analizi:\n${gptText}\n\nClaude analizi:\n${claudeText}\n\nBu iki analize dayanarak ozlu bir konsensus ozeti yaz (Turkce, ASCII).` }];
+          const consensusMsg = [{ role: 'user', content: `GPT analizi:\n${gptText}\n\nClaude analizi:\n${claudeText}\n\nBu iki analize dayanarak ozlu bir konsensus ozeti yaz (Türkce, ASCII).` }];
           const consensus = await callGPT(consensusMsg, 400, 'gpt-4o-mini').catch(() => gptText);
           reply = `[GPT-4o + Claude Konsensus]\n\n${consensus}`;
           model_used = 'GPT-4o+Claude';

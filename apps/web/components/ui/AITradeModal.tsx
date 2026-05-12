@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 /**
- * AITradeModal - AI analiz + demo iSlem birleSik modal
+ * AITradeModal - AI analiz + demo işlem birleSik modal
  * Mobil: full-screen slide-up  |  Desktop: centered overlay
  */
 import { useState, useEffect } from "react";
@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void;
 }
 
-/* â”€â”€â”€ Client-side AI analysis generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€”€ Client-side AI analysis generator ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 function genAI(symbol: string, price: number, chg24: number, chg7d = 0) {
   const sym = symbol.replace("USDT","").replace(".IS","").replace("=F","").replace("=X","");
 
@@ -39,24 +39,24 @@ function genAI(symbol: string, price: number, chg24: number, chg7d = 0) {
   if (dir === "LONG") {
     if (chg24 > 0.5) reasons.push(`24s +${chg24.toFixed(2)}% pozitif momentum`);
     if (chg7d > 2)   reasons.push(`Haftalik trend yukari (+${chg7d.toFixed(1)}%)`);
-    if (rsi < 67)    reasons.push(`RSI ${rsi} - aSiri alim bolgesinde degil`);
-    if (reasons.length < 3) reasons.push("Destek seviyesine yakin, aliS firsati");
-    if (reasons.length < 3) reasons.push("Hacim ortalamasi uzerinde iSlem goruyor");
+    if (rsi < 67)    reasons.push(`RSI ${rsi} - aşırı alim bolgesinde degil`);
+    if (reasons.length < 3) reasons.push("Destek seviyesine yakin, alış fırsatı");
+    if (reasons.length < 3) reasons.push("Hacim ortalamasi uzerinde işlem görüyor");
   } else if (dir === "SHORT") {
     if (chg24 < -0.5) reasons.push(`24s ${chg24.toFixed(2)}% negatif momentum`);
-    if (chg7d < -2)   reasons.push(`Haftalik trend aSagi (${chg7d.toFixed(1)}%)`);
-    if (rsi > 54)     reasons.push(`RSI ${rsi} - aSiri alim bolgesine yakin`);
-    if (reasons.length < 3) reasons.push("Direnc seviyesini kiramadi");
-    if (reasons.length < 3) reasons.push("SatiS baskisi belirginleSiyor");
+    if (chg7d < -2)   reasons.push(`Haftalik trend aşağı (${chg7d.toFixed(1)}%)`);
+    if (rsi > 54)     reasons.push(`RSI ${rsi} - aşırı alim bolgesine yakin`);
+    if (reasons.length < 3) reasons.push("Direnc seviyesini kıramadı");
+    if (reasons.length < 3) reasons.push("Satış baskisi belirginleşiyor");
   } else {
-    reasons.push("Trend henuz netleSmedi");
-    reasons.push(`RSI ${rsi} - notr bolge, yon bekleniyor`);
-    reasons.push("Tetik seviyesi oluSmayi bekliyor");
+    reasons.push("Trend henüz netleSmedi");
+    reasons.push(`RSI ${rsi} - nötr bolge, yon bekleniyor`);
+    reasons.push("Tetik seviyesi oluşmayı bekliyor");
   }
 
   let kalkan: string | null = null;
-  if (Math.abs(chg24) > 7) kalkan = "ASiri volatilite - pozisyon boyutunu kucuk tut";
-  else if (Math.abs(chg24) > 4.5) kalkan = "Yuksek volatilite - stop-loss mesafesi geniS olabilir";
+  if (Math.abs(chg24) > 7) kalkan = "Aşırı volatilite - pozisyon boyutunu küçük tut";
+  else if (Math.abs(chg24) > 4.5) kalkan = "Yüksek volatilite - stop-loss mesafesi geniş olabilir";
 
   const motors = [
     { name:"Trend",     vote: ls >= 55 ? "LONG" : ls <= 45 ? "SHORT" : "NOTR" },
@@ -138,12 +138,12 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
           paddingBottom: "env(safe-area-inset-bottom, 16px)",
         }}
       >
-        {/* â”€â”€ Drag handle â”€â”€ */}
+        {/* ”€”€ Drag handle ”€”€ */}
         <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--b2)" }} />
         </div>
 
-        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ”€”€ Header ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "12px 20px 16px",
@@ -164,7 +164,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               </div>
               <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 1 }}>
                 <span style={{ color: "#f59e0b", fontWeight: 700 }}>DEMO</span>
-                {" "}  Egitim hesabi   Gercek fiyat verileri
+                {" "}  Eğitim hesabı · Gerçek fiyat verileri
               </div>
             </div>
           </div>
@@ -176,14 +176,14 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
           </button>
         </div>
 
-        {/* â”€â”€ Live price bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ”€”€ Live price bar ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "10px 20px",
           background: "var(--bg-hover)",
         }}>
           <div>
-            <div style={{ fontSize: 11, color: "var(--t4)", fontWeight: 600, letterSpacing: "0.04em" }}>ANLIK FIYAT</div>
+            <div style={{ fontSize: 11, color: "var(--t4)", fontWeight: 600, letterSpacing: "0.04em" }}>ANLIK FİYAT</div>
             <div style={{
               fontSize: 22, fontWeight: 900, fontFamily: "var(--font-mono)",
               color: "var(--t1)", lineHeight: 1.2,
@@ -192,7 +192,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "var(--t4)", fontWeight: 600, letterSpacing: "0.04em" }}>24S DEGISIM</div>
+            <div style={{ fontSize: 11, color: "var(--t4)", fontWeight: 600, letterSpacing: "0.04em" }}>24S DEĞİŞİM</div>
             <div style={{
               fontSize: 16, fontWeight: 800,
               color: liveChg >= 0 ? "var(--up)" : "var(--down)",
@@ -204,7 +204,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
           </div>
         </div>
 
-        {/* â”€â”€ Tab switcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ”€”€ Tab switcher ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */}
         <div style={{
           display: "flex", borderBottom: "1px solid var(--b1)",
         }}>
@@ -220,9 +220,9 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
           ))}
         </div>
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-        {/* â”€â”€ TAB: AI Analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ••••••••••••••••••••••••••••••••••••••••••• */}
+        {/* ”€”€ TAB: AI Analysis ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */}
+        {/* ••••••••••••••••••••••••••••••••••••••••••• */}
         {step === "analysis" && (
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -303,7 +303,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
                     <Target size={12} color="var(--up)" />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)" }}>HEDEF FIYAT</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)" }}>HEDEF FİYAT</span>
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 800, color: "var(--up)" }}>
                     ${fmt(ai.tp)}
@@ -411,9 +411,9 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
           </div>
         )}
 
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-        {/* â”€â”€ TAB: Trade Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+        {/* ••••••••••••••••••••••••••••••••••••••••••• */}
+        {/* ”€”€ TAB: Trade Form ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */}
+        {/* ••••••••••••••••••••••••••••••••••••••••••• */}
         {step === "trade" && (
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -426,7 +426,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 padding: "0 0 4px", alignSelf: "flex-start",
               }}
             >
-              <ChevronLeft size={14} /> AI Analizini Gor
+              <ChevronLeft size={14} /> AI Analizini Gör
             </button>
 
             {/* Demo balance */}
@@ -444,10 +444,10 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
             {/* Direction */}
             <div>
               <div style={{ fontSize: 11, color: "var(--t3)", marginBottom: 8, fontWeight: 600 }}>
-                Yon Sec
+                Yon Seç
                 {ai.dir !== "NEUTRAL" && (
                   <span style={{ marginLeft: 8, fontSize: 10, color: aiDirColor }}>
-                    â† Oneri: {ai.dir === "LONG" ? "AL" : "SAT"}
+                    ← Öneri: {ai.dir === "LONG" ? "AL" : "SAT"}
                   </span>
                 )}
               </div>
@@ -474,7 +474,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
 
             {/* Amount */}
             <div>
-              <div style={{ fontSize: 11, color: "var(--t3)", marginBottom: 8, fontWeight: 600 }}>Yatirim Miktari (USD)</div>
+              <div style={{ fontSize: 11, color: "var(--t3)", marginBottom: 8, fontWeight: 600 }}>Yatırım Miktarı (USD)</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                 {PRESETS.map(p => (
                   <button key={p} onClick={() => setAmtRaw(String(p))} style={{
@@ -500,7 +500,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 }}
               />
               <div style={{ fontSize: 10, color: "var(--t4)", marginTop: 5 }}>
-                Kullanilabilir: ${demo.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                Kullanılabilir: ${demo.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
                 {amt > demo.balance && (
                   <span style={{ color: "var(--down)", marginLeft: 8 }}>UYARI: Yetersiz bakiye</span>
                 )}
@@ -535,8 +535,8 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               }}>
                 <CheckCircle size={22} />
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 15 }}>Demo iSlem acildi!</div>
-                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>ISlemler  Trades sayfasinda takip edebilirsiniz</div>
+                  <div style={{ fontWeight: 800, fontSize: 15 }}>Demo işlem açıldı!</div>
+                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>İşlemleri Trades sayfasında takip edebilirsiniz</div>
                 </div>
               </div>
             ) : result === "fail" ? (
@@ -547,7 +547,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 <AlertCircle size={22} />
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15 }}>Yetersiz bakiye!</div>
-                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>Daha kucuk bir miktar girin</div>
+                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>Daha küçük bir miktar girin</div>
                 </div>
               </div>
             ) : (
@@ -572,7 +572,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
             )}
 
             <div style={{ textAlign: "center", fontSize: 10, color: "var(--t4)" }}>
-              Bu iSlem gercek para icermez   Sanal bakiye   Egitim amaclidir
+              Bu işlem gerçek para içermez · Sanal bakiye · Eğitim amaçlıdır
             </div>
           </div>
         )}
@@ -587,5 +587,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
     </div>
   );
 }
+
+
 
 

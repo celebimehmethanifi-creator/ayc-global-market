@@ -21,7 +21,7 @@ export default function SignInPage() {
     setError("");
 
     if (!email || !password) {
-      setError("E-posta ve sifre gerekli.");
+      setError("E-posta ve şifre gerekli.");
       setLoading(false);
       return;
     }
@@ -44,7 +44,7 @@ export default function SignInPage() {
       );
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Giris basarisiz.");
+      setError(err?.response?.data?.detail || "Giriş başarısız.");
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function SignInPage() {
       <div style={{ width: "100%", maxWidth: 420 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <h1 style={{ margin: 0, color: "var(--t1)" }}>AYC Global Market</h1>
-          <p style={{ marginTop: 6, color: "var(--t3)", fontSize: 13 }}>Hesabiniza giris yapin</p>
+          <p style={{ marginTop: 6, color: "var(--t3)", fontSize: 13 }}>Hesabınıza giriş yapın</p>
         </div>
 
         <div
@@ -135,7 +135,7 @@ export default function SignInPage() {
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: 6, fontSize: 12, color: "var(--t2)" }}>Sifre</label>
+            <label style={{ display: "block", marginBottom: 6, fontSize: 12, color: "var(--t2)" }}>Şifre</label>
             <div style={{ position: "relative" }}>
               <input
                 type={showPass ? "text" : "password"}
@@ -199,14 +199,14 @@ export default function SignInPage() {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? "Giris yapiliyor..." : "Giris Yap"}
+            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
           </button>
         </form>
 
         <p style={{ textAlign: "center", marginTop: 14, color: "var(--t3)", fontSize: 12 }}>
-          Hesabin yok mu?{" "}
+          Hesabın yok mu?{" "}
           <Link href="/signup" style={{ color: "var(--gold)", textDecoration: "none" }}>
-            Ucretsiz kayit ol
+            Ücretsiz kayıt ol
           </Link>
         </p>
       </div>

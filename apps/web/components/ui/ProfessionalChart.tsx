@@ -7,6 +7,7 @@ import React, {
   useState,
   useMemo,
 } from 'react';
+import { Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -348,6 +349,9 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canvasW, setCanvasW] = useState(800);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewportH, setViewportH] = useState(0);
+  const fullscreenStatePushedRef = useRef(false);
 
   const crosshairPos = useRef<{ x: number; y: number } | null>(null);
   const hoveredIdx = useRef<number>(-1);
@@ -361,6 +365,58 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   const zoomRef = useRef(zoomLevel);
   viewEndRef.current = viewEnd;
   zoomRef.current = zoomLevel;
+  const chartHeight = isFullscreen ? Math.max(320, (viewportH || height) - 210) : height;
+
+  const closeFullscreen = useCallback(() => {
+    if (fullscreenStatePushedRef.current) {
+      window.history.back();
+      return;
+    }
+    setIsFullscreen(false);
+  }, []);
+
+  useEffect(() => {
+    const updateViewport = () => setViewportH(window.innerHeight);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return undefined;
+    document.body.classList.add("chart-fullscreen");
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.history.pushState({ __chartFullscreen: true }, "");
+    fullscreenStatePushedRef.current = true;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeFullscreen();
+    };
+    const onPopState = () => {
+      if (!isFullscreen) return;
+      fullscreenStatePushedRef.current = false;
+      setIsFullscreen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("popstate", onPopState);
+
+    if (window.innerWidth <= 900 && screen.orientation && "lock" in screen.orientation) {
+      (screen.orientation as any).lock?.("landscape").catch(() => {});
+    }
+
+    return () => {
+      document.body.classList.remove("chart-fullscreen");
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("popstate", onPopState);
+      if (screen.orientation && "unlock" in screen.orientation) {
+        (screen.orientation as any).unlock?.();
+      }
+      fullscreenStatePushedRef.current = false;
+    };
+  }, [isFullscreen, closeFullscreen]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
@@ -501,8 +557,8 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   // ── Layout ────────────────────────────────────────────────────────────────
 
   const layout = useMemo(
-    () => buildLayout(canvasW, height, indicators),
-    [canvasW, height, indicators],
+    () => buildLayout(canvasW, chartHeight, indicators),
+    [canvasW, chartHeight, indicators],
   );
 
   // ── Prepare canvas (DPR-aware) ────────────────────────────────────────────
@@ -533,7 +589,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     const canvas = mainCanvasRef.current;
     if (!canvas || !candles.length || !computed) return;
     const dpr = window.devicePixelRatio || 1;
-    const ctx = prepCanvas(canvas, canvasW, height, dpr);
+    const ctx = prepCanvas(canvas, canvasW, chartHeight, dpr);
     if (!ctx) return;
 
     const { W, H, chartX, chartY, chartW, chartH, subPanels, xAxisY } = layout;
@@ -840,7 +896,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
         ctx.fillText(fmtVol(maxV), chartX + chartW + 4, pY + 5);
       }
     }
-  }, [candles, computed, layout, indicators, canvasW, height, timeframe]);
+  }, [candles, computed, layout, indicators, canvasW, chartHeight, timeframe]);
 
   // ── Overlay / crosshair draw ───────────────────────────────────────────────
 
@@ -848,10 +904,10 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     const canvas = overlayCanvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const ctx = prepCanvas(canvas, canvasW, height, dpr);
+    const ctx = prepCanvas(canvas, canvasW, chartHeight, dpr);
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvasW, height);
+    ctx.clearRect(0, 0, canvasW, chartHeight);
 
     const pos = crosshairPos.current;
     if (!pos || !candles.length || !computed) return;
@@ -901,7 +957,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     // OHLCV tooltip
     if (idx >= 0 && idx < vc) {
       const c = vis[idx];
-      drawCandleTooltip(ctx, c, pos.x, pos.y, canvasW, height, chartX, chartY, chartH);
+      drawCandleTooltip(ctx, c, pos.x, pos.y, canvasW, chartHeight, chartX, chartY, chartH);
     }
 
     // Date label on x-axis
@@ -919,7 +975,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
       ctx.textBaseline = 'middle';
       ctx.fillText(txt, lx + tw / 2, ly + th / 2);
     }
-  }, [candles, computed, layout, canvasW, height, timeframe]);
+  }, [candles, computed, layout, canvasW, chartHeight, timeframe]);
 
   // ── Schedule redraws ───────────────────────────────────────────────────────
 
@@ -1001,15 +1057,18 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     <div
       ref={containerRef}
       style={{
-        position: 'relative',
+        position: isFullscreen ? 'fixed' : 'relative',
+        inset: isFullscreen ? 0 : undefined,
+        zIndex: isFullscreen ? 12000 : undefined,
         background: THEME.containerBg,
-        borderRadius: 12,
+        borderRadius: isFullscreen ? 0 : 12,
         border: `1px solid ${THEME.border}`,
         overflow: 'hidden',
-        width: '100%',
+        width: isFullscreen ? '100vw' : '100%',
+        height: isFullscreen ? '100dvh' : undefined,
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        minWidth: 320,
+        minWidth: isFullscreen ? 0 : 320,
       }}
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -1067,8 +1126,8 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
           )}
         </div>
 
-        {/* Timeframe pills */}
-        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {/* Timeframe + actions */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {TF_OPTIONS.map((tf) => (
             <button
               key={tf}
@@ -1094,64 +1153,125 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
               {tf}
             </button>
           ))}
+          <button
+            onClick={() => {
+              setZoomLevel(1);
+              setViewEnd(-1);
+            }}
+            title="Zoom sıfırla"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px 7px',
+              borderRadius: 6,
+              border: `1px solid ${THEME.border}`,
+              background: 'transparent',
+              color: THEME.textSecondary,
+              cursor: 'pointer',
+            }}
+          >
+            <RotateCcw size={12} />
+          </button>
+          <button
+            onClick={() => (isFullscreen ? closeFullscreen() : setIsFullscreen(true))}
+            title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: `1px solid ${THEME.border}`,
+              background: 'transparent',
+              color: THEME.textSecondary,
+              cursor: 'pointer',
+              fontSize: 10,
+              fontFamily: THEME.fontSans,
+              fontWeight: 600,
+            }}
+          >
+            {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            {isFullscreen ? 'Çık' : 'Tam ekran'}
+          </button>
+          {isFullscreen && (
+            <button
+              onClick={closeFullscreen}
+              title="Kapat"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px 7px',
+                borderRadius: 6,
+                border: `1px solid ${THEME.border}`,
+                background: 'transparent',
+                color: THEME.textSecondary,
+                cursor: 'pointer',
+              }}
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Indicator toggle pills ─────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 5,
-          padding: '6px 14px',
-          borderBottom: `1px solid ${THEME.border}`,
-        }}
-      >
-        {PILLS.map(({ key, label, color }) => {
-          const active = indicators[key];
-          return (
-            <button
-              key={key}
-              onClick={() => toggleInd(key)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: active ? 'rgba(255,255,255,0.055)' : 'transparent',
-                border: `1px solid ${active ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.04)'}`,
-                borderRadius: 20,
-                padding: '2px 10px 2px 7px',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: THEME.fontSans,
-                color: active ? THEME.textSecondary : THEME.textTertiary,
-                transition: 'all 0.14s',
-                whiteSpace: 'nowrap',
-                lineHeight: 1.6,
-              }}
-            >
-              <span
+      {!isFullscreen && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 5,
+            padding: '6px 14px',
+            borderBottom: `1px solid ${THEME.border}`,
+          }}
+        >
+          {PILLS.map(({ key, label, color }) => {
+            const active = indicators[key];
+            return (
+              <button
+                key={key}
+                onClick={() => toggleInd(key)}
                 style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: active ? color : 'rgba(255,255,255,0.18)',
-                  flexShrink: 0,
-                  transition: 'background 0.14s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: active ? 'rgba(255,255,255,0.055)' : 'transparent',
+                  border: `1px solid ${active ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.04)'}`,
+                  borderRadius: 20,
+                  padding: '2px 10px 2px 7px',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  fontFamily: THEME.fontSans,
+                  color: active ? THEME.textSecondary : THEME.textTertiary,
+                  transition: 'all 0.14s',
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.6,
                 }}
-              />
-              {label}
-            </button>
-          );
-        })}
-      </div>
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: active ? color : 'rgba(255,255,255,0.18)',
+                    flexShrink: 0,
+                    transition: 'background 0.14s',
+                  }}
+                />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Canvas container ───────────────────────────────────────────────── */}
       <div
         style={{
           position: 'relative',
           width: '100%',
-          height,
+          height: chartHeight,
           background: THEME.bg,
           overflow: 'hidden',
         }}
@@ -1173,6 +1293,26 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
             touchAction: 'none',
           }}
         />
+
+        {isFullscreen && (
+          <div
+            style={{
+              position: 'absolute',
+              right: 10,
+              bottom: 10,
+              zIndex: 11,
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: `1px solid ${THEME.border}`,
+              background: 'rgba(12,14,22,0.72)',
+              color: THEME.textTertiary,
+              fontSize: 10,
+              fontFamily: THEME.fontSans,
+            }}
+          >
+            Daha geniş görünüm için telefonu yatay çevirin
+          </div>
+        )}
 
         {/* Loading */}
         {loading && (
@@ -1198,7 +1338,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
                 letterSpacing: '0.02em',
               }}
             >
-              Loading {symbol}…
+              Grafik yükleniyor: {symbol}
             </span>
           </div>
         )}
@@ -1242,31 +1382,32 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
                 cursor: 'pointer',
               }}
             >
-              Retry
+              Tekrar dene
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Legend footer ──────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '4px 16px',
-          padding: '5px 14px 6px',
-          borderTop: `1px solid ${THEME.border}`,
-        }}
-      >
-        {indicators.sma20   && <LegendItem color={THEME.sma20}    label="SMA 20" />}
-        {indicators.sma50   && <LegendItem color={THEME.sma50}    label="SMA 50" />}
-        {indicators.ema12   && <LegendItem color={THEME.ema12}    label="EMA 12" />}
-        {indicators.ema26   && <LegendItem color={THEME.ema26}    label="EMA 26" />}
-        {indicators.bb      && <LegendItem color={THEME.bbUpper}  label="Bollinger Bands (20,2)" />}
-        {indicators.rsi     && <LegendItem color={THEME.rsiLine}  label="RSI (14)" />}
-        {indicators.macd    && <LegendItem color={THEME.macdLine} label="MACD (12,26,9)" />}
-        {indicators.volume  && <LegendItem color={THEME.volumePos}label="Volume" />}
-      </div>
+      {!isFullscreen && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px 16px',
+            padding: '5px 14px 6px',
+            borderTop: `1px solid ${THEME.border}`,
+          }}
+        >
+          {indicators.sma20   && <LegendItem color={THEME.sma20}    label="SMA 20" />}
+          {indicators.sma50   && <LegendItem color={THEME.sma50}    label="SMA 50" />}
+          {indicators.ema12   && <LegendItem color={THEME.ema12}    label="EMA 12" />}
+          {indicators.ema26   && <LegendItem color={THEME.ema26}    label="EMA 26" />}
+          {indicators.bb      && <LegendItem color={THEME.bbUpper}  label="Bollinger Bands (20,2)" />}
+          {indicators.rsi     && <LegendItem color={THEME.rsiLine}  label="RSI (14)" />}
+          {indicators.macd    && <LegendItem color={THEME.macdLine} label="MACD (12,26,9)" />}
+          {indicators.volume  && <LegendItem color={THEME.volumePos}label="Volume" />}
+        </div>
+      )}
     </div>
   );
 }

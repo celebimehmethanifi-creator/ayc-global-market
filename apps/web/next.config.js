@@ -1,6 +1,6 @@
 ﻿/** @type {import('next').NextConfig} */
 
-// AYC Global Market â€” Platform Config
+// AYC Global Market - Platform Config
 // © 2026 AYC Grup. Tüm hakları saklıdır.
 
 const ContentSecurityPolicy = `
@@ -30,7 +30,7 @@ const securityHeaders = [
   { key: "X-Download-Options",                value: "noopen" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   { key: "Cross-Origin-Opener-Policy",        value: "same-origin-allow-popups" },
-  // COEP require-corp is intentionally omitted â€” it blocks TradingView and all external embeds
+  // COEP require-corp is intentionally omitted - it blocks TradingView and external embeds.
 ];
 
 const nextConfig = {

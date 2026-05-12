@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const email = emailRaw.toLowerCase().trim();
 
     if (!email || !password) {
-      return NextResponse.json({ detail: "E-posta ve sifre gerekli." }, { status: 400 });
+      return NextResponse.json({ detail: "E-posta ve şifre gerekli." }, { status: 400 });
     }
 
     let user = await lookupUser(email);
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user || !verifyPassword(password, user.hashedPassword)) {
-      return NextResponse.json({ detail: "E-posta veya sifre hatali." }, { status: 401 });
+      return NextResponse.json({ detail: "E-posta veya şifre hatalı." }, { status: 401 });
     }
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -59,6 +59,6 @@ export async function POST(req: NextRequest) {
     setAuthCookies(res, accessToken, refreshToken);
     return res;
   } catch {
-    return NextResponse.json({ detail: "Giris hatasi." }, { status: 500 });
+    return NextResponse.json({ detail: "Giriş hatası." }, { status: 500 });
   }
 }

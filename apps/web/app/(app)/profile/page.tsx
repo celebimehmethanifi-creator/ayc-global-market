@@ -29,7 +29,7 @@ const TABS = [
 ];
 
 const RISK_LEVELS = [
-  {value:"low",    labelKey:"profile.risk.low",    desc:"Muhafazakâr, sermaye koruma öncelikli", color:"#10b981", tone:"16,185,129"},
+  {value:"low",    labelKey:"profile.risk.low",    desc:"Muhafazakar, sermaye koruma öncelikli", color:"#10b981", tone:"16,185,129"},
   {value:"medium", labelKey:"profile.risk.medium", desc:"Dengeli risk/getiri profili",            color:"#f59e0b", tone:"245,158,11"},
   {value:"high",   labelKey:"profile.risk.high",   desc:"Agresif, yüksek getiri odaklı",           color:"#ef4444", tone:"239,68,68"},
 ];

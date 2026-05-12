@@ -120,7 +120,7 @@ const DEFAULTS = {
     { id:'1', label:'Komuta Merkezi', href:'/dashboard', icon:'Activity', order:1, visible:true },
     { id:'2', label:'Piyasalar', href:'/market', icon:'BarChart3', order:2, visible:true },
     { id:'3', label:'Sinyaller', href:'/signals', icon:'Crosshair', order:3, visible:true },
-    { id:'4', label:'Portfoy', href:'/portfolio', icon:'Wallet', order:4, visible:true },
+    { id:'4', label:'Portföy', href:'/portfolio', icon:'Wallet', order:4, visible:true },
     { id:'5', label:'Copilot', href:'/copilot', icon:'Brain', order:5, visible:true },
     { id:'6', label:'Alarmlar', href:'/alarms', icon:'Bell', order:6, visible:true },
     { id:'7', label:'Islemler', href:'/trades', icon:'ArrowUpDown', order:7, visible:true },
