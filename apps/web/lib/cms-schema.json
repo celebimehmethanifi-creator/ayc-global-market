@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Reference schema for Directus collections used by the NEURA CMS client (cms.ts). Create each entry below as a Collection inside Directus Admin → Data Model.",
+  "collections": {
+    "site_settings": {
+      "$comment": "SINGLETON collection — enable 'Is Singleton' in Directus collection options.",
+      "type": "singleton",
+      "fields": {
+        "site_name": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "example": "AYC Global Market"
+        },
+        "site_description": {
+          "type": "text",
+          "interface": "input-multiline",
+          "required": false,
+          "example": "Profesyonel yatirim araclari, yapay zeka sinyalleri ve gercek zamanli piyasa analizi."
+        },
+        "logo_url": {
+          "type": "string",
+          "interface": "input",
+          "required": false,
+          "note": "Relative path or absolute URL. Use /logo.svg for the bundled asset.",
+          "example": "/logo.svg"
+        },
+        "primary_color": {
+          "type": "string",
+          "interface": "color",
+          "required": false,
+          "example": "#00E5FF"
+        },
+        "support_email": {
+          "type": "string",
+          "interface": "input",
+          "required": false,
+          "example": "destek@ayc.io"
+        },
+        "social_links": {
+          "type": "json",
+          "interface": "list",
+          "required": false,
+          "note": "Array of { platform: string, url: string }.",
+          "example": [
+            { "platform": "twitter", "url": "https://twitter.com/aycglobal" },
+            { "platform": "telegram", "url": "https://t.me/aycglobal" }
+          ]
+        }
+      }
+    },
+
+    "navigation": {
+      "$comment": "Standard collection — one row per navigation item.",
+      "type": "collection",
+      "suggested_sort_field": "order",
+      "fields": {
+        "id": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "note": "Stable slug, e.g. nav-dashboard. Used as React key.",
+          "example": "nav-dashboard"
+        },
+        "label": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "example": "Dashboard"
+        },
+        "href": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "example": "/dashboard"
+        },
+        "icon": {
+          "type": "string",
+          "interface": "input",
+          "required": false,
+          "note": "Lucide icon component name, e.g. LayoutDashboard, TrendingUp.",
+          "example": "LayoutDashboard"
+        },
+        "order": {
+          "type": "integer",
+          "interface": "input",
+          "required": true,
+          "example": 1
+        },
+        "visible": {
+          "type": "boolean",
+          "interface": "toggle",
+          "required": true,
+          "default": true,
+          "note": "Set to false to hide a nav item without deleting it."
+        }
+      },
+      "seed_data": [
+        { "id": "nav-dashboard",  "label": "Dashboard", "href": "/dashboard",  "icon": "LayoutDashboard", "order": 1, "visible": true },
+        { "id": "nav-piyasalar",  "label": "Piyasalar", "href": "/piyasalar",  "icon": "TrendingUp",      "order": 2, "visible": true },
+        { "id": "nav-sinyaller",  "label": "Sinyaller", "href": "/sinyaller",  "icon": "Zap",             "order": 3, "visible": true },
+        { "id": "nav-portfoy",    "label": "Portfoy",   "href": "/portfoy",    "icon": "PieChart",        "order": 4, "visible": true },
+        { "id": "nav-copilot",    "label": "Copilot",   "href": "/copilot",    "icon": "Bot",             "order": 5, "visible": true },
+        { "id": "nav-alarmlar",   "label": "Alarmlar",  "href": "/alarmlar",   "icon": "Bell",            "order": 6, "visible": true },
+        { "id": "nav-islemler",   "label": "Islemler",  "href": "/islemler",   "icon": "History",         "order": 7, "visible": true },
+        { "id": "nav-profil",     "label": "Profil",    "href": "/profil",     "icon": "User",            "order": 8, "visible": true }
+      ]
+    },
+
+    "dashboard_texts": {
+      "$comment": "Standard collection — key/value text overrides for dashboard copy.",
+      "type": "collection",
+      "fields": {
+        "key": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "note": "Snake_case identifier consumed by getDashboardTextMap(). Must be unique.",
+          "example": "market_pulse_title"
+        },
+        "value": {
+          "type": "text",
+          "interface": "input-multiline",
+          "required": true,
+          "example": "Market Nabzi"
+        },
+        "section": {
+          "type": "string",
+          "interface": "select-dropdown",
+          "required": true,
+          "options": ["header", "stats", "kalkan", "movers", "alarms", "sidebar", "footer"],
+          "example": "stats"
+        }
+      },
+      "seed_data": [
+        { "key": "dashboard_title",       "value": "Komuta Merkezi",    "section": "header" },
+        { "key": "dashboard_subtitle",    "value": "Tum piyasalari tek ekrandan takip edin.", "section": "header" },
+        { "key": "signals_title",         "value": "Aktif Sinyaller",   "section": "stats"  },
+        { "key": "signals_description",   "value": "Yapay zeka tarafindan uretilen canli islem sinyalleri.", "section": "stats" },
+        { "key": "market_pulse_title",    "value": "Market Nabzi",      "section": "stats"  },
+        { "key": "market_pulse_description", "value": "Anlík piyasa duygusu ve volatilite endeksi.", "section": "stats" },
+        { "key": "kalkan_title",          "value": "KALKAN Guard",      "section": "kalkan" },
+        { "key": "kalkan_description",    "value": "Portfoyunuzu otomatik risk yonetimi ile koruyun.", "section": "kalkan" },
+        { "key": "movers_title",          "value": "En Cok Hareket",    "section": "movers" },
+        { "key": "movers_description",    "value": "Gunun en yuksek hacimli ve fiyat hareketli varliklari.", "section": "movers" },
+        { "key": "alarms_title",          "value": "Son Alarmlar",      "section": "alarms" },
+        { "key": "alarms_description",    "value": "Tetiklenen fiyat ve haber alarmlarinizin ozeti.", "section": "alarms" }
+      ]
+    },
+
+    "dashboard_cards": {
+      "$comment": "Standard collection — configurable UI cards shown on the dashboard.",
+      "type": "collection",
+      "suggested_sort_field": "order",
+      "fields": {
+        "id": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "note": "Stable slug used as React key.",
+          "example": "card-portfolio-value"
+        },
+        "title": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "example": "Portfoy Degeri"
+        },
+        "description": {
+          "type": "text",
+          "interface": "input-multiline",
+          "required": false,
+          "example": "Toplam varlik degeriniz."
+        },
+        "icon": {
+          "type": "string",
+          "interface": "input",
+          "required": false,
+          "note": "Lucide icon component name.",
+          "example": "DollarSign"
+        },
+        "order": {
+          "type": "integer",
+          "interface": "input",
+          "required": true,
+          "example": 1
+        },
+        "visible": {
+          "type": "boolean",
+          "interface": "toggle",
+          "required": true,
+          "default": true
+        },
+        "section": {
+          "type": "string",
+          "interface": "select-dropdown",
+          "required": true,
+          "options": ["stats", "features", "pricing"],
+          "note": "Controls which part of the dashboard renders this card.",
+          "example": "stats"
+        }
+      },
+      "seed_data": [
+        { "id": "card-portfolio-value", "title": "Portfoy Degeri",           "description": "Toplam varlik degeriniz.",                        "icon": "DollarSign",   "order": 1, "visible": true, "section": "stats"     },
+        { "id": "card-daily-pnl",       "title": "Gunluk Kar/Zarar",         "description": "Bugunun net performansi.",                        "icon": "TrendingUp",   "order": 2, "visible": true, "section": "stats"     },
+        { "id": "card-active-signals",  "title": "Aktif Sinyal",             "description": "Acik sinyal pozisyonu sayisi.",                   "icon": "Zap",          "order": 3, "visible": true, "section": "stats"     },
+        { "id": "card-win-rate",        "title": "Basari Orani",             "description": "Son 30 gunluk sinyal isabeti.",                   "icon": "Target",       "order": 4, "visible": true, "section": "stats"     },
+        { "id": "card-ai-signals",      "title": "Yapay Zeka Sinyalleri",    "description": "GPT-4 destekli teknik ve temel analiz sinyalleri, aninda bildirimle.", "icon": "Brain",   "order": 1, "visible": true, "section": "features"  },
+        { "id": "card-kalkan",          "title": "KALKAN Koruma",            "description": "Dinamik stop-loss ve pozisyon boyutlandirma ile portfoyunuzu korum.", "icon": "Shield",  "order": 2, "visible": true, "section": "features"  },
+        { "id": "card-copilot",         "title": "AI Copilot",               "description": "Piyasa sorularinizi dogal dille sorun, aninda cevap alin.",           "icon": "MessageSquare", "order": 3, "visible": true, "section": "features" },
+        { "id": "card-plan-free",       "title": "Baslangic",                "description": "Temel piyasa verileri ve sinirli sinyal erisimi.",  "icon": "Sprout",       "order": 1, "visible": true, "section": "pricing"   },
+        { "id": "card-plan-pro",        "title": "Pro",                      "description": "Tum sinyaller, KALKAN ve AI Copilot erisimi.",      "icon": "Star",         "order": 2, "visible": true, "section": "pricing"   },
+        { "id": "card-plan-elite",      "title": "Elite",                    "description": "Kurumsal API erisimi, ozel analiz ve oncelikli destek.", "icon": "Crown",   "order": 3, "visible": true, "section": "pricing"   }
+      ]
+    },
+
+    "announcements": {
+      "$comment": "Standard collection — system-wide banners shown to all users.",
+      "type": "collection",
+      "fields": {
+        "id": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "note": "Directus auto-generates UUID if left blank.",
+          "example": "ann-maintenance-2024"
+        },
+        "title": {
+          "type": "string",
+          "interface": "input",
+          "required": true,
+          "example": "Sistem Bakimi"
+        },
+        "body": {
+          "type": "text",
+          "interface": "input-rich-text-md",
+          "required": true,
+          "example": "02:00–04:00 UTC arasinda kismi kesinti yasanabilir."
+        },
+        "type": {
+          "type": "string",
+          "interface": "select-dropdown",
+          "required": true,
+          "options": ["info", "warning", "success"],
+          "default": "info",
+          "example": "warning"
+        },
+        "active": {
+          "type": "boolean",
+          "interface": "toggle",
+          "required": true,
+          "default": true,
+          "note": "Set to false to dismiss without deleting."
+        },
+        "expires_at": {
+          "type": "dateTime",
+          "interface": "datetime",
+          "required": false,
+          "note": "ISO-8601 datetime. Client automatically hides expired announcements. Leave null for permanent banners.",
+          "example": "2024-12-31T23:59:59Z"
+        }
+      },
+      "seed_data": []
+    }
+  },
+
+  "access_control": {
+    "$comment": "Recommended Directus permission setup for the frontend token.",
+    "role": "Frontend (read-only)",
+    "permissions": {
+      "site_settings":    ["read"],
+      "navigation":       ["read"],
+      "dashboard_texts":  ["read"],
+      "dashboard_cards":  ["read"],
+      "announcements":    ["read"]
+    },
+    "note": "Create a dedicated role in Directus → Settings → Roles with only READ access to the five collections above. Generate a static API token under Settings → API Tokens and assign it to that role. Set this token as DIRECTUS_TOKEN in your .env.local."
+  },
+
+  "environment_variables": {
+    "NEXT_PUBLIC_DIRECTUS_URL": {
+      "required": false,
+      "example": "https://cms.ayc.io",
+      "note": "If absent, the CMS client returns hardcoded fallback data for every call. No error is thrown."
+    },
+    "DIRECTUS_TOKEN": {
+      "required": false,
+      "example": "your-static-api-token",
+      "note": "If absent, requests are made without Authorization header (relies on public access rules)."
+    }
+  },
+
+  "caching": {
+    "strategy": "In-process memory cache",
+    "ttl_ms": 300000,
+    "ttl_human": "5 minutes",
+    "note": "Cache is per-process (per Next.js worker). On serverless (Vercel), each cold-start begins with an empty cache. Use bustCmsCache() from cms.ts inside a webhook route to invalidate on Directus content updates.",
+    "suggested_webhook_route": "/api/cms/revalidate",
+    "suggested_webhook_body": { "secret": "your-webhook-secret" }
+  }
+}
