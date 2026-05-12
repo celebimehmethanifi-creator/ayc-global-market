@@ -13,10 +13,27 @@ GATEWAY_DIR = ROOT / "services" / "gateway"
 WEB_LOGIN_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "login" / "route.ts"
 WEB_DEV_AUTH = ROOT / "apps" / "web" / "app" / "api" / "v1" / "_lib" / "dev-auth.ts"
 WEB_AUTH_LIB = ROOT / "apps" / "web" / "app" / "api" / "v1" / "_lib" / "auth.ts"
+WEB_QUERY_PROVIDER = ROOT / "apps" / "web" / "lib" / "query-provider.tsx"
+WEB_API_EXPORT = ROOT / "apps" / "web" / "lib" / "api.ts"
 WEB_BILLING_VERIFY = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "verify" / "route.ts"
+WEB_BILLING_CHECKOUT = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "checkout" / "route.ts"
 WEB_BILLING_WEBHOOK = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "webhook" / "route.ts"
+WEB_SUBSCRIBE_SUCCESS = ROOT / "apps" / "web" / "app" / "(app)" / "subscribe" / "success" / "page.tsx"
+WEB_AUTH_ME = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "me" / "route.ts"
+WEB_AUTH_LOGIN = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "login" / "route.ts"
+WEB_AUTH_REGISTER = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "register" / "route.ts"
 WEB_EXCHANGE_ORDER = ROOT / "apps" / "web" / "app" / "api" / "v1" / "exchange" / "order" / "route.ts"
 WEB_EXCHANGE_BALANCE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "exchange" / "balance" / "route.ts"
+WEB_EXCHANGE_TEST = ROOT / "apps" / "web" / "app" / "api" / "v1" / "exchange" / "test" / "route.ts"
+WEB_BROKERS_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "brokers" / "page.tsx"
+WEB_EXCHANGES_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "exchanges" / "page.tsx"
+WEB_HEALTH_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "health" / "route.ts"
+WEB_VERCEL_SETUP = ROOT / "apps" / "web" / "VERCEL_ENV_SETUP.txt"
+ENV_EXAMPLE = ROOT / ".env.example"
+AI_SERVICE_MAIN = ROOT / "services" / "ai-service" / "main.py"
+DATA_SERVICE_MAIN = ROOT / "services" / "data-service" / "main.py"
+SIGNAL_SERVICE_MAIN = ROOT / "services" / "signal-service" / "main.py"
+DATA_MARKET_PROXY = ROOT / "services" / "data-service" / "market_proxy.py"
 
 GATEWAY_AUTH = GATEWAY_DIR / "auth_service.py"
 GATEWAY_BILLING = GATEWAY_DIR / "billing_router.py"
@@ -96,10 +113,103 @@ def test_billing_webhook_signature_checks_are_enforced():
     web_text = read_text(WEB_BILLING_WEBHOOK)
     assert "verifySignature" in web_text
     assert "Webhook secret zorunlu" in web_text
+    assert "saveUser" in web_text
+    assert "activatePlanFromWebhook" in web_text
 
     gateway_text = read_text(GATEWAY_BILLING)
     assert "hmac.compare_digest" in gateway_text
     assert "webhook imzasi" in gateway_text
+
+
+def test_billing_checkout_sends_custom_user_identity_data():
+    text = read_text(WEB_BILLING_CHECKOUT)
+    assert "user_id" in text
+    assert "email: userEmail" in text
+    assert "plan" in text
+    assert "payload.sub" in text
+
+
+def test_subscribe_success_page_uses_state_machine_and_does_not_blindly_verify():
+    text = read_text(WEB_SUBSCRIBE_SUCCESS)
+    assert "type VerifyStatus = \"verifying\" | \"verified\" | \"failed\" | \"pending\";" in text
+    assert "if (!session_id)" in text
+    assert "setStatus(\"pending\")" in text
+    assert "setVerified(true)" not in text
+    assert "statusCode === 400 || statusCode === 403" in text
+    assert "updateCachedTier" in text
+
+
+def test_auth_me_prefers_persisted_user_plan():
+    text = read_text(WEB_AUTH_ME)
+    assert "const resolvedPlan = persisted?.plan || payload.plan || \"free\";" in text
+    assert "tier: resolvedPlan" in text
+    assert "plan: resolvedPlan" in text
+
+
+def test_signup_and_login_set_auth_cookies_and_auth_me_route_exists():
+    login_text = read_text(WEB_AUTH_LOGIN)
+    register_text = read_text(WEB_AUTH_REGISTER)
+    auth_me_text = read_text(WEB_AUTH_ME)
+
+    assert "setAuthCookies(res, accessToken, refreshToken)" in login_text
+    assert "setAuthCookies(res, accessToken, refreshToken)" in register_text
+    assert "getUserFromAuthHeader" in auth_me_text
+    assert "return NextResponse.json({" in auth_me_text
+
+
+def test_api_client_keeps_cookie_session_endpoints_same_origin():
+    text = read_text(WEB_QUERY_PROVIDER)
+    api_export_text = read_text(WEB_API_EXPORT)
+
+    assert "const SAME_ORIGIN_API_BASE = \"/api/v1\";" in text
+    assert "export const webApi = axios.create({" in text
+    assert "baseURL: SAME_ORIGIN_API_BASE" in text
+    assert "export const api = webApi;" in text
+    assert "externalApi" in api_export_text
+
+
+def test_exchange_connect_ui_is_disabled_in_production():
+    brokers_text = read_text(WEB_BROKERS_PAGE)
+    exchanges_text = read_text(WEB_EXCHANGES_PAGE)
+    exchange_test_text = read_text(WEB_EXCHANGE_TEST)
+
+    assert "const IS_PRODUCTION = process.env.NODE_ENV === \"production\";" in brokers_text
+    assert "Productionda Kapali" in brokers_text
+    assert "const IS_PRODUCTION = process.env.NODE_ENV === \"production\";" in exchanges_text
+    assert "Productionda Kapali" in exchanges_text
+    assert "Production ortaminda istemciden dogrudan API secret onboarding kapali." in exchange_test_text
+
+
+def test_refresh_store_warning_is_exposed_in_health_and_docs():
+    auth_lib_text = read_text(WEB_AUTH_LIB)
+    health_text = read_text(WEB_HEALTH_ROUTE)
+    vercel_text = read_text(WEB_VERCEL_SETUP)
+
+    assert "getAuthRuntimeWarnings" in auth_lib_text
+    assert "Refresh sessions are stored in-memory" in auth_lib_text
+    assert "warnings: authWarnings" in health_text
+    assert "rotation state su an in-memory tutulur" in vercel_text
+
+
+def test_internal_services_cors_are_not_wildcard_in_production():
+    for path in [AI_SERVICE_MAIN, DATA_SERVICE_MAIN, SIGNAL_SERVICE_MAIN, DATA_MARKET_PROXY]:
+        text = read_text(path)
+        assert "allow_origins=[\"*\"]" not in text
+        assert "CORS_ORIGINS must be configured in production." in text
+
+
+def test_lemon_variant_env_names_are_standardized():
+    env_text = read_text(ENV_EXAMPLE)
+    gateway_text = read_text(GATEWAY_BILLING)
+
+    assert "LEMON_PRO_VARIANT_ID" in env_text
+    assert "LEMON_ELITE_VARIANT_ID" in env_text
+    assert "LEMON_VARIANT_PRO" not in env_text
+    assert "LEMON_VARIANT_ELITE" not in env_text
+
+    assert "LEMON_PRO_VARIANT_ID" in gateway_text
+    assert "LEMON_ELITE_VARIANT_ID" in gateway_text
+    assert "or os.environ.get(\"LEMON_VARIANT_PRO\", \"\").strip()" in gateway_text
 
 
 def test_exchange_order_is_guarded_in_production_and_requires_auth():

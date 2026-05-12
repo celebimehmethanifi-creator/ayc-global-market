@@ -52,6 +52,7 @@ const BROKERS: BrokerDef[] = [
 ];
 
 const STORAGE_KEY = "ayc_broker_connections_secure_v1";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 export default function ExchangesPage() {
   const router = useRouter();
@@ -83,6 +84,13 @@ export default function ExchangesPage() {
   );
 
   async function handleConnect(brokerId: BrokerId) {
+    if (IS_PRODUCTION) {
+      setMessage({
+        type: "err",
+        text: "Gercek borsa baglantisi guvenlik sertlestirmesi tamamlanana kadar kapalidir.",
+      });
+      return;
+    }
     setLoading(brokerId);
     setMessage(null);
     try {
@@ -160,6 +168,24 @@ export default function ExchangesPage() {
         API credential verisi backend tarafinda sifreli olarak tutulur. Client tarafinda
         sadece baglanti metadatasi saklanir.
       </p>
+
+      {IS_PRODUCTION && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "10px 14px",
+            borderRadius: "var(--r-md)",
+            border: "1px solid rgba(245,158,11,0.35)",
+            background: "rgba(245,158,11,0.12)",
+            color: "#fbbf24",
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          Gercek borsa baglantisi guvenlik sertlestirmesi tamamlanana kadar kapalıdır.
+          Paper trading/demo kullanılabilir.
+        </div>
+      )}
 
       {connectedCount > 0 && (
         <div
@@ -278,27 +304,31 @@ export default function ExchangesPage() {
                   ) : (
                     <button
                       onClick={() => {
+                        if (IS_PRODUCTION) return;
                         setActiveBroker(isOpen ? null : broker.id);
                         setForm({ apiKey: "", secret: "", passphrase: "" });
                       }}
+                      disabled={IS_PRODUCTION}
                       style={{
-                        color: "#0b1220",
-                        background: `linear-gradient(135deg, ${broker.color}, ${broker.color}cc)`,
+                        color: IS_PRODUCTION ? "rgba(255,255,255,0.55)" : "#0b1220",
+                        background: IS_PRODUCTION
+                          ? "rgba(255,255,255,0.15)"
+                          : `linear-gradient(135deg, ${broker.color}, ${broker.color}cc)`,
                         border: "none",
                         borderRadius: 8,
                         padding: "6px 12px",
                         fontSize: 11,
                         fontWeight: 700,
-                        cursor: "pointer",
+                        cursor: IS_PRODUCTION ? "not-allowed" : "pointer",
                       }}
                     >
-                      {isOpen ? "Kapat" : "Bagla"}
+                      {IS_PRODUCTION ? "Productionda Kapali" : isOpen ? "Kapat" : "Bagla"}
                     </button>
                   )}
                 </div>
               </div>
 
-              {isOpen && !conn && (
+              {isOpen && !conn && !IS_PRODUCTION && (
                 <div style={{ marginTop: 14, borderTop: "1px solid var(--b1)", paddingTop: 12 }}>
                   <div style={{ display: "grid", gap: 8 }}>
                     <input

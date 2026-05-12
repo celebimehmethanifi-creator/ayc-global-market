@@ -40,8 +40,14 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 LEMON_API_KEY = os.environ.get("LEMON_API_KEY", "").strip()
 LEMON_WEBHOOK_SECRET = os.environ.get("LEMON_WEBHOOK_SECRET", "").strip()
 LEMON_STORE_ID = os.environ.get("LEMON_STORE_ID", "").strip()
-LEMON_VARIANT_PRO = os.environ.get("LEMON_VARIANT_PRO", "").strip()
-LEMON_VARIANT_ELITE = os.environ.get("LEMON_VARIANT_ELITE", "").strip()
+LEMON_PRO_VARIANT_ID = (
+    os.environ.get("LEMON_PRO_VARIANT_ID", "").strip()
+    or os.environ.get("LEMON_VARIANT_PRO", "").strip()
+)
+LEMON_ELITE_VARIANT_ID = (
+    os.environ.get("LEMON_ELITE_VARIANT_ID", "").strip()
+    or os.environ.get("LEMON_VARIANT_ELITE", "").strip()
+)
 
 PLANS = {
     "pro": {
@@ -172,7 +178,7 @@ async def _stripe_create_checkout(plan: str, user_email: str, user_id: str) -> d
 async def _lemon_create_checkout(plan: str, user_email: str, user_id: str) -> dict:
     import httpx
 
-    variant_id = LEMON_VARIANT_PRO if plan == "pro" else LEMON_VARIANT_ELITE
+    variant_id = LEMON_PRO_VARIANT_ID if plan == "pro" else LEMON_ELITE_VARIANT_ID
     if not LEMON_API_KEY or not LEMON_STORE_ID or not variant_id:
         if IS_PRODUCTION:
             raise HTTPException(status_code=503, detail="Lemon Squeezy konfigrasyonu eksik.")

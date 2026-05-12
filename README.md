@@ -29,4 +29,7 @@ cd C:\Users\mhani\OneDrive\Desktop\NEURA
 
 - Production ortaminda test/demo login kapali olmalidir.
 - `JWT_SECRET`, `SECRET_KEY`, `EXCHANGE_CREDENTIALS_KEY` min 32 karakter olmali.
+- Production web deploy'da `NEXT_PUBLIC_API_URL` bos birakilmasi onerilir; auth/billing/exchange session endpointleri same-origin `/api/v1` kullanir.
+- Refresh token rotation state su an in-memory tutulur. Cold-start/redeploy sonrasinda refresh session kaybi olabilir; production icin kalici store (Redis/DB/Edge) gerekir.
+- Exchange credential onboarding production'da kapali kalmali; tekrar acilacaksa filesystem tabanli vault yerine kalici sifreli storage kullanilmali.
 - Public olmus olabilecek tum anahtarlar rotate edilmelidir.

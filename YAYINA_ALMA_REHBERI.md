@@ -7,7 +7,7 @@
 4. Asagidaki env degiskenlerini gir:
 
 ```env
-NEXT_PUBLIC_API_URL=<https://api.example.com>
+NEXT_PUBLIC_API_URL=<optional-public-api-url-or-empty>
 NEXT_PUBLIC_SITE_URL=<https://app.example.com>
 JWT_SECRET=<minimum-32-char-secret>
 EXCHANGE_CREDENTIALS_KEY=<minimum-32-char-secret>
@@ -34,8 +34,8 @@ STRIPE_WEBHOOK_SECRET=<stripe-webhook-secret>
 LEMON_API_KEY=<lemon-api-key>
 LEMON_WEBHOOK_SECRET=<lemon-webhook-secret>
 LEMON_STORE_ID=<lemon-store-id>
-LEMON_VARIANT_PRO=<lemon-variant-id-pro>
-LEMON_VARIANT_ELITE=<lemon-variant-id-elite>
+LEMON_PRO_VARIANT_ID=<lemon-variant-id-pro>
+LEMON_ELITE_VARIANT_ID=<lemon-variant-id-elite>
 ```
 
 ## 3. Odeme Webhooklari
@@ -46,9 +46,12 @@ LEMON_VARIANT_ELITE=<lemon-variant-id-elite>
 ## 4. Guvenlik Kontrol Listesi
 - Production'da test/demo login kapali olmalidir.
 - `JWT_SECRET`, `SECRET_KEY`, `EXCHANGE_CREDENTIALS_KEY` minimum 32 karakter olmalidir.
+- `NEXT_PUBLIC_API_URL` dolu olsa bile auth/billing/exchange session endpointleri same-origin `/api/v1` kullanacak sekilde kalmalidir.
 - Borsa credential onboarding production'da client tarafindan kapali olmalidir.
+- Gercek exchange onboarding acilacaksa filesystem vault yerine kalici sifreli backend storage zorunlu olmalidir.
 - Gercek trade endpoint'i production'da dry-run modunda kalmalidir.
 - CORS yalnizca izinli origin listesi ile sinirlanmalidir.
+- Refresh token rotation state in-memory tutuluyorsa cold-start/redeploy kaybi riski dokumante edilmelidir.
 
 ## 5. Zorunlu Operasyon Notu
 - Gecmiste repo veya dokumanda gecmis olabilecek tum anahtarlar/public key benzeri degerler **rotate edilmelidir**.

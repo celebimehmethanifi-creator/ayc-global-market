@@ -14,6 +14,24 @@ import os
 import random
 from pathlib import Path
 
+
+def _is_production() -> bool:
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    return env_name in {"production", "prod"}
+
+
+def _parse_cors_origins() -> list[str]:
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if raw:
+        origins = [item.strip() for item in raw.split(",") if item.strip()]
+    else:
+        if _is_production():
+            raise RuntimeError("CORS_ORIGINS must be configured in production.")
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if _is_production() and not origins:
+        raise RuntimeError("CORS_ORIGINS must be configured in production.")
+    return origins
+
 # ─── API Keys ────────────────────────────────────────────────────────────────
 COINGECKO_KEY    = "CG-MoxLLAjSA3r2JHXanw9fotD5"
 FINNHUB_KEY      = "d7pp429r01qosaapdudgd7pp429r01qosaapdue0"
@@ -25,7 +43,13 @@ ALPHAVANTAGE_KEY = "63T2IM69L6OSSR51"
 # ─── App ─────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 app = FastAPI(title="AYC Global Market API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_parse_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Signature"],
+)
 
 # ─── Simple in-memory cache ──────────────────────────────────────────────────
 _cache: dict = {}
