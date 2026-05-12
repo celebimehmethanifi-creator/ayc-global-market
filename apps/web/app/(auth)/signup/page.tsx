@@ -29,12 +29,12 @@ export default function SignUpPage() {
     setLoading(true);
     setError("");
     if (!email || !password || !name) {
-      setError("TÃ¼m alanlar gerekli");
+      setError("Tum alanlar gerekli");
       setLoading(false);
       return;
     }
     if (password.length < 6) {
-      setError("Åifre en az 6 karakter olmalÄ±");
+      setError("Åifre en az 6 karakter olmali");
       setLoading(false);
       return;
     }
@@ -52,9 +52,9 @@ export default function SignUpPage() {
       router.push("/dashboard?welcome=1");
     } catch (err: any) {
       if (!err?.response) {
-        setError("BaÄŸlantÄ± hatasÄ± â€” internet baÄŸlantÄ±nÄ±zÄ± kontrol edin.");
+        setError("Baglanti hatasi â€” internet baglantinizi kontrol edin.");
       } else {
-        setError(err.response?.data?.detail || `KayÄ±t baÅŸarÄ±sÄ±z (${err.response?.status || "hata"}), tekrar deneyin.`);
+        setError(err.response?.data?.detail || `Kayit basarisiz (${err.response?.status || "hata"}), tekrar deneyin.`);
       }
     }
     setLoading(false);
@@ -79,7 +79,7 @@ export default function SignUpPage() {
             <span style={{color:"#0C0E16", fontWeight:900, fontSize:24, fontFamily:"var(--font-head)"}}>A</span>
           </div>
           <div style={{fontSize:22, fontWeight:800, color:"var(--t1)", fontFamily:"var(--font-head)"}}>AYC Global Market</div>
-          <div style={{fontSize:13, color:"var(--t3)", marginTop:4}}>Ãœcretsiz hesabÄ±nÄ±zÄ± oluÅŸturun</div>
+          <div style={{fontSize:13, color:"var(--t3)", marginTop:4}}>Ucretsiz hesabinizi olusturun</div>
         </div>
 
         {/* â”€â”€ Demo CTA Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -98,18 +98,18 @@ export default function SignUpPage() {
             </div>
             <div>
               <div style={{fontSize:14, fontWeight:800, color:"var(--gold)", marginBottom:4}}>
-                $10.000 Sanal Bakiye â€” Tamamen Ãœcretsiz
+                $10.000 Sanal Bakiye â€” Tamamen Ucretsiz
               </div>
               <div style={{fontSize:12, color:"var(--t3)", lineHeight:1.5}}>
-                Para yatÄ±rmadan piyasalarÄ± dene. GerÃ§ek fiyatlarla iÅŸlem simÃ¼lasyonu yap.
+                Para yatirmadan piyasalari dene. Gercek fiyatlarla islem simulasyonu yap.
               </div>
             </div>
           </div>
           {[
-            "KayÄ±t olmadan anÄ±nda baÅŸla",
-            "TÃ¼m piyasalara canlÄ± fiyatlarla eriÅŸim",
+            "Kayit olmadan aninda basla",
+            "Tum piyasalara canli fiyatlarla erisim",
             "AI sinyal ve risk analizi",
-            "PortfÃ¶y simÃ¼lasyonu",
+            "Portfoy simulasyonu",
           ].map((t,i) => (
             <div key={i} style={{display:"flex", alignItems:"center", gap:8}}>
               <CheckCircle2 size={13} color="var(--up)" />
@@ -128,18 +128,18 @@ export default function SignUpPage() {
               boxShadow:"0 4px 20px rgba(212,175,55,0.3)",
             }}
           >
-            <Zap size={15} /> Hemen Demo BaÅŸlat
+            <Zap size={15} /> Hemen Demo Baslat
             <ChevronRight size={15} />
           </button>
           <div style={{textAlign:"center", fontSize:11, color:"var(--t4)"}}>
-            Kredi kartÄ± yok Â· YÃ¼kleme yok Â· AnÄ±nda eriÅŸim
+            Kredi karti yok Â· Yukleme yok Â· Aninda erisim
           </div>
         </div>
 
         {/* â”€â”€ Divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:20}}>
           <div style={{flex:1, height:1, background:"var(--b1)"}} />
-          <span style={{fontSize:11, color:"var(--t4)", whiteSpace:"nowrap"}}>veya kalÄ±cÄ± hesap oluÅŸtur</span>
+          <span style={{fontSize:11, color:"var(--t4)", whiteSpace:"nowrap"}}>veya kalici hesap olustur</span>
           <div style={{flex:1, height:1, background:"var(--b1)"}} />
         </div>
 
@@ -149,14 +149,14 @@ export default function SignUpPage() {
           borderRadius:"var(--r-xl)", padding:"24px 28px",
         }}>
           <div style={{fontSize:15, fontWeight:700, color:"var(--t1)", marginBottom:20, fontFamily:"var(--font-head)"}}>
-            KalÄ±cÄ± Hesap OluÅŸtur
+            Kalici Hesap Olustur
           </div>
           <form onSubmit={handleSubmit} style={{display:"flex", flexDirection:"column", gap:14}}>
             <div>
               <label style={{fontSize:12, color:"var(--t2)", display:"block", marginBottom:6, fontWeight:600}}>Ad Soyad</label>
               <input
                 type="text" value={name} onChange={e => setName(e.target.value)}
-                placeholder="AdÄ±nÄ±z SoyadÄ±nÄ±z" autoComplete="name"
+                placeholder="Adiniz Soyadiniz" autoComplete="name"
                 style={{
                   width:"100%", background:"var(--bg)", border:"1px solid var(--b1)",
                   borderRadius:"var(--r-sm)", padding:"10px 14px", fontSize:13, color:"var(--t1)",
@@ -219,7 +219,7 @@ export default function SignUpPage() {
               opacity:loading ? 0.7 : 1,
               fontFamily:"var(--font-body)", transition:"all 0.2s",
             }}>
-              {loading ? "Kaydediliyor..." : "Hesap OluÅŸtur â€” Ãœcretsiz"}
+              {loading ? "Kaydediliyor..." : "Hesap Olustur â€” Ucretsiz"}
             </button>
 
             <div style={{ textAlign:"center", marginTop:8 }}>
@@ -244,21 +244,21 @@ export default function SignUpPage() {
                   width:"100%",
                 }}
               >
-                Demo ile HÄ±zlÄ± GiriÅŸ â†’
+                Demo ile Hizli Giris â†’
               </button>
             </div>
           </form>
 
           <div style={{textAlign:"center", marginTop:16, fontSize:12, color:"var(--t3)"}}>
-            Zaten hesabÄ±n var mÄ±?{" "}
+            Zaten hesabin var mi?{" "}
             <Link href="/signin" style={{color:"var(--gold)", textDecoration:"none", fontWeight:600}}>
-              GiriÅŸ Yap
+              Giris Yap
             </Link>
           </div>
         </div>
 
         <p style={{textAlign:"center", fontSize:11, color:"var(--t4)", marginTop:14, lineHeight:1.5}}>
-          Bu platform yatÄ±rÄ±m tavsiyesi vermez. Demo hesabÄ± eÄŸitim amaÃ§lÄ±dÄ±r.
+          Bu platform yatirim tavsiyesi vermez. Demo hesabi egitim amaclidir.
         </p>
       </div>
     </div>

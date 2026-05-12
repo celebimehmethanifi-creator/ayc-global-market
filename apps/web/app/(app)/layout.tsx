@@ -20,7 +20,7 @@ const NAV = [
   { href:"/dashboard",   Icon:LayoutDashboard,   label:"Komuta Merkezi" },
   { href:"/market",      Icon:TrendingUp,         label:"Piyasalar"      },
   { href:"/signals",     Icon:Zap,                label:"Sinyaller"      },
-  { href:"/portfolio",   Icon:BriefcaseBusiness,  label:"PortfÃ¶y"        },
+  { href:"/portfolio",   Icon:BriefcaseBusiness,  label:"Portfoy"        },
   { href:"/alarms",      Icon:Bell,               label:"Alarmlar"       },
   { href:"/copilot",     Icon:Bot,                label:"AI Copilot", pro:true },
   { href:"/social",      Icon:Users2,             label:"Sosyal Radar"   },

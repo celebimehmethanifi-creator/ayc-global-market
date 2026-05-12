@@ -60,10 +60,10 @@ export default function TradesPage() {
 
   /* stat cards */
   const stats = [
-    { label:"Demo Bakiye",     value:mounted ? fmt(demo.balance)   : "-", sub:"KullanÄ±labilir", icon:Wallet,   up:true   },
-    { label:"Toplam DeÄŸer",    value:mounted ? fmt(totalValue)     : "-", sub:mounted ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}%` : "-", icon:BarChart3, up: totalPnlUSD >= 0 },
-    { label:"AÃ§Ä±k PnL",        value:mounted ? fmt(openPnlUSD)     : "-", sub:`${openTrades.length} aÃ§Ä±k iÅŸlem`,  icon:Activity, up: openPnlUSD >= 0 },
-    { label:"KapalÄ± Getiri",   value:mounted ? fmt(totalClosedPnl) : "-", sub:`Kazanma: ${winRate}%`, icon:Award, up: totalClosedPnl >= 0 },
+    { label:"Demo Bakiye",     value:mounted ? fmt(demo.balance)   : "-", sub:"Kullanilabilir", icon:Wallet,   up:true   },
+    { label:"Toplam Deger",    value:mounted ? fmt(totalValue)     : "-", sub:mounted ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}%` : "-", icon:BarChart3, up: totalPnlUSD >= 0 },
+    { label:"Acik PnL",        value:mounted ? fmt(openPnlUSD)     : "-", sub:`${openTrades.length} acik islem`,  icon:Activity, up: openPnlUSD >= 0 },
+    { label:"Kapali Getiri",   value:mounted ? fmt(totalClosedPnl) : "-", sub:`Kazanma: ${winRate}%`, icon:Award, up: totalClosedPnl >= 0 },
   ];
 
   if (!mounted) return (
@@ -79,10 +79,10 @@ export default function TradesPage() {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:20,fontWeight:800,color:"var(--t1)",fontFamily:"var(--font-head)",margin:0}}>
-            Ä°ÅŸlemlerim
+            Islemlerim
           </h1>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0"}}>
-            Demo portfÃ¶y Â· $10,000 sanal bakiye ile baÅŸladÄ±n
+            Demo portfoy Â· $10,000 sanal bakiye ile basladin
           </p>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -92,7 +92,7 @@ export default function TradesPage() {
             borderRadius:"var(--r-sm)",fontSize:11,color:"var(--down)",cursor:"pointer",
             fontFamily:"var(--font-body)",fontWeight:600,
           }}>
-            <RefreshCw size={12}/> SÄ±fÄ±rla
+            <RefreshCw size={12}/> Sifirla
           </button>
           {isDemoUser && (
             <a href="/signup" style={{
@@ -101,7 +101,7 @@ export default function TradesPage() {
               borderRadius:"var(--r-sm)",fontSize:11,color:"#0C0E16",fontWeight:800,
               textDecoration:"none",fontFamily:"var(--font-body)",
             }}>
-              <Zap size={12}/> GerÃ§ek Hesap AÃ§
+              <Zap size={12}/> Gercek Hesap Ac
             </a>
           )}
         </div>
@@ -136,8 +136,8 @@ export default function TradesPage() {
             transition:"all 0.15s",
           }}>
             {t === "open"
-              ? `AÃ§Ä±k (${openTrades.length})`
-              : `KapalÄ± (${closedTrades.length})`
+              ? `Acik (${openTrades.length})`
+              : `Kapali (${closedTrades.length})`
             }
           </button>
         ))}
@@ -153,8 +153,8 @@ export default function TradesPage() {
               borderRadius:"var(--r-xl)",
             }}>
               <Activity size={32} color="var(--t4)" style={{marginBottom:12}}/>
-              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>AÃ§Ä±k iÅŸlem yok</div>
-              <div style={{fontSize:12,color:"var(--t3)",marginBottom:16}}>Piyasalar sayfasÄ±ndan veya herhangi bir varlÄ±k kartÄ±ndan demo iÅŸlem aÃ§</div>
+              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Acik islem yok</div>
+              <div style={{fontSize:12,color:"var(--t3)",marginBottom:16}}>Piyasalar sayfasindan veya herhangi bir varlik kartindan demo islem ac</div>
               <a href="/market" style={{
                 display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
                 background:"var(--gold-dim)",border:"1px solid var(--gold-border)",
@@ -195,10 +195,10 @@ export default function TradesPage() {
                         background:t.direction==="LONG"?"rgba(38,215,130,0.15)":"rgba(246,70,93,0.15)",
                         color:t.direction==="LONG"?"var(--up)":"var(--down)",
                       }}>{t.direction}</span>
-                      <span style={{fontSize:10,color:"var(--t4)"}}>Â· {dur(t.openedAt)} Ã¶nce</span>
+                      <span style={{fontSize:10,color:"var(--t4)"}}>Â· {dur(t.openedAt)} once</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      GiriÅŸ: ${fmtPx(t.entryPrice)} Â· YatÄ±rÄ±m: {fmt(t.investedUSD)}
+                      Giris: ${fmtPx(t.entryPrice)} Â· Yatirim: {fmt(t.investedUSD)}
                       {cur > 0 && <> Â· Åimdi: ${fmtPx(cur)}</>}
                     </div>
                   </div>
@@ -236,8 +236,8 @@ export default function TradesPage() {
               borderRadius:"var(--r-xl)",
             }}>
               <Clock size={32} color="var(--t4)" style={{marginBottom:12}}/>
-              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>HenÃ¼z kapalÄ± iÅŸlem yok</div>
-              <div style={{fontSize:12,color:"var(--t3)"}}>Ä°ÅŸlemlerini kapatÄ±nca burada gÃ¶rÃ¼nÃ¼r</div>
+              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Henuz kapali islem yok</div>
+              <div style={{fontSize:12,color:"var(--t3)"}}>Islemlerini kapatinca burada gorunur</div>
             </div>
           ) : (
             closedTrades.map(t => {
@@ -268,7 +268,7 @@ export default function TradesPage() {
                       }}>{t.direction}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      GiriÅŸ: ${fmtPx(t.entryPrice)} â†’ Ã‡Ä±kÄ±ÅŸ: ${fmtPx(t.exitPrice)} Â· {dur(t.closedAt)} Ã¶nce
+                      Giris: ${fmtPx(t.entryPrice)} â†’ Ã‡ikis: ${fmtPx(t.exitPrice)} Â· {dur(t.closedAt)} once
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
@@ -298,22 +298,22 @@ export default function TradesPage() {
             borderRadius:"var(--r-xl)",padding:"28px 24px",maxWidth:360,width:"100%",
           }}>
             <h3 style={{fontSize:16,fontWeight:800,color:"var(--t1)",margin:"0 0 10px",fontFamily:"var(--font-head)"}}>
-              Demo HesabÄ± SÄ±fÄ±rla?
+              Demo Hesabi Sifirla?
             </h3>
             <p style={{fontSize:13,color:"var(--t3)",margin:"0 0 20px",lineHeight:1.5}}>
-              TÃ¼m iÅŸlemler ve bakiye geÃ§miÅŸi silinecek. $10,000 sanal bakiyeyle yeniden baÅŸlayacaksÄ±n.
+              Tum islemler ve bakiye gecmisi silinecek. $10,000 sanal bakiyeyle yeniden baslayacaksin.
             </p>
             <div style={{display:"flex",gap:8}}>
               <button onClick={() => { reset(); setConfirmReset(false); }} style={{
                 flex:1,padding:"10px",background:"rgba(246,70,93,0.1)",
                 border:"1px solid rgba(246,70,93,0.2)",borderRadius:"var(--r-sm)",
                 color:"var(--down)",fontWeight:700,cursor:"pointer",fontSize:13,fontFamily:"var(--font-body)",
-              }}>Evet, SÄ±fÄ±rla</button>
+              }}>Evet, Sifirla</button>
               <button onClick={() => setConfirmReset(false)} style={{
                 flex:1,padding:"10px",background:"var(--bg-hover)",
                 border:"1px solid var(--b1)",borderRadius:"var(--r-sm)",
                 color:"var(--t2)",fontWeight:600,cursor:"pointer",fontSize:13,fontFamily:"var(--font-body)",
-              }}>Ä°ptal</button>
+              }}>Iptal</button>
             </div>
           </div>
         </div>
