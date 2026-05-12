@@ -351,6 +351,12 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   const crosshairPos = useRef<{ x: number; y: number } | null>(null);
   const hoveredIdx = useRef<number>(-1);
 
+  // Zoom/Pan state
+  const [viewEnd, setViewEnd] = useState<number>(-1);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const panStartRef = useRef<{ x: number; startEnd: number } | null>(null);
+  const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
+
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -391,6 +397,85 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     if (w > 0) setCanvasW(w);
     return () => ro.disconnect();
   }, []);
+
+  // ── Wheel zoom + Mouse/Touch pan ──────────────────────────────────────────
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Wheel zoom (desktop)
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1; // scroll down = zoom out
+      setZoomLevel(z => clamp(z * delta, 0.5, 10));
+    };
+
+    // Mouse pan (desktop drag)
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      panStartRef.current = { x: e.clientX, startEnd: viewEnd < 0 ? candles.length : viewEnd };
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!panStartRef.current) return;
+      const dx = e.clientX - panStartRef.current.x;
+      const n = candles.length;
+      const baseSlotW = clamp((el.clientWidth - Y_AXIS_WIDTH) / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+      const slotW = clamp(baseSlotW * zoomLevel, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+      const candleShift = Math.round(-dx / slotW);
+      const visible = Math.floor((el.clientWidth - Y_AXIS_WIDTH) / slotW);
+      const newEnd = clamp(panStartRef.current.startEnd + candleShift, visible, n);
+      setViewEnd(newEnd);
+    };
+    const onMouseUp = () => { panStartRef.current = null; };
+
+    // Touch pan + pinch zoom (mobile)
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        panStartRef.current = { x: e.touches[0].clientX, startEnd: viewEnd < 0 ? candles.length : viewEnd };
+      } else if (e.touches.length === 2) {
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        pinchStartRef.current = { dist: d, zoom: zoomLevel };
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1 && panStartRef.current) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - panStartRef.current.x;
+        const n = candles.length;
+        const baseSlotW = clamp((el.clientWidth - Y_AXIS_WIDTH) / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+        const slotW = clamp(baseSlotW * zoomLevel, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+        const candleShift = Math.round(-dx / slotW);
+        const visible = Math.floor((el.clientWidth - Y_AXIS_WIDTH) / slotW);
+        const newEnd = clamp(panStartRef.current.startEnd + candleShift, visible, n);
+        setViewEnd(newEnd);
+      } else if (e.touches.length === 2 && pinchStartRef.current) {
+        e.preventDefault();
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        const scale = d / pinchStartRef.current.dist;
+        setZoomLevel(clamp(pinchStartRef.current.zoom * scale, 0.5, 10));
+      }
+    };
+    const onTouchEnd = () => { panStartRef.current = null; pinchStartRef.current = null; };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [candles.length, viewEnd, zoomLevel]);
 
   // ── Computed indicators ───────────────────────────────────────────────────
 
@@ -1323,4 +1408,8 @@ function ErrorIcon() {
     </svg>
   );
 }
+
+
+
+
 
