@@ -672,7 +672,7 @@ function CausalSection({data}:{data:CausalCard}) {
 
 
 
-          Neden Bu Hareket? â€¢ {data.symbol}
+          Neden Bu Hareket?   {data.symbol}
 
 
 
@@ -1256,7 +1256,7 @@ export default function DashboardPage() {
 
 
 
-          sub="Kripto Â· Hisse Â· Emtia Â· Forex" color="var(--t1)"/>
+          sub="Kripto   Hisse   Emtia   Forex" color="var(--t1)"/>
 
 
 
@@ -1732,7 +1732,7 @@ export default function DashboardPage() {
 
 
 
-                    <div style={{fontSize:9,color:"var(--t3)",marginBottom:1}}>{a.time} Â· {a.symbol}</div>
+                    <div style={{fontSize:9,color:"var(--t3)",marginBottom:1}}>{a.time}   {a.symbol}</div>
 
 
 

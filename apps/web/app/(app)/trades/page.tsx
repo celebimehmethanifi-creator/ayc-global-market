@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -82,7 +82,7 @@ export default function TradesPage() {
             Islemlerim
           </h1>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0"}}>
-            Demo portfoy Â· $10,000 sanal bakiye ile basladin
+            Demo portfoy   $10,000 sanal bakiye ile basladin
           </p>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -195,11 +195,11 @@ export default function TradesPage() {
                         background:t.direction==="LONG"?"rgba(38,215,130,0.15)":"rgba(246,70,93,0.15)",
                         color:t.direction==="LONG"?"var(--up)":"var(--down)",
                       }}>{t.direction}</span>
-                      <span style={{fontSize:10,color:"var(--t4)"}}>Â· {dur(t.openedAt)} once</span>
+                      <span style={{fontSize:10,color:"var(--t4)"}}>  {dur(t.openedAt)} once</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      Giris: ${fmtPx(t.entryPrice)} Â· Yatirim: {fmt(t.investedUSD)}
-                      {cur > 0 && <> Â· Åimdi: ${fmtPx(cur)}</>}
+                      Giris: ${fmtPx(t.entryPrice)}   Yatirim: {fmt(t.investedUSD)}
+                      {cur > 0 && <>   Simdi: ${fmtPx(cur)}</>}
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
@@ -268,7 +268,7 @@ export default function TradesPage() {
                       }}>{t.direction}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      Giris: ${fmtPx(t.entryPrice)} â†’ Ã‡ikis: ${fmtPx(t.exitPrice)} Â· {dur(t.closedAt)} once
+                      Giris: ${fmtPx(t.entryPrice)}  Ã‡ikis: ${fmtPx(t.exitPrice)}   {dur(t.closedAt)} once
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>

@@ -1,6 +1,6 @@
 ﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   AYC GLOBAL MARKET â€” DESIGN SYSTEM v2.0
-   Bloomberg Terminal veri yoÄŸunluÄŸu + TradingView akÄ±cÄ±lÄ±ÄŸÄ±
+   AYC GLOBAL MARKET - DESIGN SYSTEM v2.0
+   Bloomberg Terminal veri yogunlugu + TradingView akiciligi
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Note: Inter is loaded via next/font/google in layout.tsx (--font-inter variable).
@@ -51,7 +51,7 @@ img.interactive { pointer-events: auto; }
   --t3:          #5C6480;
   --t4:          #3A4060;
 
-  /* Gold â€” AYC brand */
+  /* Gold - AYC brand */
   --gold:        #D4A843;
   --gold-bright: #F0C060;
   --gold-dim:    rgba(212,168,67,0.10);

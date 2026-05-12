@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -38,9 +38,9 @@ export default function SignInPage() {
       router.push("/dashboard");
     } catch (err: any) {
       if (!err?.response) {
-        setError("Baglanti hatasi â€” internet baglantinizi kontrol edin.");
+        setError("Baglanti hatasi - internet baglantinizi kontrol edin.");
       } else {
-        setError(err.response?.data?.detail || "Giris basarisiz â€” e-posta ve sifrenizi kontrol edin.");
+        setError(err.response?.data?.detail || "Giris basarisiz - e-posta ve sifrenizi kontrol edin.");
       }
     }
     setLoading(false);
@@ -76,7 +76,7 @@ export default function SignInPage() {
         }}>
           <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:10}}>
             <Wallet size={16} color="var(--gold)" />
-            <span style={{fontSize:13, fontWeight:700, color:"var(--gold)"}}>$10.000 Demo Hesabi â€” Hemen Dene</span>
+            <span style={{fontSize:13, fontWeight:700, color:"var(--gold)"}}>$10.000 Demo Hesabi - Hemen Dene</span>
           </div>
           <p style={{fontSize:12, color:"var(--t3)", margin:0, marginBottom:10, lineHeight:1.5}}>
             Giris yapmadan, para yatirmadan tum ozellikleri kesfet.
@@ -124,13 +124,13 @@ export default function SignInPage() {
             </div>
             <div>
               <div style={{display:"flex", justifyContent:"space-between", marginBottom:6}}>
-                <label style={{fontSize:12, color:"var(--t2)", fontWeight:600}}>Åifre</label>
-                <span style={{fontSize:11, color:"var(--gold)", cursor:"pointer"}}>Åifremi unuttum</span>
+                <label style={{fontSize:12, color:"var(--t2)", fontWeight:600}}>Sifre</label>
+                <span style={{fontSize:11, color:"var(--gold)", cursor:"pointer"}}>Sifremi unuttum</span>
               </div>
               <div style={{position:"relative"}}>
                 <input
                   type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Åifrenizi girin" autoComplete="current-password"
+                  placeholder="Sifrenizi girin" autoComplete="current-password"
                   style={{
                     width:"100%", background:"var(--bg)", border:"1px solid var(--b1)",
                     borderRadius:"var(--r-sm)", padding:"10px 40px 10px 14px", fontSize:13, color:"var(--t1)",
@@ -189,7 +189,7 @@ export default function SignInPage() {
                   width:"100%",
                 }}
               >
-                Demo ile Hizli Giris â†’
+                Demo ile Hizli Giris 
               </button>
             </div>
           </form>

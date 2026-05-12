@@ -1,6 +1,6 @@
 INFO:     Will watch for changes in these directories: ['C:\\Users\\mhani\\OneDrive\\Desktop\\NEURA\\services\\gateway']
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [46960] using WatchFiles
+INFO:     Started reloader process [102868] using WatchFiles
 Process SpawnProcess-1:
 Traceback (most recent call last):
   File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3568.0_x64__qbz5n2kfra8p0\Lib\multiprocessing\process.py", line 313, in _bootstrap
@@ -53,3 +53,4 @@ Traceback (most recent call last):
   File "C:\Users\mhani\OneDrive\Desktop\NEURA\services\gateway\auth_service.py", line 10, in <module>
     from passlib.context import CryptContext
 ModuleNotFoundError: No module named 'passlib'
+^C

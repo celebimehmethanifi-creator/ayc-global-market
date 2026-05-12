@@ -357,6 +357,10 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const panStartRef = useRef<{ x: number; startEnd: number } | null>(null);
   const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
+  const viewEndRef = useRef(viewEnd);
+  const zoomRef = useRef(zoomLevel);
+  viewEndRef.current = viewEnd;
+  zoomRef.current = zoomLevel;
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
@@ -415,14 +419,14 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     // Mouse pan (desktop drag)
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
-      panStartRef.current = { x: e.clientX, startEnd: viewEnd < 0 ? candles.length : viewEnd };
+      panStartRef.current = { x: e.clientX, startEnd: viewEndRef.current < 0 ? candles.length : viewEndRef.current };
     };
     const onMouseMove = (e: MouseEvent) => {
       if (!panStartRef.current) return;
       const dx = e.clientX - panStartRef.current.x;
       const n = candles.length;
       const baseSlotW = clamp((el.clientWidth - Y_AXIS_WIDTH) / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
-      const slotW = clamp(baseSlotW * zoomLevel, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+      const slotW = clamp(baseSlotW * zoomRef.current, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
       const candleShift = Math.round(-dx / slotW);
       const visible = Math.floor((el.clientWidth - Y_AXIS_WIDTH) / slotW);
       const newEnd = clamp(panStartRef.current.startEnd + candleShift, visible, n);
@@ -436,7 +440,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
         panStartRef.current = { x: e.touches[0].clientX, startEnd: viewEnd < 0 ? candles.length : viewEnd };
       } else if (e.touches.length === 2) {
         const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        pinchStartRef.current = { dist: d, zoom: zoomLevel };
+        pinchStartRef.current = { dist: d, zoom: zoomRef.current };
       }
     };
     const onTouchMove = (e: TouchEvent) => {
@@ -445,7 +449,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
         const dx = e.touches[0].clientX - panStartRef.current.x;
         const n = candles.length;
         const baseSlotW = clamp((el.clientWidth - Y_AXIS_WIDTH) / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
-        const slotW = clamp(baseSlotW * zoomLevel, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+        const slotW = clamp(baseSlotW * zoomRef.current, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
         const candleShift = Math.round(-dx / slotW);
         const visible = Math.floor((el.clientWidth - Y_AXIS_WIDTH) / slotW);
         const newEnd = clamp(panStartRef.current.startEnd + candleShift, visible, n);
@@ -476,7 +480,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [candles.length, viewEnd, zoomLevel]);
+  }, [candles.length]);
 
   // ── Computed indicators ───────────────────────────────────────────────────
 

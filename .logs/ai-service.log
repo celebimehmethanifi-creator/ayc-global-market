@@ -1,7 +1,8 @@
 INFO:     Will watch for changes in these directories: ['C:\\Users\\mhani\\OneDrive\\Desktop\\NEURA\\services\\ai-service']
 INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [96908] using WatchFiles
-INFO:     Started server process [44280]
+INFO:     Started reloader process [23944] using WatchFiles
+INFO:     Started server process [96632]
 INFO:     Waiting for application startup.
 DB init skipped: The asyncio extension requires an async driver to be used. The loaded 'pysqlite' is not async.
 INFO:     Application startup complete.
+^C

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -34,7 +34,7 @@ export default function SignUpPage() {
       return;
     }
     if (password.length < 6) {
-      setError("Åifre en az 6 karakter olmali");
+      setError("Sifre en az 6 karakter olmali");
       setLoading(false);
       return;
     }
@@ -52,7 +52,7 @@ export default function SignUpPage() {
       router.push("/dashboard?welcome=1");
     } catch (err: any) {
       if (!err?.response) {
-        setError("Baglanti hatasi â€” internet baglantinizi kontrol edin.");
+        setError("Baglanti hatasi - internet baglantinizi kontrol edin.");
       } else {
         setError(err.response?.data?.detail || `Kayit basarisiz (${err.response?.status || "hata"}), tekrar deneyin.`);
       }
@@ -98,7 +98,7 @@ export default function SignUpPage() {
             </div>
             <div>
               <div style={{fontSize:14, fontWeight:800, color:"var(--gold)", marginBottom:4}}>
-                $10.000 Sanal Bakiye â€” Tamamen Ucretsiz
+                $10.000 Sanal Bakiye - Tamamen Ucretsiz
               </div>
               <div style={{fontSize:12, color:"var(--t3)", lineHeight:1.5}}>
                 Para yatirmadan piyasalari dene. Gercek fiyatlarla islem simulasyonu yap.
@@ -132,7 +132,7 @@ export default function SignUpPage() {
             <ChevronRight size={15} />
           </button>
           <div style={{textAlign:"center", fontSize:11, color:"var(--t4)"}}>
-            Kredi karti yok Â· Yukleme yok Â· Aninda erisim
+            Kredi karti yok   Yukleme yok   Aninda erisim
           </div>
         </div>
 
@@ -181,7 +181,7 @@ export default function SignUpPage() {
               />
             </div>
             <div>
-              <label style={{fontSize:12, color:"var(--t2)", display:"block", marginBottom:6, fontWeight:600}}>Åifre</label>
+              <label style={{fontSize:12, color:"var(--t2)", display:"block", marginBottom:6, fontWeight:600}}>Sifre</label>
               <div style={{position:"relative"}}>
                 <input
                   type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
@@ -219,7 +219,7 @@ export default function SignUpPage() {
               opacity:loading ? 0.7 : 1,
               fontFamily:"var(--font-body)", transition:"all 0.2s",
             }}>
-              {loading ? "Kaydediliyor..." : "Hesap Olustur â€” Ucretsiz"}
+              {loading ? "Kaydediliyor..." : "Hesap Olustur - Ucretsiz"}
             </button>
 
             <div style={{ textAlign:"center", marginTop:8 }}>
@@ -244,7 +244,7 @@ export default function SignUpPage() {
                   width:"100%",
                 }}
               >
-                Demo ile Hizli Giris â†’
+                Demo ile Hizli Giris 
               </button>
             </div>
           </form>
