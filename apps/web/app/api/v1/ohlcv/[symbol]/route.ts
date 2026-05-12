@@ -229,6 +229,11 @@ export async function GET(
       // COMMODITIES: Stooq
       try { candles = await stooqKlines(COMMODITY_STOOQ[symbol], tf); }
       catch (e: any) { errors.push(`stooq: ${e.message}`); }
+      // Yahoo Finance fallback for commodities when Stooq fails/empty
+      if (candles.length === 0) {
+        const ym: Record<string,string> = {XAUUSD:"GC=F",GOLD:"GC=F",XAGUSD:"SI=F",WTIUSD:"CL=F",BRENT:"BZ=F"};
+        const ys = ym[symbol]; if (ys) { try { candles = await yahooKlines(ys, tf); } catch(ey:any){errors.push("yahoo:"+ey.message);} }
+      }
     } else {
       // STOCKS / ETFs / INDICES: Yahoo → AV → Stooq
       try { candles = await yahooKlines(symbol, tf); }
