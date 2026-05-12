@@ -1,30 +1,37 @@
 ﻿/**
- * CMS Integration Layer - Directus API
+ * CMS Integration Layer - WordPress REST API (Headless)
+ * WordPress: http://aycmarket.com/wp-json/wp/v2/
  * Falls back to hardcoded defaults when CMS is unavailable
+ *
+ * WordPress'te icerikleri duzenlemek icin:
+ * - http://aycmarket.com/wp-admin adresine gir
+ * - Sayfalar bolumunden site ayarlarini duzenle
+ * - Yazilar bolumunden duyurulari yonet
  */
 
-const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL || '';
-const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN || '';
+const WP_URL = process.env.NEXT_PUBLIC_WP_URL || 'http://aycmarket.com';
+const WP_API = `${WP_URL}/wp-json/wp/v2`;
 
 interface CmsCache { [key: string]: { data: any; ts: number }; }
 const cache: CmsCache = {};
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 3 * 60 * 1000;
 
-async function directusFetch<T>(collection: string, params?: string): Promise<T | null> {
-  if (!DIRECTUS_URL) return null;
-  const cacheKey = `${collection}:${params || ''}`;
+async function wpFetch<T>(endpoint: string, fallback: T): Promise<T> {
+  if (!WP_URL) return fallback;
+  const cacheKey = endpoint;
   const cached = cache[cacheKey];
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data as T;
   try {
-    const url = `${DIRECTUS_URL}/items/${collection}${params ? '?' + params : ''}`;
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (DIRECTUS_TOKEN) headers['Authorization'] = `Bearer ${DIRECTUS_TOKEN}`;
-    const r = await fetch(url, { headers, next: { revalidate: 300 } });
-    if (!r.ok) return null;
-    const json = await r.json();
-    cache[cacheKey] = { data: json.data, ts: Date.now() };
-    return json.data as T;
-  } catch { return null; }
+    const url = endpoint.startsWith('http') ? endpoint : `${WP_API}/${endpoint}`;
+    const r = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 180 },
+    });
+    if (!r.ok) return fallback;
+    const data = await r.json();
+    cache[cacheKey] = { data, ts: Date.now() };
+    return data as T;
+  } catch { return fallback; }
 }
 
 export interface SiteSettings {
@@ -35,26 +42,73 @@ export interface NavigationItem {
   id: string; label: string; href: string; icon: string; order: number; visible: boolean;
 }
 export interface DashboardText { key: string; value: string; }
-export interface Announcement { id: string; title: string; body: string; type: 'info'|'warning'|'success'; active: boolean; }
+export interface Announcement {
+  id: string; title: string; body: string; type: 'info'|'warning'|'success'; active: boolean;
+}
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  const data = await directusFetch<SiteSettings>('site_settings', 'limit=1');
-  return data || DEFAULTS.siteSettings;
+  try {
+    const pages = await wpFetch<any[]>('pages?slug=site-ayarlari&_fields=content', []);
+    if (pages.length > 0 && pages[0].content?.rendered) {
+      const text = pages[0].content.rendered.replace(/<[^>]*>/g, '').trim();
+      const parsed = JSON.parse(text);
+      return { ...DEFAULTS.siteSettings, ...parsed };
+    }
+  } catch { /* fallback */ }
+  return DEFAULTS.siteSettings;
 }
+
 export async function getNavigation(): Promise<NavigationItem[]> {
-  const data = await directusFetch<NavigationItem[]>('navigation_items', 'sort=order&filter[visible][_eq]=true');
-  return data || DEFAULTS.navigation;
+  try {
+    const pages = await wpFetch<any[]>('pages?slug=navigasyon&_fields=content', []);
+    if (pages.length > 0 && pages[0].content?.rendered) {
+      const text = pages[0].content.rendered.replace(/<[^>]*>/g, '').trim();
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch { /* fallback */ }
+  return DEFAULTS.navigation;
 }
+
 export async function getDashboardTexts(): Promise<Record<string, string>> {
-  const data = await directusFetch<DashboardText[]>('dashboard_texts');
-  if (!data) return DEFAULTS.dashboardTexts;
-  const map: Record<string, string> = {};
-  for (const item of data) map[item.key] = item.value;
-  return { ...DEFAULTS.dashboardTexts, ...map };
+  try {
+    const pages = await wpFetch<any[]>('pages?slug=dashboard-metinleri&_fields=content', []);
+    if (pages.length > 0 && pages[0].content?.rendered) {
+      const text = pages[0].content.rendered.replace(/<[^>]*>/g, '').trim();
+      const parsed = JSON.parse(text);
+      return { ...DEFAULTS.dashboardTexts, ...parsed };
+    }
+  } catch { /* fallback */ }
+  return DEFAULTS.dashboardTexts;
 }
+
 export async function getAnnouncements(): Promise<Announcement[]> {
-  const data = await directusFetch<Announcement[]>('announcements', 'filter[active][_eq]=true');
-  return data || [];
+  try {
+    const posts = await wpFetch<any[]>(
+      'posts?per_page=5&_fields=id,title,content,status&orderby=date&order=desc',
+      []
+    );
+    if (posts.length > 0) {
+      return posts.map((p: any) => ({
+        id: String(p.id),
+        title: p.title?.rendered || '',
+        body: p.content?.rendered?.replace(/<[^>]*>/g, '').trim() || '',
+        type: 'info' as const,
+        active: p.status === 'publish',
+      }));
+    }
+  } catch { /* fallback */ }
+  return [];
+}
+
+export async function getCustomContent(key: string): Promise<string | null> {
+  try {
+    const pages = await wpFetch<any[]>(`pages?slug=${key}&_fields=content`, []);
+    if (pages.length > 0 && pages[0].content?.rendered) {
+      return pages[0].content.rendered;
+    }
+  } catch { /* fallback */ }
+  return null;
 }
 
 const DEFAULTS = {
