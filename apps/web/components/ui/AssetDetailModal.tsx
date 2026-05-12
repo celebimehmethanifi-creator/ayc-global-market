@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState, useCallback } from "react";
 import {
   X, TrendingUp, TrendingDown, Minus, Brain, Target, ShieldAlert,
@@ -441,7 +441,7 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
                       <Icon size={10} color={color}/><span style={{fontSize:"9px",color:"var(--t3)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</span>
                     </div>
                     <div style={{fontFamily:"var(--font-mono)",fontSize:"14px",fontWeight:800,color:v?color:"var(--t4)"}}>
-                      {v == null ? "—" : typeof v === "string" ? v : fmt(v as number, 2)}
+                      {(!v || v === 0) ? "—" : typeof v === "string" ? v : fmt(v as number, 2)}
                     </div>
                   </div>
                 ))}
