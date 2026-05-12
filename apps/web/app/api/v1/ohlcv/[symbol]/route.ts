@@ -248,6 +248,13 @@ export async function GET(
       }
     }
 
+
+    // Ultimate fallback: try Binance for unknown symbols (might be crypto)
+    if (candles.length === 0 && !symbol.includes(".") && !symbol.includes("=")) {
+      const tryBn = symbol.endsWith("USDT") ? symbol : symbol + "USDT";
+      try { candles = await binanceKlines(tryBn, tf); } catch(e:any) { errors.push("bn-fallback:"+e.message); }
+    }
+
     const clean = candles
       .filter(c => c.t > 0 && c.o > 0 && c.h > 0 && c.l > 0 && c.c > 0)
       .sort((a, b) => a.t - b.t);
