@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -24,7 +24,7 @@ export default function SignInPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    if (!email || !password) { setError("E-posta ve şifre gerekli"); setLoading(false); return; }
+    if (!email || !password) { setError("E-posta ve ÅŸifre gerekli"); setLoading(false); return; }
     try {
       const r = await api.post("/auth/login", { email, password });
       saveAuth(
@@ -38,9 +38,9 @@ export default function SignInPage() {
       router.push("/dashboard");
     } catch (err: any) {
       if (!err?.response) {
-        setError("Bağlantı hatası — internet bağlantınızı kontrol edin.");
+        setError("BaÄŸlantÄ± hatasÄ± â€” internet baÄŸlantÄ±nÄ±zÄ± kontrol edin.");
       } else {
-        setError(err.response?.data?.detail || "Giriş başarısız — e-posta ve şifrenizi kontrol edin.");
+        setError(err.response?.data?.detail || "GiriÅŸ baÅŸarÄ±sÄ±z â€” e-posta ve ÅŸifrenizi kontrol edin.");
       }
     }
     setLoading(false);
@@ -65,7 +65,7 @@ export default function SignInPage() {
             <span style={{color:"#0C0E16", fontWeight:900, fontSize:24, fontFamily:"var(--font-head)"}}>A</span>
           </div>
           <div style={{fontSize:22, fontWeight:800, color:"var(--t1)", fontFamily:"var(--font-head)"}}>AYC Global Market</div>
-          <div style={{fontSize:13, color:"var(--t3)", marginTop:4}}>Hesabınıza giriş yapın</div>
+          <div style={{fontSize:13, color:"var(--t3)", marginTop:4}}>HesabÄ±nÄ±za giriÅŸ yapÄ±n</div>
         </div>
 
         {/* Demo Banner */}
@@ -76,10 +76,10 @@ export default function SignInPage() {
         }}>
           <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:10}}>
             <Wallet size={16} color="var(--gold)" />
-            <span style={{fontSize:13, fontWeight:700, color:"var(--gold)"}}>$10.000 Demo Hesabı — Hemen Dene</span>
+            <span style={{fontSize:13, fontWeight:700, color:"var(--gold)"}}>$10.000 Demo HesabÄ± â€” Hemen Dene</span>
           </div>
           <p style={{fontSize:12, color:"var(--t3)", margin:0, marginBottom:10, lineHeight:1.5}}>
-            Giriş yapmadan, para yatırmadan tüm özellikleri keşfet.
+            GiriÅŸ yapmadan, para yatÄ±rmadan tÃ¼m Ã¶zellikleri keÅŸfet.
           </p>
           <button onClick={handleGuestDemo} style={{
             width:"100%", padding:"10px",
@@ -90,7 +90,7 @@ export default function SignInPage() {
             display:"flex", alignItems:"center", justifyContent:"center", gap:6,
             boxShadow:"0 4px 16px rgba(212,175,55,0.25)",
           }}>
-            <Zap size={14} /> Demo Hesabıyla Devam Et
+            <Zap size={14} /> Demo HesabÄ±yla Devam Et
             <ChevronRight size={13} />
           </button>
         </div>
@@ -98,7 +98,7 @@ export default function SignInPage() {
         {/* Divider */}
         <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:20}}>
           <div style={{flex:1, height:1, background:"var(--b1)"}} />
-          <span style={{fontSize:11, color:"var(--t4)"}}>gerçek hesapla giriş yap</span>
+          <span style={{fontSize:11, color:"var(--t4)"}}>gerÃ§ek hesapla giriÅŸ yap</span>
           <div style={{flex:1, height:1, background:"var(--b1)"}} />
         </div>
 
@@ -124,13 +124,13 @@ export default function SignInPage() {
             </div>
             <div>
               <div style={{display:"flex", justifyContent:"space-between", marginBottom:6}}>
-                <label style={{fontSize:12, color:"var(--t2)", fontWeight:600}}>Şifre</label>
-                <span style={{fontSize:11, color:"var(--gold)", cursor:"pointer"}}>Şifremi unuttum</span>
+                <label style={{fontSize:12, color:"var(--t2)", fontWeight:600}}>Åifre</label>
+                <span style={{fontSize:11, color:"var(--gold)", cursor:"pointer"}}>Åifremi unuttum</span>
               </div>
               <div style={{position:"relative"}}>
                 <input
                   type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="Şifrenizi girin" autoComplete="current-password"
+                  placeholder="Åifrenizi girin" autoComplete="current-password"
                   style={{
                     width:"100%", background:"var(--bg)", border:"1px solid var(--b1)",
                     borderRadius:"var(--r-sm)", padding:"10px 40px 10px 14px", fontSize:13, color:"var(--t1)",
@@ -164,7 +164,7 @@ export default function SignInPage() {
               opacity:loading ? 0.7 : 1,
               fontFamily:"var(--font-body)", transition:"all 0.2s",
             }}>
-              {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+              {loading ? "GiriÅŸ yapÄ±lÄ±yor..." : "GiriÅŸ Yap"}
             </button>
 
             <div style={{ textAlign:"center", marginTop:8 }}>
@@ -189,15 +189,15 @@ export default function SignInPage() {
                   width:"100%",
                 }}
               >
-                Demo ile Hızlı Giriş →
+                Demo ile HÄ±zlÄ± GiriÅŸ â†’
               </button>
             </div>
           </form>
 
           <div style={{textAlign:"center", marginTop:16, fontSize:12, color:"var(--t3)"}}>
-            Hesabın yok mu?{" "}
+            HesabÄ±n yok mu?{" "}
             <Link href="/signup" style={{color:"var(--gold)", textDecoration:"none", fontWeight:600}}>
-              Ücretsiz Kayıt Ol
+              Ãœcretsiz KayÄ±t Ol
             </Link>
           </div>
         </div>
@@ -205,3 +205,4 @@ export default function SignInPage() {
     </div>
   );
 }
+

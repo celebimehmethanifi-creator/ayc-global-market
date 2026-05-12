@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -16,25 +16,25 @@ export default function SignUpPage() {
   const [error, setError]       = useState("");
   const router = useRouter();
 
-  /* ── Guest demo (no registration) ────────────────────────── */
+  /* â”€â”€ Guest demo (no registration) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   function handleGuestDemo() {
     startGuestDemo();
     localStorage.setItem("ayc_show_welcome", "1");
     router.push("/dashboard?welcome=1");
   }
 
-  /* ── Registration ─────────────────────────────────────────── */
+  /* â”€â”€ Registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     if (!email || !password || !name) {
-      setError("Tüm alanlar gerekli");
+      setError("TÃ¼m alanlar gerekli");
       setLoading(false);
       return;
     }
     if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalı");
+      setError("Åifre en az 6 karakter olmalÄ±");
       setLoading(false);
       return;
     }
@@ -52,9 +52,9 @@ export default function SignUpPage() {
       router.push("/dashboard?welcome=1");
     } catch (err: any) {
       if (!err?.response) {
-        setError("Bağlantı hatası — internet bağlantınızı kontrol edin.");
+        setError("BaÄŸlantÄ± hatasÄ± â€” internet baÄŸlantÄ±nÄ±zÄ± kontrol edin.");
       } else {
-        setError(err.response?.data?.detail || `Kayıt başarısız (${err.response?.status || "hata"}), tekrar deneyin.`);
+        setError(err.response?.data?.detail || `KayÄ±t baÅŸarÄ±sÄ±z (${err.response?.status || "hata"}), tekrar deneyin.`);
       }
     }
     setLoading(false);
@@ -68,7 +68,7 @@ export default function SignUpPage() {
     }}>
       <div style={{width:"100%", maxWidth:440}}>
 
-        {/* ── Logo ─────────────────────────────────────────── */}
+        {/* â”€â”€ Logo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{textAlign:"center", marginBottom:28}}>
           <div style={{
             display:"inline-flex", alignItems:"center", justifyContent:"center",
@@ -79,10 +79,10 @@ export default function SignUpPage() {
             <span style={{color:"#0C0E16", fontWeight:900, fontSize:24, fontFamily:"var(--font-head)"}}>A</span>
           </div>
           <div style={{fontSize:22, fontWeight:800, color:"var(--t1)", fontFamily:"var(--font-head)"}}>AYC Global Market</div>
-          <div style={{fontSize:13, color:"var(--t3)", marginTop:4}}>Ücretsiz hesabınızı oluşturun</div>
+          <div style={{fontSize:13, color:"var(--t3)", marginTop:4}}>Ãœcretsiz hesabÄ±nÄ±zÄ± oluÅŸturun</div>
         </div>
 
-        {/* ── Demo CTA Banner ──────────────────────────────── */}
+        {/* â”€â”€ Demo CTA Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{
           background:"linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))",
           border:"1px solid var(--gold-border)", borderRadius:"var(--r-xl)",
@@ -98,18 +98,18 @@ export default function SignUpPage() {
             </div>
             <div>
               <div style={{fontSize:14, fontWeight:800, color:"var(--gold)", marginBottom:4}}>
-                $10.000 Sanal Bakiye — Tamamen Ücretsiz
+                $10.000 Sanal Bakiye â€” Tamamen Ãœcretsiz
               </div>
               <div style={{fontSize:12, color:"var(--t3)", lineHeight:1.5}}>
-                Para yatırmadan piyasaları dene. Gerçek fiyatlarla işlem simülasyonu yap.
+                Para yatÄ±rmadan piyasalarÄ± dene. GerÃ§ek fiyatlarla iÅŸlem simÃ¼lasyonu yap.
               </div>
             </div>
           </div>
           {[
-            "Kayıt olmadan anında başla",
-            "Tüm piyasalara canlı fiyatlarla erişim",
+            "KayÄ±t olmadan anÄ±nda baÅŸla",
+            "TÃ¼m piyasalara canlÄ± fiyatlarla eriÅŸim",
             "AI sinyal ve risk analizi",
-            "Portföy simülasyonu",
+            "PortfÃ¶y simÃ¼lasyonu",
           ].map((t,i) => (
             <div key={i} style={{display:"flex", alignItems:"center", gap:8}}>
               <CheckCircle2 size={13} color="var(--up)" />
@@ -128,35 +128,35 @@ export default function SignUpPage() {
               boxShadow:"0 4px 20px rgba(212,175,55,0.3)",
             }}
           >
-            <Zap size={15} /> Hemen Demo Başlat
+            <Zap size={15} /> Hemen Demo BaÅŸlat
             <ChevronRight size={15} />
           </button>
           <div style={{textAlign:"center", fontSize:11, color:"var(--t4)"}}>
-            Kredi kartı yok · Yükleme yok · Anında erişim
+            Kredi kartÄ± yok Â· YÃ¼kleme yok Â· AnÄ±nda eriÅŸim
           </div>
         </div>
 
-        {/* ── Divider ──────────────────────────────────────── */}
+        {/* â”€â”€ Divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:20}}>
           <div style={{flex:1, height:1, background:"var(--b1)"}} />
-          <span style={{fontSize:11, color:"var(--t4)", whiteSpace:"nowrap"}}>veya kalıcı hesap oluştur</span>
+          <span style={{fontSize:11, color:"var(--t4)", whiteSpace:"nowrap"}}>veya kalÄ±cÄ± hesap oluÅŸtur</span>
           <div style={{flex:1, height:1, background:"var(--b1)"}} />
         </div>
 
-        {/* ── Register Form ─────────────────────────────────── */}
+        {/* â”€â”€ Register Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{
           background:"var(--bg-card)", border:"1px solid var(--b1)",
           borderRadius:"var(--r-xl)", padding:"24px 28px",
         }}>
           <div style={{fontSize:15, fontWeight:700, color:"var(--t1)", marginBottom:20, fontFamily:"var(--font-head)"}}>
-            Kalıcı Hesap Oluştur
+            KalÄ±cÄ± Hesap OluÅŸtur
           </div>
           <form onSubmit={handleSubmit} style={{display:"flex", flexDirection:"column", gap:14}}>
             <div>
               <label style={{fontSize:12, color:"var(--t2)", display:"block", marginBottom:6, fontWeight:600}}>Ad Soyad</label>
               <input
                 type="text" value={name} onChange={e => setName(e.target.value)}
-                placeholder="Adınız Soyadınız" autoComplete="name"
+                placeholder="AdÄ±nÄ±z SoyadÄ±nÄ±z" autoComplete="name"
                 style={{
                   width:"100%", background:"var(--bg)", border:"1px solid var(--b1)",
                   borderRadius:"var(--r-sm)", padding:"10px 14px", fontSize:13, color:"var(--t1)",
@@ -181,7 +181,7 @@ export default function SignUpPage() {
               />
             </div>
             <div>
-              <label style={{fontSize:12, color:"var(--t2)", display:"block", marginBottom:6, fontWeight:600}}>Şifre</label>
+              <label style={{fontSize:12, color:"var(--t2)", display:"block", marginBottom:6, fontWeight:600}}>Åifre</label>
               <div style={{position:"relative"}}>
                 <input
                   type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
@@ -219,7 +219,7 @@ export default function SignUpPage() {
               opacity:loading ? 0.7 : 1,
               fontFamily:"var(--font-body)", transition:"all 0.2s",
             }}>
-              {loading ? "Kaydediliyor..." : "Hesap Oluştur — Ücretsiz"}
+              {loading ? "Kaydediliyor..." : "Hesap OluÅŸtur â€” Ãœcretsiz"}
             </button>
 
             <div style={{ textAlign:"center", marginTop:8 }}>
@@ -244,23 +244,24 @@ export default function SignUpPage() {
                   width:"100%",
                 }}
               >
-                Demo ile Hızlı Giriş →
+                Demo ile HÄ±zlÄ± GiriÅŸ â†’
               </button>
             </div>
           </form>
 
           <div style={{textAlign:"center", marginTop:16, fontSize:12, color:"var(--t3)"}}>
-            Zaten hesabın var mı?{" "}
+            Zaten hesabÄ±n var mÄ±?{" "}
             <Link href="/signin" style={{color:"var(--gold)", textDecoration:"none", fontWeight:600}}>
-              Giriş Yap
+              GiriÅŸ Yap
             </Link>
           </div>
         </div>
 
         <p style={{textAlign:"center", fontSize:11, color:"var(--t4)", marginTop:14, lineHeight:1.5}}>
-          Bu platform yatırım tavsiyesi vermez. Demo hesabı eğitim amaçlıdır.
+          Bu platform yatÄ±rÄ±m tavsiyesi vermez. Demo hesabÄ± eÄŸitim amaÃ§lÄ±dÄ±r.
         </p>
       </div>
     </div>
   );
 }
+
