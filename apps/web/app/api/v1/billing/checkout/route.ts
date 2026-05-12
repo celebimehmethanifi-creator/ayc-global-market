@@ -13,7 +13,7 @@ const PLANS: Record<string, { name: string; price_usd: number; price_try: number
   elite: {
     name: "Elite",
     price_usd: 24.99,
-    price_try: 749,
+    price_try: 799,
     ls_variant: process.env.LEMON_ELITE_VARIANT_ID,
   },
 };

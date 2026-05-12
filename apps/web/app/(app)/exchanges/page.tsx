@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle, ExternalLink, Shield, Unlink } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n";
 
 type BrokerId = "binance" | "bybit" | "okx";
 
@@ -55,6 +56,7 @@ const STORAGE_KEY = "ayc_broker_connections_secure_v1";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 export default function ExchangesPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [connections, setConnections] = useState<Record<string, StoredConnection>>({});
   const [activeBroker, setActiveBroker] = useState<BrokerId | null>(null);
@@ -87,7 +89,7 @@ export default function ExchangesPage() {
     if (IS_PRODUCTION) {
       setMessage({
         type: "err",
-        text: "Gercek borsa baglantisi guvenlik sertlestirmesi tamamlanana kadar kapalidir.",
+        text: t("exchange.productionDisabled"),
       });
       return;
     }
@@ -109,7 +111,7 @@ export default function ExchangesPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setMessage({ type: "err", text: data.error || "Baglanti kurulamadi." });
+        setMessage({ type: "err", text: data.error || "Bağlantı kurulamadı." });
         return;
       }
       const next: Record<string, StoredConnection> = {
@@ -126,9 +128,9 @@ export default function ExchangesPage() {
       saveConnections(next);
       setActiveBroker(null);
       setForm({ apiKey: "", secret: "", passphrase: "" });
-      setMessage({ type: "ok", text: `${brokerId.toUpperCase()} baglantisi dogrulandi.` });
+      setMessage({ type: "ok", text: `${brokerId.toUpperCase()} bağlantısı doğrulandı.` });
     } catch {
-      setMessage({ type: "err", text: "Sunucuya ulasilamadi." });
+      setMessage({ type: "err", text: "Sunucuya ulaşılamadı." });
     } finally {
       setLoading(null);
     }
@@ -138,7 +140,7 @@ export default function ExchangesPage() {
     const next = { ...connections };
     delete next[brokerId];
     saveConnections(next);
-    setMessage({ type: "ok", text: `${brokerId.toUpperCase()} baglantisi kaldirildi.` });
+    setMessage({ type: "ok", text: `${brokerId.toUpperCase()} bağlantısı kaldırıldı.` });
   }
 
   return (
@@ -163,10 +165,10 @@ export default function ExchangesPage() {
         <ArrowLeft size={13} /> Geri
       </button>
 
-      <h1 style={{ margin: 0, fontSize: 24, color: "var(--t1)" }}>Borsa Baglantilari</h1>
+      <h1 style={{ margin: 0, fontSize: 24, color: "var(--t1)" }}>Borsa Bağlantıları</h1>
       <p style={{ marginTop: 8, color: "var(--t3)", fontSize: 13 }}>
-        API credential verisi backend tarafinda sifreli olarak tutulur. Client tarafinda
-        sadece baglanti metadatasi saklanir.
+        API credential verisi backend tarafında şifreli olarak tutulur. Client tarafında
+        sadece bağlantı metadatası saklanır.
       </p>
 
       {IS_PRODUCTION && (
@@ -182,8 +184,7 @@ export default function ExchangesPage() {
             lineHeight: 1.5,
           }}
         >
-          Gercek borsa baglantisi guvenlik sertlestirmesi tamamlanana kadar kapalıdır.
-          Paper trading/demo kullanılabilir.
+          {t("exchange.productionDisabled")}
         </div>
       )}
 
@@ -200,7 +201,7 @@ export default function ExchangesPage() {
             fontSize: 12,
           }}
         >
-          {connectedCount} borsa bagli.
+          {connectedCount} borsa bağlı.
         </div>
       )}
 
@@ -259,8 +260,8 @@ export default function ExchangesPage() {
                     </div>
                     <div style={{ fontSize: 11, color: "var(--t4)", marginTop: 2 }}>
                       {conn?.connected
-                        ? `Bagli - ${conn.currency || "USDT"} ${Number(conn.balance || 0).toFixed(2)}`
-                        : "Henuz bagli degil"}
+                        ? `Bağlı - ${conn.currency || "USDT"} ${Number(conn.balance || 0).toFixed(2)}`
+                        : "Henüz bağlı değil"}
                     </div>
                   </div>
                 </div>
@@ -281,7 +282,7 @@ export default function ExchangesPage() {
                       fontSize: 11,
                     }}
                   >
-                    <ExternalLink size={10} /> Belge
+                    <ExternalLink size={10} /> Doküman
                   </a>
                   {conn ? (
                     <button
@@ -322,7 +323,7 @@ export default function ExchangesPage() {
                         cursor: IS_PRODUCTION ? "not-allowed" : "pointer",
                       }}
                     >
-                      {IS_PRODUCTION ? "Productionda Kapali" : isOpen ? "Kapat" : "Bagla"}
+                      {IS_PRODUCTION ? "Production'da Kapalı" : isOpen ? "Kapat" : "Bağla"}
                     </button>
                   )}
                 </div>
@@ -348,7 +349,7 @@ export default function ExchangesPage() {
                     />
                     <input
                       type="password"
-                      placeholder="Secret Key"
+                        placeholder="Secret Key"
                       value={form.secret}
                       onChange={(e) => setForm((prev) => ({ ...prev, secret: e.target.value }))}
                       style={{
@@ -394,7 +395,7 @@ export default function ExchangesPage() {
                         opacity: loading === broker.id ? 0.6 : 1,
                       }}
                     >
-                      {loading === broker.id ? "Dogrulaniyor..." : "Baglantiyi Dogrula"}
+                      {loading === broker.id ? "Doğrulanıyor..." : "Bağlantıyı Doğrula"}
                     </button>
                   </div>
                 </div>
@@ -418,9 +419,9 @@ export default function ExchangesPage() {
       >
         <Shield size={16} color="var(--t3)" style={{ flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 11, color: "var(--t4)", lineHeight: 1.6 }}>
-          Production ortaminda istemciden dogrudan credential onboarding kapali olacak
-          sekilde guard aktif. Gercek trade akisina gecmeden once 2FA, idempotency,
-          audit log ve risk onayi zorunlu tutulur.
+          Production ortamında istemciden doğrudan credential onboarding kapalı olacak
+          şekilde guard aktif. Gerçek trade akışına geçmeden önce 2FA, idempotency,
+          audit log ve risk onayı zorunlu tutulur.
         </div>
       </div>
     </div>

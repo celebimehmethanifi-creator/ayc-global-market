@@ -1,7 +1,7 @@
 ﻿/** @type {import('next').NextConfig} */
 
 // AYC Global Market â€” Platform Config
-// Â© 2026 AYC Grup. TÃ¼m haklarÄ± saklÄ±dÄ±r.
+// © 2026 AYC Grup. Tüm hakları saklıdır.
 
 const ContentSecurityPolicy = `
   default-src 'self';

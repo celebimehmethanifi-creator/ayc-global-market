@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -31,6 +31,54 @@ const MOCK_STATS: PerfStats = {
   ],
 };
 
+function toNum(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeSignalRecord(raw: Partial<SignalRecord>, index: number): SignalRecord {
+  return {
+    id: String(raw.id || `record_${index}`),
+    symbol: String(raw.symbol || "N/A"),
+    stage: String(raw.stage || "WATCH"),
+    direction: String(raw.direction || "LONG"),
+    entry_price: toNum(raw.entry_price),
+    target_price: toNum(raw.target_price),
+    stop_price: toNum(raw.stop_price),
+    confidence: toNum(raw.confidence),
+    created_at: String(raw.created_at || new Date().toISOString()),
+    outcome: String(raw.outcome || "PENDING"),
+    exit_price: toNum(raw.exit_price),
+    pnl_pct: toNum(raw.pnl_pct),
+    closed_at: String(raw.closed_at || raw.created_at || new Date().toISOString()),
+  };
+}
+
+function normalizePerformanceStats(input: unknown): PerfStats {
+  if (!input || typeof input !== "object") return MOCK_STATS;
+  const source = input as Partial<PerfStats> & { records?: unknown[] };
+  const recordsSource = Array.isArray(source.records) ? source.records : [];
+  const records = recordsSource.map((record, index) =>
+    normalizeSignalRecord((record || {}) as Partial<SignalRecord>, index),
+  );
+
+  return {
+    total: toNum(source.total, records.length),
+    closed: toNum(source.closed),
+    pending: toNum(source.pending),
+    hits: toNum(source.hits),
+    stops: toNum(source.stops),
+    hit_rate: toNum(source.hit_rate),
+    avg_pnl: toNum(source.avg_pnl),
+    avg_win: toNum(source.avg_win),
+    avg_loss: toNum(source.avg_loss),
+    best_trade: toNum(source.best_trade),
+    worst_trade: toNum(source.worst_trade),
+    expectancy: toNum(source.expectancy),
+    records: records.length > 0 ? records : MOCK_STATS.records,
+  };
+}
+
 function MetricCard({icon:Icon,label,value,sub,color="var(--t1)"}:{icon:any;label:string;value:string|number;sub?:string;color?:string}) {
   return (
     <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:"16px 18px"}}>
@@ -60,8 +108,16 @@ export default function PerformancePage() {
     staleTime:30000,
   });
 
-  const stats: PerfStats = data || MOCK_STATS;
+  const stats = normalizePerformanceStats(data);
   const filtered = filter==="all" ? stats.records : stats.records.filter(r=>r.outcome===filter);
+
+  if (isLoading && !data) {
+    return (
+      <div style={{padding:24,color:"var(--t3)",fontSize:13}}>
+        Performans verileri yükleniyor...
+      </div>
+    );
+  }
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>

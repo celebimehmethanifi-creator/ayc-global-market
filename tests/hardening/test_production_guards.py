@@ -28,8 +28,15 @@ WEB_EXCHANGE_TEST = ROOT / "apps" / "web" / "app" / "api" / "v1" / "exchange" / 
 WEB_BROKERS_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "brokers" / "page.tsx"
 WEB_EXCHANGES_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "exchanges" / "page.tsx"
 WEB_HEALTH_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "health" / "route.ts"
+WEB_HEALTH_PROVIDERS = ROOT / "apps" / "web" / "app" / "api" / "v1" / "health" / "providers" / "route.ts"
+WEB_OHLCV_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "ohlcv" / "[symbol]" / "route.ts"
+WEB_PROFILE_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "profile" / "page.tsx"
+WEB_MARKET_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "market" / "page.tsx"
+WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
+WEB_ASSET_UNIVERSE = ROOT / "apps" / "web" / "lib" / "markets" / "asset-universe.ts"
 WEB_VERCEL_SETUP = ROOT / "apps" / "web" / "VERCEL_ENV_SETUP.txt"
 ENV_EXAMPLE = ROOT / ".env.example"
+PNPM_WORKSPACE = ROOT / "pnpm-workspace.yaml"
 AI_SERVICE_MAIN = ROOT / "services" / "ai-service" / "main.py"
 DATA_SERVICE_MAIN = ROOT / "services" / "data-service" / "main.py"
 SIGNAL_SERVICE_MAIN = ROOT / "services" / "signal-service" / "main.py"
@@ -174,9 +181,9 @@ def test_exchange_connect_ui_is_disabled_in_production():
     exchange_test_text = read_text(WEB_EXCHANGE_TEST)
 
     assert "const IS_PRODUCTION = process.env.NODE_ENV === \"production\";" in brokers_text
-    assert "Productionda Kapali" in brokers_text
+    assert ("Productionda Kapali" in brokers_text) or ("Production'da Kapalı" in brokers_text)
     assert "const IS_PRODUCTION = process.env.NODE_ENV === \"production\";" in exchanges_text
-    assert "Productionda Kapali" in exchanges_text
+    assert ("Productionda Kapali" in exchanges_text) or ("Production'da Kapalı" in exchanges_text)
     assert "Production ortaminda istemciden dogrudan API secret onboarding kapali." in exchange_test_text
 
 
@@ -236,3 +243,90 @@ def test_web_smoke_pages_exist_for_signup_login_dashboard():
     assert (ROOT / "apps" / "web" / "app" / "(auth)" / "signup" / "page.tsx").exists()
     assert (ROOT / "apps" / "web" / "app" / "(auth)" / "signin" / "page.tsx").exists()
     assert (ROOT / "apps" / "web" / "app" / "(app)" / "dashboard" / "page.tsx").exists()
+
+
+def test_asset_universe_contains_required_symbols_and_multilingual_aliases():
+    text = read_text(WEB_ASSET_UNIVERSE)
+    for required in [
+        "BTCUSDT",
+        "ETHUSDT",
+        "AAPL",
+        "THYAO.IS",
+        "XAUUSD",
+        "USDTRY",
+        "SPX",
+        "XU100",
+    ]:
+        assert required in text
+    assert "Türk Hava Yolları" in text
+    assert "Turkish Airlines" in text
+    assert '"gold"' in text.lower()
+    assert '"altin"' in text.lower()
+    assert '"dolar tl"' in text.lower()
+    assert "normalizeSearchText" in text
+    assert "searchAssets" in text
+
+
+def test_asset_universe_precision_rules_are_defined_for_micro_and_fx_assets():
+    text = read_text(WEB_ASSET_UNIVERSE)
+    assert 'symbol: "PEPEUSDT"' in text and "precision: 8" in text
+    assert 'symbol: "USDTRY"' in text and "precision: 4" in text
+    assert 'symbol: "XAUUSD"' in text and "precision: 2" in text
+
+
+def test_market_and_command_use_central_asset_universe():
+    market_text = read_text(WEB_MARKET_PAGE)
+    command_text = read_text(WEB_COMMAND_PALETTE)
+    assert "ASSET_UNIVERSE" in market_text
+    assert "normalizeSearchText" in market_text
+    assert "searchAssets" in command_text
+    assert "getCategoryLabel" in command_text
+
+
+def test_ohlcv_route_returns_no_data_contract_when_sources_fail():
+    text = read_text(WEB_OHLCV_ROUTE)
+    assert 'reason: "NO_DATA"' in text
+    assert "providerAttempts" in text
+    assert "ok: false" in text
+
+
+def test_provider_health_endpoint_exists_and_lists_required_runtime_keys():
+    text = read_text(WEB_HEALTH_PROVIDERS)
+    assert "COINGECKO_API_KEY" in text
+    assert "FINNHUB_API_KEY" in text
+    assert "TWELVEDATA_API_KEY" in text
+    assert "ALPHAVANTAGE_API_KEY" in text
+    assert "JWT_SECRET" in text
+    assert "SECRET_KEY" in text
+    assert "EXCHANGE_CREDENTIALS_KEY" in text
+    assert "CORS_ORIGINS" in text
+    assert "missingRequired" in text
+
+
+def test_pnpm_workspace_does_not_use_invalid_allow_builds_placeholder():
+    text = read_text(PNPM_WORKSPACE)
+    assert "allowBuilds" not in text
+    assert "onlyBuiltDependencies" in text
+
+
+def test_profile_page_updates_language_and_fixes_mojibake_strings():
+    text = read_text(WEB_PROFILE_PAGE)
+    assert "setLocale" in text
+    assert "profile.displayNamePlaceholder" in text
+    assert "profile.save" in text
+    assert "Ç?k??" not in text
+    assert "Kişisel Bilgiler" not in text or "profile.personal" in text
+    assert "Dü?ük" not in text
+    assert "odakl?" not in text
+
+
+def test_mojibake_patterns_absent_in_user_facing_web_ui():
+    roots = [ROOT / "apps" / "web" / "app", ROOT / "apps" / "web" / "components", ROOT / "apps" / "web" / "lib"]
+    bad_tokens = ["Ã", "Â", "ý", "þ", "ð", "Ð", "Ý", "Þ", "\ufffd"]
+    offenders: list[str] = []
+    for base in roots:
+        for path in base.rglob("*.ts*"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if any(token in text for token in bad_tokens):
+                offenders.append(str(path))
+    assert offenders == []

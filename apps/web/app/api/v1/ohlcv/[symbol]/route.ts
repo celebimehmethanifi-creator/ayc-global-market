@@ -209,6 +209,16 @@ export async function GET(
   const symbol = decodeURIComponent(params.symbol).toUpperCase().trim();
   const tf = req.nextUrl.searchParams.get('tf') || '1D';
   const errors: string[] = [];
+  const toProviderAttempts = () =>
+    errors.map((entry) => {
+      const idx = entry.indexOf(":");
+      if (idx < 0) return { provider: "unknown", status: "error", detail: entry };
+      return {
+        provider: entry.slice(0, idx).trim(),
+        status: "error",
+        detail: entry.slice(idx + 1).trim(),
+      };
+    });
 
   try {
     let candles: Candle[] = [];
@@ -263,13 +273,46 @@ export async function GET(
       .filter(c => c.t > 0 && c.o > 0 && c.h > 0 && c.l > 0 && c.c > 0)
       .sort((a, b) => a.t - b.t);
 
+    const providerAttempts = toProviderAttempts();
+
+    if (clean.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "NO_DATA",
+          symbol,
+          tf,
+          candles: [],
+          count: 0,
+          providerAttempts,
+        },
+        { status: 200, headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=30' } }
+      );
+    }
+
     return NextResponse.json(
-      { symbol, tf, candles: clean, count: clean.length, errors: errors.length > 0 ? errors : undefined },
+      {
+        ok: true,
+        symbol,
+        tf,
+        candles: clean,
+        count: clean.length,
+        providerAttempts,
+      },
       { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' } }
     );
   } catch (e: any) {
     return NextResponse.json(
-      { symbol, tf, candles: [], count: 0, error: e.message, errors },
+      {
+        ok: false,
+        reason: "NO_DATA",
+        symbol,
+        tf,
+        candles: [],
+        count: 0,
+        error: e.message,
+        providerAttempts: toProviderAttempts(),
+      },
       { status: 200 }
     );
   }
