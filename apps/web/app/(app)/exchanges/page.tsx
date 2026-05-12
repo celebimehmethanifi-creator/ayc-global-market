@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { getUser } from "@/lib/auth";
-import { Zap, Shield, Globe, TrendingUp, CheckCircle, AlertCircle, Link, Unlink, ExternalLink, Info } from "lucide-react";
+import { Zap, Shield, Globe, TrendingUp, CheckCircle, AlertCircle, Link, Unlink, ExternalLink, Info, ArrowLeft, X } from "lucide-react";
 
 const BROKERS = [
   // Crypto CEX - Tier 1
@@ -109,6 +110,7 @@ export default function ExchangesPage() {
   const [loading, setLoading] = useState<string|null>(null);
   const [message, setMessage] = useState<{type:"ok"|"err";text:string}|null>(null);
   const user = getUser();
+  const router = useRouter();
 
   useEffect(() => {
     const stored = localStorage.getItem("ayc_broker_connections");
@@ -167,6 +169,17 @@ export default function ExchangesPage() {
     <div style={{ padding:"24px", maxWidth:1100, margin:"0 auto" }}>
       {/* Header */}
       <div style={{ marginBottom:28 }}>
+        <button onClick={() => router.back()} style={{
+          display:"flex", alignItems:"center", gap:6, marginBottom:14,
+          background:"var(--bg-card)", border:"1px solid var(--b1)",
+          borderRadius:"var(--r-md)", padding:"6px 14px", cursor:"pointer",
+          color:"var(--t3)", fontSize:12, fontWeight:600,
+          transition:"all 0.15s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color="var(--t1)")}
+        onMouseLeave={e => (e.currentTarget.style.color="var(--t3)")}>
+          <ArrowLeft size={13}/> Geri
+        </button>
         <h1 style={{ fontSize:22, fontWeight:800, color:"var(--t1)", margin:0 }}>Borsa Bağlantıları</h1>
         <p style={{ fontSize:13, color:"var(--t3)", marginTop:6 }}>
           Hesabınızı borsalara bağlayın. AI analizleri gerçek portföyünüz üzerinden yapılır ve emir gönderilebilir.
@@ -289,7 +302,17 @@ export default function ExchangesPage() {
                   {/* Connection form */}
                   {isOpen && !isConnected && (
                     <div style={{ padding:"0 16px 16px", borderTop:"1px solid var(--b1)" }}>
-                      <div style={{ paddingTop:12, display:"flex", flexDirection:"column", gap:8 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:12, marginBottom:8 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:"var(--t3)", textTransform:"uppercase", letterSpacing:"0.06em" }}>API Bilgileri</span>
+                        <button onClick={() => { setOpenForm(null); setFormData({}); }} style={{
+                          background:"var(--bg-hover)", border:"1px solid var(--b1)",
+                          borderRadius:"50%", width:22, height:22, cursor:"pointer",
+                          display:"flex", alignItems:"center", justifyContent:"center", color:"var(--t3)",
+                        }}>
+                          <X size={11}/>
+                        </button>
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                         {broker.fields.map(field => (
                           <div key={field.key}>
                             <label style={{ fontSize:11, color:"var(--t3)", display:"block", marginBottom:4 }}>{field.label}</label>
