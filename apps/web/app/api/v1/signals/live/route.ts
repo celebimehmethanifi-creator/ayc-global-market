@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-const CG_KEY = process.env.COINGECKO_API_KEY || "CG-MoxLLAjSA3r2JHXanw9fotD5";
+const CG_KEY = process.env.COINGECKO_API_KEY || "";
 
 interface PriceData { price: number; chg: number; }
 
@@ -17,9 +17,11 @@ async function safeFetch(url: string, options: RequestInit = {}): Promise<Respon
 // CoinGecko batch - confirmed working from Vercel
 async function fetchCoinGeckoBatch(ids: string[]): Promise<Record<string, PriceData>> {
   try {
+    const headers: Record<string, string> = { "Accept": "application/json" };
+    if (CG_KEY) headers["x-cg-demo-api-key"] = CG_KEY;
     const r = await safeFetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=usd&include_24hr_change=true`,
-      { headers: { "Accept": "application/json", "x-cg-demo-api-key": CG_KEY } }
+      { headers }
     );
     if (!r || !r.ok) return {};
     const data = await r.json();

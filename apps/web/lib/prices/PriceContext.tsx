@@ -15,8 +15,8 @@ export type PriceMap = Record<string, PriceEntry>;
 
 const PriceContext = createContext<PriceMap>({});
 
-/* Public keys (market data reads only) */
-const FH_KEY  = process.env.NEXT_PUBLIC_FINNHUB_KEY || "d7pp429r01qosaapdudgd7pp429r01qosaapdue0";
+/* Optional public market-data key */
+const FH_KEY = process.env.NEXT_PUBLIC_FINNHUB_KEY || "";
 
 /* Binance WS pairs (crypto) */
 const BINANCE_PAIRS = [
@@ -94,6 +94,7 @@ export function PriceProvider({ children }: { children: React.ReactNode }) {
   /* ── 2. Finnhub stock polling (every 15s) ───────────────────── */
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!FH_KEY) return;
     let cancelled = false;
 
     const fetchStocks = async () => {

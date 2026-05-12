@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const CG_KEY = process.env.COINGECKO_API_KEY || 'CG-MoxLLAjSA3r2JHXanw9fotD5';
-const TD_KEY = process.env.TWELVEDATA_API_KEY || 'c6293bae084a4c0fb46e2cb5df525ef8';
-const FH_KEY = process.env.FINNHUB_API_KEY || 'd7pp429r01qosaapdudgd7pp429r01qosaapdue0';
+const CG_KEY = process.env.COINGECKO_API_KEY || '';
+const TD_KEY = process.env.TWELVEDATA_API_KEY || '';
+const FH_KEY = process.env.FINNHUB_API_KEY || '';
 
 const CRYPTO_CG_IDS = [
   'bitcoin','ethereum','solana','binancecoin','ripple','dogecoin','cardano','avalanche-2',

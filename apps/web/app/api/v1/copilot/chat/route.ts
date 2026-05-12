@@ -213,13 +213,6 @@ Respond ONLY with JSON:
   };
 }
 
-interface ExchangeCredentials {
-  exchange: string;
-  apiKey: string;
-  apiSecret: string;
-  passphrase?: string;
-}
-
 interface ChatHistoryItem {
   role: string;
   content: string;
@@ -233,10 +226,10 @@ export async function POST(req: NextRequest) {
       history?: ChatHistoryItem[];
       tier?: string;
       userPlan?: string;
-      exchange_credentials?: ExchangeCredentials;
+      exchange_connection_id?: string;
     };
 
-    const { message, exchange_credentials } = body;
+    const { message, exchange_connection_id } = body;
     const chat_history = body.chat_history || body.history || [];
     const rawTier = body.tier || body.userPlan || 'free';
 
@@ -253,7 +246,7 @@ export async function POST(req: NextRequest) {
     const tradeIntent = detectTradeIntent(message);
 
     // --- TRADE EXECUTION PATH ---
-    if (tradeIntent.wantsTrade && limits.canTrade && exchange_credentials) {
+    if (tradeIntent.wantsTrade && limits.canTrade && exchange_connection_id) {
       if (tradeIntent.symbols.length === 0 || !tradeIntent.side || !tradeIntent.amount) {
         const txt = 'Islem yapmak icin lutfen sembol (BTC, ETH vb.), yon (al/sat) ve miktar (USD) belirtin. Ornek: "BTC icin 100 dolar al"';
         return NextResponse.json({ reply: txt, response: txt, model_used: 'system', emotion, trade_status: 'incomplete_request' });
@@ -271,10 +264,7 @@ export async function POST(req: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            exchange: exchange_credentials.exchange,
-            apiKey: exchange_credentials.apiKey,
-            apiSecret: exchange_credentials.apiSecret,
-            passphrase: exchange_credentials.passphrase,
+            connectionId: exchange_connection_id,
             symbol: symbol + 'USDT',
             side: tradeIntent.side,
             quoteAmount: amount,
@@ -293,7 +283,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- ANALYSIS-ONLY TRADE REQUEST ---
-    if (tradeIntent.wantsTrade && !exchange_credentials) {
+    if (tradeIntent.wantsTrade && !exchange_connection_id) {
       const tradeSymbol = tradeIntent.symbols[0];
       if (tradeSymbol) {
         const analysis = await deepAnalysis(tradeSymbol, tradeIntent.side || 'buy', tradeIntent.amount || 100).catch(() => null);

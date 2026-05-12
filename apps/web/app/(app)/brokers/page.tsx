@@ -14,7 +14,7 @@ export default function BrokersPage() {
   const [connectingId, setConnectingId] = useState<ExchangeId | null>(null);
   const [form, setForm] = useState({ apiKey: '', apiSecret: '', passphrase: '' });
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; balance?: number; currency?: string; error?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; balance?: number; totalBalance?: number; currency?: string; error?: string } | null>(null);
   const [expandedId, setExpandedId] = useState<ExchangeId | null>(null);
 
   async function handleConnect(exId: ExchangeId) {
@@ -23,12 +23,20 @@ export default function BrokersPage() {
     try {
       const res = await fetch('/api/v1/exchange/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ exchange: exId, apiKey: form.apiKey.trim(), apiSecret: form.apiSecret.trim(), passphrase: form.passphrase.trim() }),
       });
       const d = await res.json();
       setTestResult(d);
       if (d.ok) {
-        const ex: ConnectedExchange = { exchange: exId, apiKey: form.apiKey.trim(), apiSecret: form.apiSecret.trim(), passphrase: form.passphrase.trim() || undefined, name: EXCHANGE_INFO[exId].name, connectedAt: new Date().toISOString(), totalBalance: d.totalBalance, currency: d.currency };
+        const ex: ConnectedExchange = {
+          exchange: exId,
+          connectionId: d.connectionId,
+          name: EXCHANGE_INFO[exId].name,
+          connectedAt: d.connectedAt || new Date().toISOString(),
+          totalBalance: d.totalBalance,
+          currency: d.currency,
+        };
         addExchange(ex);
         setConnectingId(null); setForm({ apiKey: '', apiSecret: '', passphrase: '' });
       }
@@ -136,12 +144,12 @@ export default function BrokersPage() {
                   )}
                   {testResult && (
                     <div style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 12, background: testResult.ok ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${testResult.ok ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`, color: testResult.ok ? '#10b981' : '#ef4444', fontSize: 13 }}>
-                      {testResult.ok ? `Baglanti basarili! Bakiye: $${testResult.balance?.toFixed(2)} ${testResult.currency}` : `Hata: ${testResult.error || 'Hata'}`}
+                      {testResult.ok ? `Baglanti basarili! Bakiye: $${(testResult.totalBalance ?? testResult.balance ?? 0).toFixed(2)} ${testResult.currency}` : `Hata: ${testResult.error || 'Hata'}`}
                     </div>
                   )}
                   <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
                     API izinleri: Sadece "Islem" izni verin. Para cekme izni VERMEYIN.
-                    API key cihazinizda sifreli saklanir, sunucuya gonderilmez.
+                    Credential verisi backend tarafinda sifrelenmis olarak saklanir.
                   </div>
                   <button onClick={() => handleConnect(ex.id)} disabled={testing}
                     style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: testing ? 'rgba(255,255,255,0.1)' : `linear-gradient(135deg, ${ex.color}, ${ex.color}aa)`, color: testing ? 'rgba(255,255,255,0.5)' : '#000', cursor: testing ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14 }}>
@@ -180,7 +188,7 @@ export default function BrokersPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
             ['1', 'Borsanizda API anahtari olusturun', 'Sadece Islem izni verin, Para cekme izni VERMEYIN'],
-            ['2', 'API Key ve Secret girin', 'Bilgileriniz cihazinizda sifreli saklanir'],
+            ['2', 'API Key ve Secret girin', 'Bilgiler backend tarafinda sifreli saklanir'],
             ['3', 'AYC borsaniz uzerinden islem yapar', 'Market veya limit emirler, anlik fiyatla'],
           ].map(([num, title, desc]) => (
             <div key={num} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
