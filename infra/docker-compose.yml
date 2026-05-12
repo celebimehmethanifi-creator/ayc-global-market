@@ -33,9 +33,10 @@ services:
       retries: 5
 
   gateway:
-    build: ./services/gateway
+    build: ../services/gateway
     container_name: neura_gateway
-    env_file: .env
+    env_file:
+      - ../.env
     ports:
       - "8000:8000"
     depends_on:
@@ -44,99 +45,56 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./services/gateway:/app
+      - ../services/gateway:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   data-service:
-    build: ./services/data-service
+    build: ../services/data-service
     container_name: neura_data
-    env_file: .env
+    env_file:
+      - ../.env
+    ports:
+      - "8003:8003"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./services/data-service:/app
-    command: python main.py
+      - ../services/data-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8003 --reload
 
   ai-service:
-    build: ./services/ai-service
+    build: ../services/ai-service
     container_name: neura_ai
-    env_file: .env
+    env_file:
+      - ../.env
+    ports:
+      - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./services/ai-service:/app
+      - ../services/ai-service:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
   signal-service:
-    build: ./services/signal-service
+    build: ../services/signal-service
     container_name: neura_signal
-    env_file: .env
+    env_file:
+      - ../.env
+    ports:
+      - "8002:8002"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./services/signal-service:/app
+      - ../services/signal-service:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
-
-  alarm-service:
-    build: ./services/alarm-service
-    container_name: neura_alarm
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./services/alarm-service:/app
-    command: python main.py
-
-  user-service:
-    build: ./services/user-service
-    container_name: neura_user
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./services/user-service:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8003 --reload
-
-  portfolio-service:
-    build: ./services/portfolio-service
-    container_name: neura_portfolio
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./services/portfolio-service:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8004 --reload
-
-  social-service:
-    build: ./services/social-service
-    container_name: neura_social
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./services/social-service:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8005 --reload
 
 volumes:
   postgres_data:
