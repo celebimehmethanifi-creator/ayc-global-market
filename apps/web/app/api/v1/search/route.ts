@@ -50,7 +50,7 @@ async function searchCoinGecko(q: string): Promise<SearchResult[]> {
       if (pr?.ok) priceData = await pr.json();
     }
 
-    return coins.map((c: any) => {
+    return coins.filter((c: any) => priceData[c.id]?.usd > 0).map((c: any) => {
       const p = priceData[c.id];
       return {
         symbol: (c.symbol || "").toUpperCase(),
