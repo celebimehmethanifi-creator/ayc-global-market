@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, {
   useRef,
@@ -91,7 +91,7 @@ const X_AXIS_HEIGHT = 24;
 const CANDLE_GAP_RATIO = 0.2;
 const MIN_CANDLE_WIDTH = 2;
 const MAX_CANDLE_WIDTH = 24;
-const SUB_PANEL_HEIGHT = 90; // px per sub-panel
+const SUB_PANEL_MAX = 90; // px per sub-panel (when 1 active)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Indicator math
@@ -221,12 +221,16 @@ function buildLayout(W: number, H: number, vis: IndicatorVisibility): Layout {
   if (vis.macd) activeSubs.push('MACD');
   if (vis.rsi) activeSubs.push('RSI');
 
-  const totalSubH = activeSubs.length * (SUB_PANEL_HEIGHT + 1);
+  // Dynamic panel height: shrink when many active to keep main chart >= 50%
+  const minMainPct = 0.5;
+  const maxSubTotal = H - X_AXIS_HEIGHT - (H * minMainPct);
+  const panelH = Math.min(SUB_PANEL_MAX, Math.max(50, Math.floor(maxSubTotal / Math.max(1, activeSubs.length)) - 1));
+  const totalSubH = activeSubs.length * (panelH + 1);
   const mainH = H - X_AXIS_HEIGHT - totalSubH;
   let cursor = mainH;
   for (const lbl of activeSubs) {
-    panels.push({ y: cursor, h: SUB_PANEL_HEIGHT, label: lbl });
-    cursor += SUB_PANEL_HEIGHT + 1;
+    panels.push({ y: cursor, h: panelH, label: lbl });
+    cursor += panelH + 1;
   }
   return {
     W, H,
@@ -1319,3 +1323,4 @@ function ErrorIcon() {
     </svg>
   );
 }
+
