@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, {
   useRef,
@@ -91,7 +91,8 @@ const X_AXIS_HEIGHT = 24;
 const CANDLE_GAP_RATIO = 0.2;
 const MIN_CANDLE_WIDTH = 2;
 const MAX_CANDLE_WIDTH = 24;
-const SUB_PANEL_MAX = 90; // px per sub-panel (when 1 active)
+const SUB_PANEL_MAX = 70; // px per sub-panel (when 1 active)
+const CHART_TOP_PAD = 8;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Indicator math
@@ -234,9 +235,9 @@ function buildLayout(W: number, H: number, vis: IndicatorVisibility): Layout {
   }
   return {
     W, H,
-    chartX: 0, chartY: 0,
+    chartX: 0, chartY: CHART_TOP_PAD,
     chartW: W - Y_AXIS_WIDTH,
-    chartH: mainH,
+    chartH: mainH - CHART_TOP_PAD,
     subPanels: panels,
     xAxisY: H - X_AXIS_HEIGHT,
   };
