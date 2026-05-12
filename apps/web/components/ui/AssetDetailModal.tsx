@@ -91,8 +91,8 @@ function TVChart({ symbol, market, tf, onTfChange }: { symbol: string; market: s
   return (
     <ProfessionalChart
       symbol={symbol}
-      market={market}
-      initialTf={tf}
+
+
       height={420}
     />
   );
@@ -650,6 +650,7 @@ function genMockConsensus(asset:AssetInfo): Consensus {
     timeframe: "kısa vadeli (1-7 gün)",
   };
 }
+
 
 
 
