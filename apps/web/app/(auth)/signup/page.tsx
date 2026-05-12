@@ -44,7 +44,6 @@ export default function SignUpPage() {
         {
           access_token: r.data?.access_token || "",
           refresh_token: r.data?.refresh_token || "",
-          credential_token: r.data?.credential_token,
         },
         r.data?.user || { id: "", email, display_name: name, tier: "free", language: "tr", risk_level: "medium" }
       );
@@ -222,31 +221,6 @@ export default function SignUpPage() {
               {loading ? "Kaydediliyor..." : "Hesap Olustur - Ucretsiz"}
             </button>
 
-            <div style={{ textAlign:"center", marginTop:8 }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  const res = await fetch("/api/v1/auth/login", {
-                    method:"POST",
-                    headers:{"Content-Type":"application/json"},
-                    body: JSON.stringify({ email:"demo@aycmarket.com", password:"AycDemo2026!" }),
-                  });
-                  const data = await res.json();
-                  if (data.success) {
-                    localStorage.setItem("ayc_token", data.token);
-                    localStorage.setItem("ayc_user", JSON.stringify(data.user));
-                    window.location.href = "/dashboard";
-                  }
-                }}
-                style={{
-                  background:"none", border:"1px solid var(--b1)", borderRadius:"var(--r-md)",
-                  padding:"8px 20px", color:"var(--t3)", fontSize:12, cursor:"pointer",
-                  width:"100%",
-                }}
-              >
-                Demo ile Hizli Giris 
-              </button>
-            </div>
           </form>
 
           <div style={{textAlign:"center", marginTop:16, fontSize:12, color:"var(--t3)"}}>
