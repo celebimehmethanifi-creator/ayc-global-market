@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -477,7 +477,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <main className="app-main" style={{
             flex:1, overflowY:"auto", overflowX:"hidden",
-            padding:"16px", paddingBottom:"80px",
+            padding:"16px",
           }}>
             {children}
           </main>
@@ -508,6 +508,7 @@ function BottomNavLink({ href, Icon, label }: { href:string; Icon:any; label:str
     </Link>
   );
 }
+
 
 
 
