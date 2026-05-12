@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 
 
@@ -116,27 +116,27 @@ const MOCK_SIGNALS: Signal[] = [
 
 
 
-  {id:"s1",symbol:"BTCUSDT",name:"Bitcoin",   direction:"LONG",  confidence:88,price:88000, change_24h:1.82,market:"crypto",  reason:"Hacim patlamasi + momentum kirilimi. 5/6 motor LONG.",  age:"2dk"},
+  {id:"s1",symbol:"BTCUSDT",name:"Bitcoin",   direction:"LONG",  confidence:88,price:81000, change_24h:1.82,market:"crypto",  reason:"Hacim patlamasi + momentum kirilimi. 5/6 motor LONG.",  age:"2dk"},
 
 
 
-  {id:"s2",symbol:"XAUUSD", name:"Altin",     direction:"LONG",  confidence:79,price:3295,  change_24h:0.28,market:"precious",reason:"Fed belirsizligi + guvenli liman talebi. RSI 58.",        age:"8dk"},
+  {id:"s2",symbol:"XAUUSD", name:"Altin",     direction:"LONG",  confidence:79,price:4700,  change_24h:0.28,market:"precious",reason:"Fed belirsizligi + guvenli liman talebi. RSI 58.",        age:"8dk"},
 
 
 
-  {id:"s3",symbol:"NVDA",   name:"NVIDIA",    direction:"LONG",  confidence:83,price:1085,  change_24h:3.15,market:"us",      reason:"Kurumsal birikim + AI chip dongusu. Bollinger kirilim.", age:"15dk"},
+  {id:"s3",symbol:"NVDA",   name:"NVIDIA",    direction:"LONG",  confidence:83,price:220,  change_24h:3.15,market:"us",      reason:"Kurumsal birikim + AI chip dongusu. Bollinger kirilim.", age:"15dk"},
 
 
 
-  {id:"s4",symbol:"ETHUSDT",name:"Ethereum",  direction:"LONG",  confidence:72,price:2340,  change_24h:2.41,market:"crypto",  reason:"DeFi buyumesi + L2 aktivite artisi.",                   age:"22dk"},
+  {id:"s4",symbol:"ETHUSDT",name:"Ethereum",  direction:"LONG",  confidence:72,price:2500,  change_24h:2.41,market:"crypto",  reason:"DeFi buyumesi + L2 aktivite artisi.",                   age:"22dk"},
 
 
 
-  {id:"s5",symbol:"TSLA",   name:"Tesla",     direction:"SHORT", confidence:76,price:285,  change_24h:-2.84,market:"us",     reason:"Direnc kirilamadi + zayif momentum + hacim dususu.",    age:"35dk"},
+  {id:"s5",symbol:"TSLA",   name:"Tesla",     direction:"SHORT", confidence:76,price:445,  change_24h:-2.84,market:"us",     reason:"Direnc kirilamadi + zayif momentum + hacim dususu.",    age:"35dk"},
 
 
 
-  {id:"s6",symbol:"THYAO",  name:"THY",       direction:"LONG",  confidence:71,price:286.5, change_24h:1.20,market:"turkey", reason:"Turizm sezonu + teknik destek bolgesi.",                 age:"51dk"},
+  {id:"s6",symbol:"THYAO",  name:"THY",       direction:"LONG",  confidence:71,price:290, change_24h:1.20,market:"turkey", reason:"Turizm sezonu + teknik destek bolgesi.",                 age:"51dk"},
 
 
 
@@ -152,27 +152,27 @@ const MOCK_MOVERS: Mover[] = [
 
 
 
-  {sym:"SOL", name:"Solana",  price:200,  chg:+4.81, cat:"Kripto"},
+  {sym:"SOL", name:"Solana",  price:96,  chg:+4.81, cat:"Kripto"},
 
 
 
-  {sym:"NVDA",name:"NVIDIA",  price:1085, chg:+3.15, cat:"ABD"},
+  {sym:"NVDA",name:"NVIDIA",  price:220, chg:+3.15, cat:"ABD"},
 
 
 
-  {sym:"BTC", name:"Bitcoin", price:88000, chg:+1.82, cat:"Kripto"},
+  {sym:"BTC", name:"Bitcoin", price:81000, chg:+1.82, cat:"Kripto"},
 
 
 
-  {sym:"ETH", name:"Ethereum",price:2340,  chg:+2.41, cat:"Kripto"},
+  {sym:"ETH", name:"Ethereum",price:2500,  chg:+2.41, cat:"Kripto"},
 
 
 
-  {sym:"TSLA",name:"Tesla",   price:285,   chg:-2.84, cat:"ABD"},
+  {sym:"TSLA",name:"Tesla",   price:445,   chg:-2.84, cat:"ABD"},
 
 
 
-  {sym:"XAU", name:"Altin",   price:3295,  chg:+0.28, cat:"Emtia"},
+  {sym:"XAU", name:"Altin",   price:4700,  chg:+0.28, cat:"Emtia"},
 
 
 
@@ -1356,7 +1356,7 @@ export default function DashboardPage() {
 
 
 
-                  price:sig.price||0, chg:sig.change_24h||0, market:sig.market||"",
+                  price:livePrices[sig.symbol]?.price||livePrices[sig.symbol+"USDT"]?.price||sig.price||0, chg:livePrices[sig.symbol]?.chg||livePrices[sig.symbol+"USDT"]?.chg||sig.change_24h||0, market:sig.market||"",
 
 
 
@@ -1604,7 +1604,7 @@ export default function DashboardPage() {
 
 
 
-              <div key={m.sym} onClick={()=>setSelectedAsset({symbol:m.sym,name:m.name,display:m.sym,price:m.price,chg:m.chg,market:""})}
+              <div key={m.sym} onClick={()=>setSelectedAsset({symbol:m.sym,name:m.name,display:m.sym,price:livePrices[m.sym]?.price||livePrices[m.sym+"USDT"]?.price||m.price,chg:livePrices[m.sym]?.chg||livePrices[m.sym+"USDT"]?.chg||m.chg,market:""})}
 
 
 
