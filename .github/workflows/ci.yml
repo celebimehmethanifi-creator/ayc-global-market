@@ -1,66 +1,71 @@
-name: NEURA CI
+﻿name: NEURA CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, hardening-production-readiness]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
-  lint-and-test-python:
-    name: Python lint + Kalkan tests
+  web-quality:
+    name: Web lint + type-check + build
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.example.com
+      NEXT_PUBLIC_SITE_URL: https://app.example.com
+      JWT_SECRET: ci_jwt_secret_please_rotate_32_chars_minimum
+      EXCHANGE_CREDENTIALS_KEY: ci_exchange_secret_please_rotate_32_chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+      - name: web lint
+        run: pnpm --filter neura-web lint
+      - name: web type-check
+        run: pnpm --filter neura-web type-check
+      - name: web build
+        run: pnpm --filter neura-web build
+
+  backend-tests:
+    name: Pytest backend tests
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ci_gateway_secret_please_rotate_32_chars
+      ENVIRONMENT: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install ai-service deps
-        run: pip install pytest pydantic
-      - name: Run Kalkan unit tests
-        run: python -m pytest scripts/test_kalkan.py -v
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/gateway/requirements.txt
+          pip install pytest
+      - name: pytest backend tests
+        run: pytest -q scripts/test_kalkan.py tests/hardening/test_production_guards.py
 
-  lint-web:
-    name: Next.js lint + type-check
+  secret-scan:
+    name: Secret scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: "9" }
-      - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "pnpm" }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter neura-web lint
-      - run: pnpm --filter neura-web type-check
-
-  build-web:
-    name: Build web
-    runs-on: ubuntu-latest
-    needs: lint-web
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: "9" }
-      - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "pnpm" }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter neura-web build
+      - uses: gitleaks/gitleaks-action@v2
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-backend:
-    name: Deploy to Railway
+  docker-compose-validate:
+    name: Docker compose config validation
     runs-on: ubuntu-latest
-    needs: lint-and-test-python
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Install Railway CLI
-        run: curl -fsSL https://railway.app/install.sh | sh
-      - name: Deploy gateway
-        run: railway up --service gateway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: docker compose config validation
+        run: docker compose -f infra/docker-compose.yml config

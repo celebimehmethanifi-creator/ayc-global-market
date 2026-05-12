@@ -171,15 +171,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Eksik parametre." }, { status: 400 });
     }
 
-    const connection = getExchangeCredential(user.sub, connectionId);
-    if (!connection) {
-      return NextResponse.json({ ok: false, error: "Borsa baglantisi bulunamadi." }, { status: 404 });
-    }
-
     if (IS_PRODUCTION) {
       return NextResponse.json(
         dryRunResponse({
-          exchange: connection.exchange,
+          exchange: String(body.exchange || "guarded"),
           symbol,
           side,
           quoteAmount: quoteAmount || undefined,
@@ -187,6 +182,11 @@ export async function POST(req: NextRequest) {
         }),
         { status: 403 },
       );
+    }
+
+    const connection = getExchangeCredential(user.sub, connectionId);
+    if (!connection) {
+      return NextResponse.json({ ok: false, error: "Borsa baglantisi bulunamadi." }, { status: 404 });
     }
 
     let result: {

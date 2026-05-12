@@ -25,12 +25,35 @@ function SuccessContent() {
   useEffect(() => {
     if (session_id) {
       setVerifying(true);
-      api.post("/billing/verify", { session_id, plan, provider,
-        user_id: (() => { try { return JSON.parse(localStorage.getItem("ayc_user")||"{}").id||""; } catch { return ""; } })()
-      }).then(r => {
-        setMessage(r.data?.message || "Plan aktifleştirildi");
-        try { const u=JSON.parse(localStorage.getItem("ayc_user")||"{}"); u.tier=plan; localStorage.setItem("ayc_user",JSON.stringify(u)); } catch {}
-      }).catch(() => {}).finally(() => { setVerifying(false); setVerified(true); });
+      api
+        .post("/billing/verify", { session_id, plan, provider })
+        .then(async (r) => {
+          setMessage(r.data?.message || "Plan aktifleştirildi");
+          try {
+            const me = await api.get("/auth/me");
+            const user = me.data?.user;
+            if (user) {
+              localStorage.setItem(
+                "ayc_user",
+                JSON.stringify({
+                  id: user.id,
+                  email: user.email,
+                  display_name: user.name || user.email?.split("@")[0] || "",
+                  tier: user.tier || user.plan || "free",
+                  language: "tr",
+                  risk_level: "medium",
+                }),
+              );
+            }
+          } catch {
+            // no-op: profile cache refresh is best-effort
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setVerifying(false);
+          setVerified(true);
+        });
     } else {
       setVerified(true);
     }

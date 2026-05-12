@@ -25,6 +25,7 @@ ios/
 .env
 .env.*
 !.env.example
+.secure/
 
 # Docker
 docker-compose.override.yml

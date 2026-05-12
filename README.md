@@ -1,60 +1,32 @@
-# NEURA — AI Finans Asistanı
+# NEURA - AI Finans Platformu
 
-> Bağımsız, üretim hazır, çok katmanlı AI finans platformu.
+Cok katmanli piyasa verisi, sinyal ve AI destekli karar altyapisi.
 
 ## Mimari
 
-```
+```text
 Frontend (Next.js :3000)
-        ↓
-FastAPI Gateway (:8000)
-        ↓
-AI Orchestrator (:8001)
-        ↓
-LiteLLM → GPT-4o + Claude 3.5 + Gemini 1.5 + OpenRouter
-        ↓
-Finance API (CoinGecko / Finnhub / TwelveData / yfinance / Binance WS)
-        ↓
-Kalkan Risk Engine + Final Answer Engine
-        ↓
-Signal Service (:8002) + Data Service (:8003)
+        ->
+FastAPI Gateway (:8000)  [authoritative API]
+        ->
+AI Service (:8001) + Signal Service (:8002) + Data Service (:8003)
 ```
 
-## Hızlı Başlangıç (Windows Native)
+## API Sahipligi
+
+- Gateway authoritative API'dir.
+- Next API routes BFF/proxy amacli kullanilir.
+- Detayli dokuman: [docs/API_STRATEGY.md](docs/API_STRATEGY.md)
+
+## Hizli Baslangic (Windows)
 
 ```powershell
-# 1. Proje klasörüne git
 cd C:\Users\mhani\OneDrive\Desktop\NEURA
-
-# 2. Tek komutla başlat
 .\start-native.ps1
 ```
 
-## Servisler
+## Guvenlik Notlari
 
-| Servis | Port | Açıklama |
-|---|---|---|
-| Web UI | 3000 | Next.js 14 arayüzü |
-| Gateway | 8000 | FastAPI REST API |
-| AI Service | 8001 | LiteLLM Orchestrator |
-| Signal Service | 8002 | Sinyal üretici + scorer |
-| Data Service | 8003 | Binance WS + CoinGecko fetcher |
-
-## Kategoriler
-
-`turkey` `us` `crypto` `precious` `energy` `forex` `index` `etf`
-
-## Veri Kaynakları
-
-- **Crypto**: CoinGecko + Binance WebSocket (gerçek zamanlı)
-- **Hisse**: Finnhub + TwelveData + yfinance
-- **Forex/Emtia**: TwelveData + yfinance
-- **Haber**: NewsAPI + Google RSS
-
-## Güvenlik
-
-`services/gateway/middleware/` → Auth + Rate Limit + Tier Gate
-`services/ai-service/kalkan.py` → AI Risk Filtresi (Hard/Soft Block)
-
----
-⚠️ Bu yazılım yatırım tavsiyesi vermez.
+- Production ortaminda test/demo login kapali olmalidir.
+- `JWT_SECRET`, `SECRET_KEY`, `EXCHANGE_CREDENTIALS_KEY` min 32 karakter olmali.
+- Public olmus olabilecek tum anahtarlar rotate edilmelidir.

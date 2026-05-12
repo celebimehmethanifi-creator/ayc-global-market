@@ -24,7 +24,7 @@ const NAV = [
   { href:"/alarms",      Icon:Bell,               label:"Alarmlar"       },
   { href:"/copilot",     Icon:Bot,                label:"AI Copilot", pro:true },
   { href:"/social",      Icon:Users2,             label:"Sosyal Radar"   },
-  { href:"/trades",      Icon:LineChart,          label:"ÃÃ¾lemlerim"     },
+  { href:"/trades",      Icon:LineChart,          label:"Islemlerim"     },
   { href:"/scenario",    Icon:Calculator,         label:"Senaryo Sim."   },
   { href:"/performance", Icon:BarChart3,          label:"Performans"     },
   { href:"/profile",     Icon:UserCircle2,        label:"Profil"         },
@@ -49,7 +49,7 @@ function useClock() {
   return t;
 }
 
-/* Â¦Â¦Â¦ Sidebar (desktop only) Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Sidebar (desktop only) */
 function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -187,14 +187,14 @@ function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
             opacity:open?1:0, transform:open?"translateX(0)":"translateX(-6px)",
             transition:"opacity 150ms ease, transform 150ms ease",
             transitionDelay:open?"80ms":"0ms",
-          }}>CanlÃ½ baÃ°lÃ½</span>
+          }}>Canli bagli</span>
         </div>
       </div>
     </aside>
   );
 }
 
-/* Â¦Â¦Â¦ Mobile drawer Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Mobile drawer */
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const path = usePathname();
   useEffect(() => { if (open) document.body.style.overflow = "hidden"; else document.body.style.overflow = ""; return () => { document.body.style.overflow = ""; }; }, [open]);
@@ -257,7 +257,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 
-/* Â¦Â¦Â¦ Demo Mode Banner Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Demo Mode Banner */
 function DemoBanner() {
   const { demo, totalValue, totalPnlUSD, totalPnlPct } = useDemo();
   const [guest, setGuest] = React.useState(false);
@@ -303,13 +303,13 @@ function DemoBanner() {
         onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background="var(--gold-dim)";}}
         onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background="transparent";}}
       >
-        GERÃ‡EK HESAP AÃ‡ Â›
+        GERCEK HESAP AC {" >"}
       </a>
     </div>
   );
 }
 
-/* Â¦Â¦Â¦ TopBar Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* TopBar */
 function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: () => void }) {
   const path = usePathname();
   const clock = useClock();
@@ -432,7 +432,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
 
 
 
-/* Â¦Â¦Â¦ DemoModeWrapper (shows banner if demo/guest) Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* DemoModeWrapper (shows banner if demo/guest) */
 function DemoModeWrapper() {
   const [show, setShow] = React.useState(false);
   React.useEffect(() => {
@@ -443,7 +443,7 @@ function DemoModeWrapper() {
   return <DemoBanner />;
 }
 
-/* Â¦Â¦Â¦ Root layout Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Root layout */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -465,7 +465,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="app-root" style={{display:"flex",flexDirection:"column",height:"100dvh",overflow:"hidden"}}>
         {/* Demo mode banner */}
         <DemoModeWrapper/>
-        {/* Ticker Â— full width */}
+        {/* Ticker - full width */}
         <div style={{height:32,flexShrink:0}}><MarketTicker/></div>
 
         {/* TopBar */}
@@ -508,6 +508,8 @@ function BottomNavLink({ href, Icon, label }: { href:string; Icon:any; label:str
     </Link>
   );
 }
+
+
 
 
 

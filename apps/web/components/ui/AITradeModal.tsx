@@ -192,7 +192,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "var(--t4)", fontWeight: 600, letterSpacing: "0.04em" }}>24S DEÄISIM</div>
+            <div style={{ fontSize: 11, color: "var(--t4)", fontWeight: 600, letterSpacing: "0.04em" }}>24S DEGISIM</div>
             <div style={{
               fontSize: 16, fontWeight: 800,
               color: liveChg >= 0 ? "var(--up)" : "var(--down)",
@@ -502,7 +502,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               <div style={{ fontSize: 10, color: "var(--t4)", marginTop: 5 }}>
                 Kullanilabilir: ${demo.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
                 {amt > demo.balance && (
-                  <span style={{ color: "var(--down)", marginLeft: 8 }}>âš  Yetersiz bakiye</span>
+                  <span style={{ color: "var(--down)", marginLeft: 8 }}>UYARI: Yetersiz bakiye</span>
                 )}
               </div>
             </div>

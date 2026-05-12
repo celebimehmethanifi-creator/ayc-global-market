@@ -31,6 +31,24 @@ from price_router import router as price_router
 from auth_router    import router as auth_router
 from billing_router import router as billing_router
 
+
+def _is_production() -> bool:
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    return env_name in {"production", "prod"}
+
+
+def _parse_cors_origins() -> list[str]:
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if raw:
+        origins = [item.strip() for item in raw.split(",") if item.strip()]
+    else:
+        if _is_production():
+            raise RuntimeError("CORS_ORIGINS must be configured in production.")
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if _is_production() and not origins:
+        raise RuntimeError("CORS_ORIGINS must be configured in production.")
+    return origins
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.redis = None
@@ -62,10 +80,10 @@ async def _startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_parse_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Signature", "Stripe-Signature"],
 )
 
 PREFIX = "/api/v1"
@@ -196,7 +214,16 @@ async def root():
 
 @app.exception_handler(Exception)
 async def global_error_handler(request: Request, exc: Exception):
-    return JSONResponse(status_code=500, content={"error":"Internal server error","detail":str(exc)})
+    if _is_production():
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "detail": str(exc),
+            "path": request.url.path,
+        },
+    )
 
 
 

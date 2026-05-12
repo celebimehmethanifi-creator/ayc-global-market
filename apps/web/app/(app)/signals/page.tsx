@@ -223,6 +223,7 @@ export default function SignalsPage() {
   const allSigs = data?.signals || MOCK_SIGNALS;
   const counts  = data?.stage_counts || {TRIGGER:1,SETUP:1,WATCH:1,KALKAN:1,NONE:0};
   const filtered = filter==="all" ? allSigs : allSigs.filter((s:any)=>s.stage===filter);
+  const isLiveFeed = Boolean(data?.prices_live);
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
@@ -235,6 +236,20 @@ export default function SignalsPage() {
             <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>
               Signal Intelligence
             </h1>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                borderRadius: 4,
+                padding: "3px 8px",
+                background: isLiveFeed ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
+                color: isLiveFeed ? "var(--up)" : "var(--gold)",
+                border: `1px solid ${isLiveFeed ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.35)"}`,
+              }}
+            >
+              {isLiveFeed ? "LIVE FEED" : "DEMO FEED"}
+            </span>
           </div>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>
             4 asamali erken uyari + 7 skor + KALKAN risk filtreleme

@@ -268,7 +268,7 @@ export default function TradesPage() {
                       }}>{t.direction}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      Giris: ${fmtPx(t.entryPrice)}  Ã‡ikis: ${fmtPx(t.exitPrice)}   {dur(t.closedAt)} once
+                      Giris: ${fmtPx(t.entryPrice)}  Cikis: ${fmtPx(t.exitPrice)}   {dur(t.closedAt)} once
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
