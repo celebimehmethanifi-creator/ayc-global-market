@@ -1,4 +1,4 @@
-﻿// build:202605111838
+// build:202605111838
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
