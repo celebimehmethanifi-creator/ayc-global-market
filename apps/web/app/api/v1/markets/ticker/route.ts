@@ -30,7 +30,7 @@ async function fetchStooq(sym: string): Promise<PD | null> {
     try { d = JSON.parse(sanitized); } catch { return null; }
     const item = Array.isArray(d.symbols) ? d.symbols[0] as Record<string, unknown> : null;
     if (!item) return null;
-    const close = num(item.c || item.Close || item.close);
+    const close = num(item.c || item.Close || item.close || item.Last);
     const open  = num(item.o || item.Open  || item.open);
     if (close <= 0) return null;
     const chg = open > 0 ? ((close - open) / open) * 100 : 0;
@@ -213,4 +213,5 @@ export async function GET(_req: NextRequest) {
     { headers: { "Cache-Control": "no-store, no-cache" } }
   );
 }
+
 

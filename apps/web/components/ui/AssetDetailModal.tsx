@@ -281,7 +281,7 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
       {/* Panel */}
       <div style={{
         position:"fixed",top:0,right:0,bottom:0,
-        width:820,zIndex:1001,
+        width:isMobile?"100vw":"min(820px, 95vw)",maxWidth:"100vw",zIndex:1001,
         background:"var(--bg-panel)",borderLeft:"1px solid var(--b2)",
         display:"flex",flexDirection:"column",
         animation:"slide-in-r 0.25s cubic-bezier(0.4,0,0.2,1) both",
@@ -650,6 +650,7 @@ function genMockConsensus(asset:AssetInfo): Consensus {
     timeframe: "kısa vadeli (1-7 gün)",
   };
 }
+
 
 
 

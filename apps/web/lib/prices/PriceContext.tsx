@@ -313,3 +313,4 @@ export function usePriceFormatted(symbol: string): {
   const fresh = Date.now() - entry.ts < 30000;
   return { price: priceStr, chg: chgStr, live: fresh, source: entry.source };
 }
+

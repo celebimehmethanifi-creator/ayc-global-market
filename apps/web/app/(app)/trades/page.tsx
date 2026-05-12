@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -10,7 +10,7 @@ import { usePrices } from "@/lib/prices/PriceContext";
 import { useDemo, type DemoTrade, type ClosedDemoTrade } from "@/lib/demo/DemoContext";
 import { isGuestDemo, getUser } from "@/lib/auth";
 
-/* ─── helpers ──────────────────────────────────────────────── */
+/* â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const fmt = (v: number, d = 2) => {
   const abs = Math.abs(v);
   const s = v < 0 ? "-" : "";
@@ -27,8 +27,8 @@ const fmtPx = (v: number) =>
 const dur = (ms: number) => {
   const s = Math.floor((Date.now() - ms) / 1000);
   if (s < 60)  return `${s}s`;
-  if (s < 3600) return `${Math.floor(s/60)}d`;
-  if (s < 86400) return `${Math.floor(s/3600)}s`;
+  if (s < 3600) return `${Math.floor(s/60)}dk`;
+  if (s < 86400) return `${Math.floor(s/3600)}sa`;
   return `${Math.floor(s/86400)}g`;
 };
 
@@ -60,10 +60,10 @@ export default function TradesPage() {
 
   /* stat cards */
   const stats = [
-    { label:"Demo Bakiye",     value:mounted ? fmt(demo.balance)   : "-", sub:"Kullanılabilir", icon:Wallet,   up:true   },
-    { label:"Toplam Değer",    value:mounted ? fmt(totalValue)     : "-", sub:mounted ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}%` : "-", icon:BarChart3, up: totalPnlUSD >= 0 },
-    { label:"Açık PnL",        value:mounted ? fmt(openPnlUSD)     : "-", sub:`${openTrades.length} açık işlem`,  icon:Activity, up: openPnlUSD >= 0 },
-    { label:"Kapalı Getiri",   value:mounted ? fmt(totalClosedPnl) : "-", sub:`Kazanma: ${winRate}%`, icon:Award, up: totalClosedPnl >= 0 },
+    { label:"Demo Bakiye",     value:mounted ? fmt(demo.balance)   : "-", sub:"KullanÄ±labilir", icon:Wallet,   up:true   },
+    { label:"Toplam DeÄŸer",    value:mounted ? fmt(totalValue)     : "-", sub:mounted ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}%` : "-", icon:BarChart3, up: totalPnlUSD >= 0 },
+    { label:"AÃ§Ä±k PnL",        value:mounted ? fmt(openPnlUSD)     : "-", sub:`${openTrades.length} aÃ§Ä±k iÅŸlem`,  icon:Activity, up: openPnlUSD >= 0 },
+    { label:"KapalÄ± Getiri",   value:mounted ? fmt(totalClosedPnl) : "-", sub:`Kazanma: ${winRate}%`, icon:Award, up: totalClosedPnl >= 0 },
   ];
 
   if (!mounted) return (
@@ -79,10 +79,10 @@ export default function TradesPage() {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:20,fontWeight:800,color:"var(--t1)",fontFamily:"var(--font-head)",margin:0}}>
-            İşlemlerim
+            Ä°ÅŸlemlerim
           </h1>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0"}}>
-            Demo portföy · $10,000 sanal bakiye ile başladın
+            Demo portfÃ¶y Â· $10,000 sanal bakiye ile baÅŸladÄ±n
           </p>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -92,7 +92,7 @@ export default function TradesPage() {
             borderRadius:"var(--r-sm)",fontSize:11,color:"var(--down)",cursor:"pointer",
             fontFamily:"var(--font-body)",fontWeight:600,
           }}>
-            <RefreshCw size={12}/> Sıfırla
+            <RefreshCw size={12}/> SÄ±fÄ±rla
           </button>
           {isDemoUser && (
             <a href="/signup" style={{
@@ -101,7 +101,7 @@ export default function TradesPage() {
               borderRadius:"var(--r-sm)",fontSize:11,color:"#0C0E16",fontWeight:800,
               textDecoration:"none",fontFamily:"var(--font-body)",
             }}>
-              <Zap size={12}/> Gerçek Hesap Aç
+              <Zap size={12}/> GerÃ§ek Hesap AÃ§
             </a>
           )}
         </div>
@@ -136,8 +136,8 @@ export default function TradesPage() {
             transition:"all 0.15s",
           }}>
             {t === "open"
-              ? `Açık (${openTrades.length})`
-              : `Kapalı (${closedTrades.length})`
+              ? `AÃ§Ä±k (${openTrades.length})`
+              : `KapalÄ± (${closedTrades.length})`
             }
           </button>
         ))}
@@ -153,8 +153,8 @@ export default function TradesPage() {
               borderRadius:"var(--r-xl)",
             }}>
               <Activity size={32} color="var(--t4)" style={{marginBottom:12}}/>
-              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Açık işlem yok</div>
-              <div style={{fontSize:12,color:"var(--t3)",marginBottom:16}}>Piyasalar sayfasından veya herhangi bir varlık kartından demo işlem aç</div>
+              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>AÃ§Ä±k iÅŸlem yok</div>
+              <div style={{fontSize:12,color:"var(--t3)",marginBottom:16}}>Piyasalar sayfasÄ±ndan veya herhangi bir varlÄ±k kartÄ±ndan demo iÅŸlem aÃ§</div>
               <a href="/market" style={{
                 display:"inline-flex",alignItems:"center",gap:6,padding:"8px 16px",
                 background:"var(--gold-dim)",border:"1px solid var(--gold-border)",
@@ -195,11 +195,11 @@ export default function TradesPage() {
                         background:t.direction==="LONG"?"rgba(38,215,130,0.15)":"rgba(246,70,93,0.15)",
                         color:t.direction==="LONG"?"var(--up)":"var(--down)",
                       }}>{t.direction}</span>
-                      <span style={{fontSize:10,color:"var(--t4)"}}>· {dur(t.openedAt)} önce</span>
+                      <span style={{fontSize:10,color:"var(--t4)"}}>Â· {dur(t.openedAt)} Ã¶nce</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      Giriş: ${fmtPx(t.entryPrice)} · Yatırım: {fmt(t.investedUSD)}
-                      {cur > 0 && <> · Şimdi: ${fmtPx(cur)}</>}
+                      GiriÅŸ: ${fmtPx(t.entryPrice)} Â· YatÄ±rÄ±m: {fmt(t.investedUSD)}
+                      {cur > 0 && <> Â· Åimdi: ${fmtPx(cur)}</>}
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
@@ -236,8 +236,8 @@ export default function TradesPage() {
               borderRadius:"var(--r-xl)",
             }}>
               <Clock size={32} color="var(--t4)" style={{marginBottom:12}}/>
-              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Henüz kapalı işlem yok</div>
-              <div style={{fontSize:12,color:"var(--t3)"}}>İşlemlerini kapatınca burada görünür</div>
+              <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>HenÃ¼z kapalÄ± iÅŸlem yok</div>
+              <div style={{fontSize:12,color:"var(--t3)"}}>Ä°ÅŸlemlerini kapatÄ±nca burada gÃ¶rÃ¼nÃ¼r</div>
             </div>
           ) : (
             closedTrades.map(t => {
@@ -268,7 +268,7 @@ export default function TradesPage() {
                       }}>{t.direction}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:3}}>
-                      Giriş: ${fmtPx(t.entryPrice)} → Çıkış: ${fmtPx(t.exitPrice)} · {dur(t.closedAt)} önce
+                      GiriÅŸ: ${fmtPx(t.entryPrice)} â†’ Ã‡Ä±kÄ±ÅŸ: ${fmtPx(t.exitPrice)} Â· {dur(t.closedAt)} Ã¶nce
                     </div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
@@ -298,22 +298,22 @@ export default function TradesPage() {
             borderRadius:"var(--r-xl)",padding:"28px 24px",maxWidth:360,width:"100%",
           }}>
             <h3 style={{fontSize:16,fontWeight:800,color:"var(--t1)",margin:"0 0 10px",fontFamily:"var(--font-head)"}}>
-              Demo Hesabı Sıfırla?
+              Demo HesabÄ± SÄ±fÄ±rla?
             </h3>
             <p style={{fontSize:13,color:"var(--t3)",margin:"0 0 20px",lineHeight:1.5}}>
-              Tüm işlemler ve bakiye geçmişi silinecek. $10,000 sanal bakiyeyle yeniden başlayacaksın.
+              TÃ¼m iÅŸlemler ve bakiye geÃ§miÅŸi silinecek. $10,000 sanal bakiyeyle yeniden baÅŸlayacaksÄ±n.
             </p>
             <div style={{display:"flex",gap:8}}>
               <button onClick={() => { reset(); setConfirmReset(false); }} style={{
                 flex:1,padding:"10px",background:"rgba(246,70,93,0.1)",
                 border:"1px solid rgba(246,70,93,0.2)",borderRadius:"var(--r-sm)",
                 color:"var(--down)",fontWeight:700,cursor:"pointer",fontSize:13,fontFamily:"var(--font-body)",
-              }}>Evet, Sıfırla</button>
+              }}>Evet, SÄ±fÄ±rla</button>
               <button onClick={() => setConfirmReset(false)} style={{
                 flex:1,padding:"10px",background:"var(--bg-hover)",
                 border:"1px solid var(--b1)",borderRadius:"var(--r-sm)",
                 color:"var(--t2)",fontWeight:600,cursor:"pointer",fontSize:13,fontFamily:"var(--font-body)",
-              }}>İptal</button>
+              }}>Ä°ptal</button>
             </div>
           </div>
         </div>
@@ -321,3 +321,5 @@ export default function TradesPage() {
     </div>
   );
 }
+
+

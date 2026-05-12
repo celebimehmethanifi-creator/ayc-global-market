@@ -45,7 +45,8 @@ export function LiveTicker() {
           category: t.category || "",
         }))
         .sort((a: TickerItem, b: TickerItem) => b.chg - a.chg);
-      if (tickers.length > 0) { setItems(tickers); setLoading(false); }
+      if (tickers.length > 0) { setItems(tickers); }
+      setLoading(false);
     } catch { /* ignore */ }
   };
 
@@ -116,4 +117,5 @@ export function LiveTicker() {
     </div>
   );
 }
+
 

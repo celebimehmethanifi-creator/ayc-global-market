@@ -20,11 +20,11 @@ const NAV = [
   { href:"/dashboard",   Icon:LayoutDashboard,   label:"Komuta Merkezi" },
   { href:"/market",      Icon:TrendingUp,         label:"Piyasalar"      },
   { href:"/signals",     Icon:Zap,                label:"Sinyaller"      },
-  { href:"/portfolio",   Icon:BriefcaseBusiness,  label:"Portföy"        },
+  { href:"/portfolio",   Icon:BriefcaseBusiness,  label:"PortfÃ¶y"        },
   { href:"/alarms",      Icon:Bell,               label:"Alarmlar"       },
   { href:"/copilot",     Icon:Bot,                label:"AI Copilot", pro:true },
   { href:"/social",      Icon:Users2,             label:"Sosyal Radar"   },
-  { href:"/trades",      Icon:LineChart,          label:"Ýþlemlerim"     },
+  { href:"/trades",      Icon:LineChart,          label:"ÃÃ¾lemlerim"     },
   { href:"/scenario",    Icon:Calculator,         label:"Senaryo Sim."   },
   { href:"/performance", Icon:BarChart3,          label:"Performans"     },
   { href:"/profile",     Icon:UserCircle2,        label:"Profil"         },
@@ -49,7 +49,7 @@ function useClock() {
   return t;
 }
 
-/* ¦¦¦ Sidebar (desktop only) ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* Â¦Â¦Â¦ Sidebar (desktop only) Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
 function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -187,14 +187,14 @@ function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
             opacity:open?1:0, transform:open?"translateX(0)":"translateX(-6px)",
             transition:"opacity 150ms ease, transform 150ms ease",
             transitionDelay:open?"80ms":"0ms",
-          }}>Canlý baðlý</span>
+          }}>CanlÃ½ baÃ°lÃ½</span>
         </div>
       </div>
     </aside>
   );
 }
 
-/* ¦¦¦ Mobile drawer ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* Â¦Â¦Â¦ Mobile drawer Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const path = usePathname();
   useEffect(() => { if (open) document.body.style.overflow = "hidden"; else document.body.style.overflow = ""; return () => { document.body.style.overflow = ""; }; }, [open]);
@@ -257,7 +257,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 
-/* ¦¦¦ Demo Mode Banner ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* Â¦Â¦Â¦ Demo Mode Banner Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
 function DemoBanner() {
   const { demo, totalValue, totalPnlUSD, totalPnlPct } = useDemo();
   const [guest, setGuest] = React.useState(false);
@@ -303,14 +303,14 @@ function DemoBanner() {
         onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background="var(--gold-dim)";}}
         onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background="transparent";}}
       >
-        GERÇEK HESAP AÇ 
+        GERÃ‡EK HESAP AÃ‡ Â›
       </a>
     </div>
   );
 }
 
-/* ¦¦¦ TopBar ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
-﻿function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: () => void }) {
+/* Â¦Â¦Â¦ TopBar Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: () => void }) {
   const path = usePathname();
   const clock = useClock();
   const router = useRouter();
@@ -432,7 +432,7 @@ function DemoBanner() {
 
 
 
-/* ¦¦¦ DemoModeWrapper (shows banner if demo/guest) ¦¦¦¦¦¦¦ */
+/* Â¦Â¦Â¦ DemoModeWrapper (shows banner if demo/guest) Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
 function DemoModeWrapper() {
   const [show, setShow] = React.useState(false);
   React.useEffect(() => {
@@ -443,7 +443,7 @@ function DemoModeWrapper() {
   return <DemoBanner />;
 }
 
-/* ¦¦¦ Root layout ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* Â¦Â¦Â¦ Root layout Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -465,7 +465,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="app-root" style={{display:"flex",flexDirection:"column",height:"100dvh",overflow:"hidden"}}>
         {/* Demo mode banner */}
         <DemoModeWrapper/>
-        {/* Ticker  full width */}
+        {/* Ticker Â— full width */}
         <div style={{height:32,flexShrink:0}}><MarketTicker/></div>
 
         {/* TopBar */}
@@ -477,7 +477,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <main className="app-main" style={{
             flex:1, overflowY:"auto", overflowX:"hidden",
-            padding:"16px",
+            padding:"16px", paddingBottom:"80px",
           }}>
             {children}
           </main>
@@ -508,4 +508,6 @@ function BottomNavLink({ href, Icon, label }: { href:string; Icon:any; label:str
     </Link>
   );
 }
+
+
 

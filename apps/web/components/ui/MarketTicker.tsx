@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useMemo } from "react";
 import { usePrices } from "@/lib/prices/PriceContext";
 
@@ -171,3 +171,4 @@ export function MarketTicker() {
     </div>
   );
 }
+

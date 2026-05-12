@@ -37,7 +37,7 @@ const CG_MAP: Record<string,string> = {
 async function fetchCG(): Promise<Record<string,PD>> {
   try {
     const r = await sf(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${CG_IDS}&vs_currencies=usd&include_24hr_change=true&x_cg_demo_api_key=${CG_KEY}`
+      `https://api.coingecko.com/api/v3/simple/price?ids=${CG_IDS}&vs_currencies=usd&include_24hr_change=true`, { headers: { "x-cg-demo-api-key": CG_KEY } }
     );
     if (!r?.ok) return {};
     const d = await r.json();
@@ -276,4 +276,6 @@ export async function GET(req: NextRequest) {
     { headers: { "Cache-Control": "no-store", "X-Price-Count": String(count) } }
   );
 }
+
+
 

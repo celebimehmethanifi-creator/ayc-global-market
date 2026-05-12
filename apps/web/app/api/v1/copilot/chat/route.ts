@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -47,8 +47,8 @@ function detectEmotion(msg: string): EmotionResult {
   if (/panik|korktum|hepsini sat|hemen sat|batiyorum|mahvoldum|ne yapacam|zarar/.test(m))
     return { dominant: 'panic', kalkan_warning: 'Panik kararlar kalici zarara yol acar. Derin nefes alin, pozisyonunuzu degerlendirin.' };
   if (/zarar ettim.*al|batirdim.*cikmasin|intikam|kayip.*kapamak|kaybimi geri al/.test(m))
-    return { dominant: 'revenge', kalkan_warning: 'KALKAN: Intikam islemi tespiti. Kaybinizi hemen geri almaya calismayin — bu en tehlikeli psikoloji.' };
-  if (/kaldırac|leverage|10x|20x|100x|tum param|hepsini koy|yuksek lot/.test(m))
+    return { dominant: 'revenge', kalkan_warning: 'KALKAN: Intikam islemi tespiti. Kaybinizi hemen geri almaya calismayin â€” bu en tehlikeli psikoloji.' };
+  if (/kaldÄ±rac|leverage|10x|20x|100x|tum param|hepsini koy|yuksek lot/.test(m))
     return { dominant: 'overrisk', kalkan_warning: 'Asiri risk sinyali. Toplam sermayenizin %2-5inden fazlasini tek islemde riske atmayin.' };
   return { dominant: 'neutral', kalkan_warning: '' };
 }
@@ -133,15 +133,15 @@ async function callGemini(prompt: string): Promise<string> {
 function syntheticResponse(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('btc') || m.includes('bitcoin')) {
-    return `**Bitcoin (BTC) Analizi**\n\nBitcoin, kripto para piyasasinin lider varligi olarak kuresel makro kosullardan onemli olcude etkilenmektedir.\n\n**Teknik Gorunum:**\n- Fiyat kritik destek/direnc bolgelerini test ediyor\n- RSI gostergesi mevcut momentum hakkinda ipuclari veriyor\n- Hacim analizi trend gucunu teyit etmeli\n\n**Risk Faktorleri:**\n- Yuksek volatilite her zaman mevcut\n- Duzenleyici haberler ani hareketler yaratabilir\n- Makro ekonomik kosullar (Fed kararlari, dolar endeksi) kritik\n\n⚠️ Bu yatirim tavsiyesi degildir. Kendi arastirmanizi yapin.`;
+    return `**Bitcoin (BTC) Analizi**\n\nBitcoin, kripto para piyasasinin lider varligi olarak kuresel makro kosullardan onemli olcude etkilenmektedir.\n\n**Teknik Gorunum:**\n- Fiyat kritik destek/direnc bolgelerini test ediyor\n- RSI gostergesi mevcut momentum hakkinda ipuclari veriyor\n- Hacim analizi trend gucunu teyit etmeli\n\n**Risk Faktorleri:**\n- Yuksek volatilite her zaman mevcut\n- Duzenleyici haberler ani hareketler yaratabilir\n- Makro ekonomik kosullar (Fed kararlari, dolar endeksi) kritik\n\nâš ï¸ Bu yatirim tavsiyesi degildir. Kendi arastirmanizi yapin.`;
   }
   if (m.includes('altin') || m.includes('gold') || m.includes('xau')) {
-    return `**Altin (XAU/USD) Analizi**\n\nAltin, jeopolitik belirsizlik ve enflasyon endiselerinin yuksek oldugu donemlerde guvenli liman olarak one cikmaktadir.\n\n**Temel Gorunum:**\n- Fed faiz kararlari altini dogrudan etkiliyor\n- Dolar endeksi (DXY) ile ters korelasyon guclu\n- Merkez bankasi alimlari talep tarafini destekliyor\n\n⚠️ Bu yatirim tavsiyesi degildir. Portfoy cesitlendirmesi icin bir uzmana danisin.`;
+    return `**Altin (XAU/USD) Analizi**\n\nAltin, jeopolitik belirsizlik ve enflasyon endiselerinin yuksek oldugu donemlerde guvenli liman olarak one cikmaktadir.\n\n**Temel Gorunum:**\n- Fed faiz kararlari altini dogrudan etkiliyor\n- Dolar endeksi (DXY) ile ters korelasyon guclu\n- Merkez bankasi alimlari talep tarafini destekliyor\n\nâš ï¸ Bu yatirim tavsiyesi degildir. Portfoy cesitlendirmesi icin bir uzmana danisin.`;
   }
   if (m.includes('bist') || m.includes('thyao') || m.includes('turk') || m.includes('borsa')) {
-    return `**BIST / Turk Hisse Senetleri Analizi**\n\nTurk borsasi, enflasyon dinamikleri, TCMB kararlari ve kuresel risk istahından etkilenmektedir.\n\n**Makro Faktorler:**\n- TCMB faiz politikasi kritik belirleyici\n- Enflasyon verileri sirket karliligini etkiliyor\n- Yabanci yatirimci akislari izlenmeli\n\n⚠️ Bu yatirim tavsiyesi degildir. BIST yatirimlarinda vergi ve duzenleyici konulara dikkat edin.`;
+    return `**BIST / Turk Hisse Senetleri Analizi**\n\nTurk borsasi, enflasyon dinamikleri, TCMB kararlari ve kuresel risk istahÄ±ndan etkilenmektedir.\n\n**Makro Faktorler:**\n- TCMB faiz politikasi kritik belirleyici\n- Enflasyon verileri sirket karliligini etkiliyor\n- Yabanci yatirimci akislari izlenmeli\n\nâš ï¸ Bu yatirim tavsiyesi degildir. BIST yatirimlarinda vergi ve duzenleyici konulara dikkat edin.`;
   }
-  return `**AYC Global Market AI Copilot**\n\nPiyasa degerlendirilmesi:\n- Kuresel piyasalar makro ekonomik gelismelere duyarliligini korumaktadir\n- Teknik analiz ve temel analizi birlestiren yaklasim en saglikli sonuclari verir\n- Risk yonetimi her yatirim stratejisinin temel unsurudur\n\n**Dikkat edilmesi gereken faktorler:**\n1. Merkez bankasi kararlari ve faiz politikalari\n2. Jeopolitik gelismeler\n3. Sirket/sektor bazli haberler\n4. Teknik destek/direnc seviyeleri\n\nDaha spesifik bir varlik veya piyasa hakkinda analiz yapmami ister misiniz?\n\n⚠️ Bu yatirim tavsiyesi degildir. Lisansli bir finansal danismana basvurun.`;
+  return `**AYC Global Market AI Copilot**\n\nPiyasa degerlendirilmesi:\n- Kuresel piyasalar makro ekonomik gelismelere duyarliligini korumaktadir\n- Teknik analiz ve temel analizi birlestiren yaklasim en saglikli sonuclari verir\n- Risk yonetimi her yatirim stratejisinin temel unsurudur\n\n**Dikkat edilmesi gereken faktorler:**\n1. Merkez bankasi kararlari ve faiz politikalari\n2. Jeopolitik gelismeler\n3. Sirket/sektor bazli haberler\n4. Teknik destek/direnc seviyeleri\n\nDaha spesifik bir varlik veya piyasa hakkinda analiz yapmami ister misiniz?\n\nâš ï¸ Bu yatirim tavsiyesi degildir. Lisansli bir finansal danismana basvurun.`;
 }
 
 async function getSymbolPrice(symbol: string): Promise<{ price: number; chg: number }> {
@@ -352,7 +352,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Synthetic fallback — always responds
+    // Synthetic fallback â€” always responds
     if (!reply) {
       reply = syntheticResponse(message);
       model_used = 'synthetic';
@@ -385,3 +385,4 @@ export async function POST(req: NextRequest) {
     }, { status: 200 });
   }
 }
+

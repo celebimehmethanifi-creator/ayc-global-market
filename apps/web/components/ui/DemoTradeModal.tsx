@@ -99,14 +99,14 @@ export function DemoTradeModal({ symbol, name, onClose }: Props) {
             {PRESETS.map(p => (
               <button key={p} onClick={() => setAmountRaw(String(p))} style={{
                 padding: "5px 10px", borderRadius: 6, cursor: "pointer", border: "none", fontSize: 11, fontWeight: 700,
-                background: amountUSD === p && amountRaw === String(p) ? "var(--purple)" : "var(--bg-hover)",
+                background: amountRaw === String(p) ? "var(--purple)" : "var(--bg-hover)",
                 color: amountUSD === p ? "#fff" : "var(--t3)",
               }}>${p}</button>
             ))}
           </div>
           <input
             type="text" inputMode="decimal" value={amountRaw}
-            onChange={e => { const v=e.target.value; if(/^\d*\.?\d*$/.test(v)||v==="") setAmountRaw(v); }}
+            onChange={e => { const v=e.target.value; const norm=v.replace(",","."); if(/^\d*\.?\d*$/.test(norm)||norm==="") setAmountRaw(norm); }}
             onBlur={e => { const n=parseFloat(e.target.value)||10; setAmountRaw(String(Math.min(Math.max(10,n),demo.balance))); }}
             style={{
               width: "100%", padding: "10px 12px", borderRadius: 8,
@@ -171,5 +171,6 @@ export function DemoTradeModal({ symbol, name, onClose }: Props) {
     </div>
   );
 }
+
 
 

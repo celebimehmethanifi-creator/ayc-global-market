@@ -130,7 +130,7 @@ export default function MarketPage() {
       const lp = livePrices[pkey] ?? livePrices[a.symbol] ?? livePrices[a.symbol+"USDT"];
       if(!lp) return a;
       const sc = (v:any)=>{const n=Number(v);return isFinite(n)?n:0;};
-      return {...a, price:lp.price||a.price, chg:sc(lp.chg)};
+      const liveChg = sc(lp.chg); return {...a, price:lp.price||a.price, chg:liveChg!==0?liveChg:a.chg};
     }));
   },[livePrices]);
 
@@ -228,3 +228,5 @@ export default function MarketPage() {
     </div>
   );
 }
+
+

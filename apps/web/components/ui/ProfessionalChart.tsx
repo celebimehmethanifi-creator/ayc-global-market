@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 interface Candle { t: number; o: number; h: number; l: number; c: number; v: number; }
@@ -12,7 +12,7 @@ interface Props {
 const TF_OPTIONS = ["5M","15M","1H","4H","1D","1W","1M","1Y"];
 const TF_LABEL: Record<string,string> = {
   "5M":"5 Dk","15M":"15 Dk","1H":"1 Sa","4H":"4 Sa",
-  "1D":"1 Gün","1W":"1 Hf","1M":"1 Ay","1Y":"1 Yıl",
+  "1D":"1 GÃ¼n","1W":"1 Hf","1M":"1 Ay","1Y":"1 YÄ±l",
 };
 
 function fmt(n: number): string {
@@ -32,6 +32,7 @@ function fmtVol(v: number): string {
 
 export default function ProfessionalChart({ symbol, market, initialTf = "1D", height = 420 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const roRef = useRef<ResizeObserver|null>(null);
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
@@ -45,7 +46,8 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
     if (!containerRef.current) return;
     // dynamic import - runs only client side
     const { createChart, ColorType, CrosshairMode, PriceScaleMode } = await import("lightweight-charts");
-    if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+    if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+      if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -138,7 +140,7 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const candles: Candle[] = data.candles || [];
-      if (candles.length === 0) throw new Error(data.error || "Veri bulunamadı");
+      if (candles.length === 0) throw new Error(data.error || "Veri bulunamadÄ±");
 
       // Format for lightweight-charts (time must be seconds)
       const lc = candles.map(c => ({
@@ -164,7 +166,7 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
       const chg = first.c > 0 ? ((last.c - first.c) / first.c) * 100 : 0;
       setLastPrice({ price: last.c, chg });
     } catch (e: any) {
-      setError(e.message || "Veri yüklenemedi");
+      setError(e.message || "Veri yÃ¼klenemedi");
     } finally {
       setLoading(false);
     }
@@ -173,6 +175,7 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
   useEffect(() => {
     initChart().then(() => loadData(tf));
     return () => {
+      if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
     };
   }, [symbol]);
@@ -259,7 +262,7 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
                 borderTop: "3px solid #2563eb", borderRadius: "50%",
                 margin: "0 auto 10px", animation: "spin 0.7s linear infinite",
               }} />
-              <div style={{ color: "#5a6a8a", fontSize: 12 }}>Grafik yükleniyor...</div>
+              <div style={{ color: "#5a6a8a", fontSize: 12 }}>Grafik yÃ¼kleniyor...</div>
             </div>
           </div>
         )}
@@ -271,7 +274,7 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
             alignItems: "center", justifyContent: "center", gap: 10,
             background: "#0a0f1e",
           }}>
-            <div style={{ fontSize: 28 }}>📊</div>
+            <div style={{ fontSize: 28 }}>ğŸ“Š</div>
             <div style={{ color: "#ff4757", fontSize: 13 }}>{error}</div>
             <button onClick={() => loadData(tf)} style={{
               marginTop: 6, padding: "6px 16px", borderRadius: 6,
@@ -286,3 +289,4 @@ export default function ProfessionalChart({ symbol, market, initialTf = "1D", he
     </div>
   );
 }
+
