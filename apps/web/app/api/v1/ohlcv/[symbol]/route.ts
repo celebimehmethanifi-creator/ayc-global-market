@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const AV_KEY  = process.env.ALPHAVANTAGE_API_KEY || '63T2IM69L6OSSR51';
-const CG_KEY  = process.env.COINGECKO_API_KEY    || 'CG-MoxLLAjSA3r2JHXanw9fotD5';
+const AV_KEY  = process.env.ALPHAVANTAGE_API_KEY || '';
+const CG_KEY  = process.env.COINGECKO_API_KEY    || '';
 
 interface Candle { t: number; o: number; h: number; l: number; c: number; v: number; }
 
@@ -89,10 +89,13 @@ async function coinGeckoOHLC(symbol: string, tf: string): Promise<Candle[]> {
     : tf === '1M' ? 30
     : tf === '3M' ? 90
     : 365;
-  const r = await sfetch(
-    `https://api.coingecko.com/api/v3/coins/${cgId}/ohlc?vs_currency=usd&days=${days}&x_cg_demo_api_key=${CG_KEY}`,
-    10000
-  );
+  const cgUrl = `https://api.coingecko.com/api/v3/coins/${cgId}/ohlc?vs_currency=usd&days=${days}`;
+  const headers: Record<string, string> = {};
+  if (CG_KEY) headers["x-cg-demo-api-key"] = CG_KEY;
+  const r = await fetch(cgUrl, {
+    headers: { "Accept": "application/json", "User-Agent": "AYCMarket/2.0", ...headers },
+    signal: AbortSignal.timeout(10000),
+  }).catch(() => null);
   if (!r?.ok) throw new Error('CG failed');
   const raw: Array<[number, number, number, number, number]> = await r.json();
   if (!Array.isArray(raw) || raw.length === 0) throw new Error('Empty');
@@ -160,6 +163,7 @@ async function stooqKlines(symbol: string, tf: string): Promise<Candle[]> {
 
 /* ── SOURCE 5: Alpha Vantage (stocks/forex fallback) ─── */
 async function avKlines(symbol: string, tf: string): Promise<Candle[]> {
+  if (!AV_KEY) throw new Error("AV key missing");
   const isForex = symbol.length === 6 && /^[A-Z]{6}$/.test(symbol);
   let url: string;
   if (isForex) {
