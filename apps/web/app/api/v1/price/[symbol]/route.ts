@@ -8,7 +8,8 @@ export async function GET(req: NextRequest, { params }: { params: { symbol: stri
       signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined,
     });
     const d = await r.json();
-    const pd = d[symbol] || d[symbol.replace('USDT', '')] || Object.values(d)[0];
+    const prices = d.prices || d;
+    const pd = prices[symbol] || prices[symbol.replace('USDT', '')] || prices[symbol+'USDT'] || Object.values(prices)[0];
     if (pd && (pd as any).price) {
       return NextResponse.json({ symbol, price: (pd as any).price, chg: (pd as any).chg || 0, source: (pd as any).source });
     }

@@ -200,7 +200,7 @@ const MOCK_CAUSAL: CausalCard = {
 
 
 
-  narrative:"Bitcoin'deki %1.82 gunluk yukselis hareketinin birincil nedeni **hacim anomalisi** (YUKSEK guven, %78). 5.2x ortalama hacim â-> kurumsal alim isareti. Teknik kirilim (68/100) ikincil faktor olarak destekliyor. Manipulasyon riski dusuk.",
+  narrative:"Bitcoin'deki %1.82 gunluk yukselis hareketinin birincil nedeni **hacim anomalisi** (YUKSEK guven, %78). 5.2x ortalama hacim -> kurumsal alim isareti. Teknik kirilim (68/100) ikincil faktor olarak destekliyor. Manipulasyon riski dusuk.",
 
 
 
@@ -228,7 +228,7 @@ const MOCK_ALARMS: AlarmItem[] = [
 
 
 
-  {time:"01:32",symbol:"NVDA",   msg:"KALKAN: Sahte kirilim riski â-> bloke edildi",      type:"danger"},
+  {time:"01:32",symbol:"NVDA",   msg:"KALKAN: Sahte kirilim riski -> bloke edildi",      type:"danger"},
 
 
 
@@ -1308,7 +1308,7 @@ export default function DashboardPage() {
 
 
 
-            <span style={{marginLeft:"auto",fontSize:10,color:"var(--t3)"}} suppressHydrationWarning>{mounted ? currentTime : ""}</span>
+            
 
 
 
@@ -1440,7 +1440,7 @@ export default function DashboardPage() {
 
 
 
-              <div style={{fontSize:10,fontWeight:700,color:"var(--gold)",letterSpacing:"0.1em"}}>AÃ‡GOZLULUK</div>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--gold)",letterSpacing:"0.1em"}}>ACGOZLULUK</div>
 
 
 
@@ -1592,7 +1592,7 @@ export default function DashboardPage() {
 
 
 
-              <span style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>En Ã‡ok Hareket</span>
+              <span style={{fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>En Cok Hareket</span>
 
 
 
@@ -1776,7 +1776,7 @@ export default function DashboardPage() {
 
 
 
-            {/* â”€â”€â”€ Haber Akisi â”€â”€â”€ */}
+            {/* --- */}
 
 
 
@@ -1874,7 +1874,7 @@ export default function DashboardPage() {
 
               fontSize: 28,
 
-            }}>ğŸ‰</div>
+            }}>‰</div>
 
             <div style={{ fontSize: 22, fontWeight: 900, color: "var(--t1)", marginBottom: 8 }}>
 
