@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useExchange } from '@/lib/exchange/ExchangeContext';
 import { EXCHANGE_INFO, type ExchangeId, type ConnectedExchange } from '@/lib/exchange/types';
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 const EXCHANGES: { id: ExchangeId; name: string; logo: string; color: string; desc: string; hasPassphrase: boolean }[] = [
   { id: 'binance', name: 'Binance', logo: '🟡', color: '#F0B90B', desc: "Dunyanin en buyuk kripto borsasi. BTC, ETH ve 300+ coinle islem yapin.", hasPassphrase: false },
   { id: 'bybit', name: 'Bybit', logo: '🟠', color: '#FF6B35', desc: "Hizli ve guvenilir spot & futures borsa. Dusuk komisyon, yuksek likidite.", hasPassphrase: false },
@@ -18,6 +20,10 @@ export default function BrokersPage() {
   const [expandedId, setExpandedId] = useState<ExchangeId | null>(null);
 
   async function handleConnect(exId: ExchangeId) {
+    if (IS_PRODUCTION) {
+      alert("Gercek borsa baglantisi guvenlik sertlestirmesi tamamlanana kadar kapalidir.");
+      return;
+    }
     if (!form.apiKey || !form.apiSecret) { alert('API Key ve Secret zorunlu'); return; }
     setTesting(true); setTestResult(null);
     try {
@@ -54,6 +60,12 @@ export default function BrokersPage() {
         <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, margin: 0 }}>Borsa Baglantilari</h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 4 }}>API anahtarinizi baglayin, AYC borsaniz uzerinden islem yapsin</p>
       </div>
+
+      {IS_PRODUCTION && (
+        <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.12)', color: '#fbbf24', fontSize: 12, lineHeight: 1.5 }}>
+          Gercek borsa baglantisi guvenlik sertlestirmesi tamamlanana kadar kapalidir. Paper trading/demo kullanilabilir.
+        </div>
+      )}
 
       {/* Total balance */}
       {exchanges.length > 0 && (
@@ -114,16 +126,17 @@ export default function BrokersPage() {
                         style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>Kes</button>
                     </>
                   ) : (
-                    <button onClick={() => { setConnectingId(isConnecting ? null : ex.id); setTestResult(null); setForm({ apiKey: '', apiSecret: '', passphrase: '' }); }}
-                      style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${ex.color}, ${ex.color}bb)`, color: '#000', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
-                      {isConnecting ? 'Iptal' : ex.name + " Bagla"}
+                    <button onClick={() => { if (!IS_PRODUCTION) { setConnectingId(isConnecting ? null : ex.id); setTestResult(null); setForm({ apiKey: '', apiSecret: '', passphrase: '' }); } }}
+                      disabled={IS_PRODUCTION}
+                      style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: IS_PRODUCTION ? 'rgba(255,255,255,0.15)' : `linear-gradient(135deg, ${ex.color}, ${ex.color}bb)`, color: IS_PRODUCTION ? 'rgba(255,255,255,0.55)' : '#000', cursor: IS_PRODUCTION ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 14 }}>
+                      {IS_PRODUCTION ? 'Productionda Kapali' : (isConnecting ? 'Iptal' : ex.name + " Bagla")}
                     </button>
                   )}
                 </div>
               </div>
 
               {/* Connect form */}
-              {isConnecting && !conn && (
+              {isConnecting && !conn && !IS_PRODUCTION && (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px', background: 'rgba(0,0,0,0.3)' }}>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 6, display: 'block' }}>API Key</label>

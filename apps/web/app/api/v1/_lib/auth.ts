@@ -7,6 +7,8 @@ const MIN_SECRET_LENGTH = 32;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24h
 const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30d
+const REFRESH_SESSION_STORE = "memory";
+const HAS_PERSISTENT_REFRESH_STORE = false;
 
 export const ACCESS_COOKIE_NAME = "ayc_access";
 export const REFRESH_COOKIE_NAME = "ayc_refresh";
@@ -70,6 +72,12 @@ if (!globalThis.__AYC_REFRESH_SESSIONS) {
 
 export const USERS = globalThis.__AYC_USERS_CACHE;
 const REFRESH_SESSIONS = globalThis.__AYC_REFRESH_SESSIONS;
+
+if (IS_PRODUCTION && !HAS_PERSISTENT_REFRESH_STORE) {
+  console.warn(
+    "[auth] Refresh session store is in-memory. Session rotation state may be lost after cold start/redeploy.",
+  );
+}
 
 export const USERS_BY_ID = {
   get: (id: string): UserRecord | undefined => {
@@ -286,4 +294,21 @@ export function setAuthCookies(
 export function clearAuthCookies(res: NextResponse): void {
   res.cookies.set(ACCESS_COOKIE_NAME, "", { ...authCookieOptions(0), maxAge: 0 });
   res.cookies.set(REFRESH_COOKIE_NAME, "", { ...authCookieOptions(0), maxAge: 0 });
+}
+
+export function getAuthRuntimeWarnings(): string[] {
+  const warnings: string[] = [];
+  if (IS_PRODUCTION && !HAS_PERSISTENT_REFRESH_STORE) {
+    warnings.push(
+      "Refresh sessions are stored in-memory; rotation state can be lost after cold start or redeploy.",
+    );
+  }
+  return warnings;
+}
+
+export function getAuthRuntimeMetadata(): { refreshSessionStore: string; persistent: boolean } {
+  return {
+    refreshSessionStore: REFRESH_SESSION_STORE,
+    persistent: HAS_PERSISTENT_REFRESH_STORE,
+  };
 }

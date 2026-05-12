@@ -21,6 +21,7 @@ const PLANS: Record<string, { name: string; price_usd: number; price_try: number
 async function createLemonCheckout(
   variantId: string,
   userEmail: string,
+  userId: string,
   plan: string,
 ): Promise<string | null> {
   const lsKey = (process.env.LEMON_API_KEY || "").trim();
@@ -34,7 +35,14 @@ async function createLemonCheckout(
         type: "checkouts",
         attributes: {
           checkout_options: { embed: false },
-          checkout_data: { email: userEmail, custom: { plan } },
+          checkout_data: {
+            email: userEmail,
+            custom: {
+              user_id: userId,
+              email: userEmail,
+              plan,
+            },
+          },
           product_options: {
             redirect_url: `${baseUrl}/subscribe/success?plan=${plan}&provider=lemonsqueezy`,
             receipt_link_url: `${baseUrl}/subscribe/success?plan=${plan}&provider=lemonsqueezy`,
@@ -98,7 +106,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const checkoutUrl = await createLemonCheckout(variantId, payload.email, plan);
+  const checkoutUrl = await createLemonCheckout(variantId, payload.email, payload.sub, plan);
   if (!checkoutUrl) {
     return NextResponse.json(
       { detail: "Checkout olusturulamadi." },

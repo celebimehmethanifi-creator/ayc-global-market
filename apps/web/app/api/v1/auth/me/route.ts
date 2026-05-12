@@ -12,14 +12,15 @@ export async function GET(req: NextRequest) {
   const persisted = await lookupUser(payload.email);
   const createdAt = persisted?.createdAt || new Date().toISOString();
   const displayName = persisted?.name || payload.name || payload.email.split("@")[0];
+  const resolvedPlan = persisted?.plan || payload.plan || "free";
 
   return NextResponse.json({
     user: {
       id: payload.sub,
       email: payload.email,
       name: displayName,
-      tier: payload.plan || "free",
-      plan: payload.plan || "free",
+      tier: resolvedPlan,
+      plan: resolvedPlan,
       avatar_url: null,
       created_at: createdAt,
     },
