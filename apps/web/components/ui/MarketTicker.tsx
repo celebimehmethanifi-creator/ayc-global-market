@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/lib/prices/PriceContext";
 
 const ALL_SYMBOLS = [
@@ -68,6 +68,16 @@ const sc = (v: unknown): number => { const n = Number(v); return isFinite(n) ? n
 
 export function MarketTicker() {
   const prices = usePrices();
+  const [mounted, setMounted] = useState(false);
+  const [nowTs, setNowTs] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+    const tick = () => setNowTs(Date.now());
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, []);
 
   const items = useMemo(() => {
     const list = ALL_SYMBOLS
@@ -85,10 +95,18 @@ export function MarketTicker() {
     return [...gainers, ...losers];
   }, [prices]);
 
-  const liveCount = items.filter(i => i.ts > 0 && Date.now() - i.ts < 90000).length;
+  const liveCount = items.filter(i => i.ts > 0 && nowTs > 0 && nowTs - i.ts < 90000).length;
   const isLive = liveCount >= 3;
   const statusLabel = isLive ? "Canlı" : "Gecikmeli";
   const durationSec = Math.max(40, items.length * 3.8);
+
+  if (!mounted) {
+    return (
+      <div style={{ height: 32, background: "var(--bg-panel)", borderBottom: "1px solid var(--b1)", display: "flex", alignItems: "center", padding: "0 12px" }}>
+        <span style={{ fontSize: 10, color: "var(--t4)", fontFamily: "var(--font-mono)" }}>Piyasa verileri yükleniyor...</span>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

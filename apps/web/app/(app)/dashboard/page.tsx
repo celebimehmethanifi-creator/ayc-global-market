@@ -40,7 +40,7 @@ import {
 
 
 
-  ChevronRight, AlertTriangle, BarChart3, Globe, Eye,
+  ChevronRight, AlertTriangle, Globe, Eye,
 
 
 
@@ -325,7 +325,6 @@ function computeMarketPulse(signals: Signal[], movers: Mover[]) {
   return {
     score,
     label: pulseLabel(score),
-    updatedAt: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
     advanceCount,
     declineCount,
     volatility,
@@ -849,6 +848,8 @@ export default function DashboardPage() {
 
 
   const [currentTime, setCurrentTime] = useState("");
+  const [nowTs, setNowTs] = useState(0);
+  const [marketPulseUpdatedAt, setMarketPulseUpdatedAt] = useState("—");
 
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -883,6 +884,13 @@ export default function DashboardPage() {
 
 
   },[]);
+
+  useEffect(() => {
+    const refreshNow = () => setNowTs(Date.now());
+    refreshNow();
+    const id = setInterval(refreshNow, 15000);
+    return () => clearInterval(id);
+  }, []);
 
 
 
@@ -1107,7 +1115,7 @@ export default function DashboardPage() {
   const alarms: AlarmItem[] = useMemo(() => {
     const raw = Array.isArray(alarmData?.alarms) ? alarmData.alarms : [];
     const normalized = raw
-      .map((item: any) => {
+      .map((item: any, index: number) => {
         const createdAt = typeof item?.created_at === "string" ? item.created_at : undefined;
         const symbol = String(item?.condition?.symbol || item?.symbol || "—").toUpperCase();
         const alarmType = String(item?.alarm_type || "alarm").toLowerCase();
@@ -1123,7 +1131,7 @@ export default function DashboardPage() {
               ? "warn"
               : "info";
         return {
-          id: String(item?.id || `${symbol}-${createdAt || Date.now()}`),
+          id: String(item?.id || `${symbol}-${createdAt || index}`),
           time: relativeTimeFromIso(createdAt),
           symbol,
           msg: message,
@@ -1144,6 +1152,13 @@ export default function DashboardPage() {
 
   const marketPulse = useMemo(() => computeMarketPulse(signals, movers), [signals, movers]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    setMarketPulseUpdatedAt(
+      new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    );
+  }, [marketPulse.score, marketPulse.advanceCount, marketPulse.declineCount, mounted]);
+
 
 
 
@@ -1154,17 +1169,9 @@ export default function DashboardPage() {
 
 
 
-  const btcSig  = { price: livePrices["BTCUSDT"]?.price  || signals.find(s=>s.symbol==="BTCUSDT")?.price  || 0, change_24h: livePrices["BTCUSDT"]?.chg  || 0 };
-
-
-
-  const goldSig = { price: livePrices["XAUUSD"]?.price   || signals.find(s=>s.symbol==="XAUUSD")?.price   || 0, change_24h: livePrices["XAUUSD"]?.chg   || 0 };
-
-
-
   const longCount = signals.filter(s=>s.direction==="LONG").length;
   const priceEntries = Object.values(livePrices);
-  const freshPriceCount = priceEntries.filter((entry) => Date.now() - entry.ts < 45000).length;
+  const freshPriceCount = priceEntries.filter((entry) => nowTs > 0 && nowTs - entry.ts < 45000).length;
   const dataStatus = freshPriceCount >= 8 ? "Canlı" : freshPriceCount > 0 ? "Gecikmeli" : "Fallback";
 
 
@@ -1323,31 +1330,7 @@ export default function DashboardPage() {
 
 
 
-      <div className="stat-scroll">
-
-
-
-        <StatBadge icon={Activity} label="BTC/USD" value={`${ (btcSig.price||0).toLocaleString("en-US",{maximumFractionDigits:0}) }`}
-
-
-
-          sub={`${(isFinite(Number(btcSig?.change_24h)) ? Number(btcSig.change_24h) : 0)>=0?"+":""}${(isFinite(Number(btcSig?.change_24h)) ? Number(btcSig.change_24h) : 0).toFixed(2)}% 24s`}
-
-
-
-          color={(isFinite(Number(btcSig?.change_24h)) ? Number(btcSig.change_24h) : 0)>=0?"var(--up)":"var(--down)"}/>
-
-
-
-        <StatBadge icon={BarChart3} label="XAU/USD" value={`${ (goldSig.price||0).toLocaleString("en-US",{maximumFractionDigits:0}) }`}
-
-
-
-          sub={`${(goldSig.change_24h??0)>=0?"+":""}${(goldSig.change_24h??0).toFixed(2)}% 24s`}
-
-
-
-          color="var(--gold)"/>
+      <div className="stat-scroll dashboard-top-stats">
 
 
 
@@ -1554,7 +1537,7 @@ export default function DashboardPage() {
             </div>
             <div style={{marginTop:6,fontSize:9,color:"var(--t4)",display:"flex",justifyContent:"space-between"}}>
               <span>Veri: {dataStatus}</span>
-              <span>Güncellendi: {marketPulse.updatedAt}</span>
+              <span>Güncellendi: {marketPulseUpdatedAt}</span>
             </div>
           </div>
 

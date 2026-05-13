@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Users, Zap } from "lucide-react";
+import { AssetDetailModal, type AssetInfo } from "@/components/ui/AssetDetailModal";
 import {
   ASSET_UNIVERSE,
   getAssetDisplayName,
@@ -76,6 +77,7 @@ export default function SocialPage() {
   const lang = locale === "en" ? "en" : "tr";
   const [category, setCategory] = useState<CategoryKey>("all");
   const [votes, setVotes] = useState<Record<string, "bull" | "neutral" | "bear">>({});
+  const [selectedAsset, setSelectedAsset] = useState<AssetInfo | null>(null);
 
   const rows = useMemo(() => {
     return ASSET_UNIVERSE.filter((item) => item.isChartable).map((item) => ({
@@ -190,7 +192,21 @@ export default function SocialPage() {
           const userVote = votes[asset.symbol];
 
           return (
-            <div key={asset.symbol} className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div
+              key={asset.symbol}
+              className="card"
+              style={{ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer" }}
+              onClick={() =>
+                setSelectedAsset({
+                  symbol: asset.symbol,
+                  display: asset.displaySymbol,
+                  name: getAssetDisplayName(asset, lang),
+                  price: 0,
+                  chg: 0,
+                  market: asset.category,
+                })
+              }
+            >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 800 }}>
@@ -235,7 +251,10 @@ export default function SocialPage() {
                   return (
                     <button
                       key={`${asset.symbol}-${dir}`}
-                      onClick={() => setVotes((prev) => ({ ...prev, [asset.symbol]: dir }))}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setVotes((prev) => ({ ...prev, [asset.symbol]: dir }));
+                      }}
                       style={{
                         flex: 1,
                         borderRadius: 7,
@@ -299,6 +318,7 @@ export default function SocialPage() {
           flex-shrink: 0;
         }
       `}</style>
+      <AssetDetailModal asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
     </div>
   );
 }

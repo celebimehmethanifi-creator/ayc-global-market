@@ -43,8 +43,12 @@ WEB_PROFESSIONAL_CHART = ROOT / "apps" / "web" / "components" / "ui" / "Professi
 WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
 WEB_ASSET_DETAIL_MODAL = ROOT / "apps" / "web" / "components" / "ui" / "AssetDetailModal.tsx"
 WEB_ASSET_UNIVERSE = ROOT / "apps" / "web" / "lib" / "markets" / "asset-universe.ts"
+WEB_BREAKPOINT_HOOK = ROOT / "apps" / "web" / "lib" / "responsive" / "useBreakpoint.ts"
 WEB_MIDDLEWARE = ROOT / "apps" / "web" / "middleware.ts"
 WEB_VERCEL_SETUP = ROOT / "apps" / "web" / "VERCEL_ENV_SETUP.txt"
+WEB_VERSION_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "version" / "route.ts"
+WEB_VERSION_LIB = ROOT / "apps" / "web" / "app" / "api" / "v1" / "_lib" / "version-info.ts"
+WEB_VERSION_TXT_ROUTE = ROOT / "apps" / "web" / "app" / "version.txt" / "route.ts"
 ENV_EXAMPLE = ROOT / ".env.example"
 PNPM_WORKSPACE = ROOT / "pnpm-workspace.yaml"
 MOBILE_API_CLIENT = ROOT / "apps" / "mobile" / "src" / "api" / "client.ts"
@@ -298,6 +302,26 @@ def test_dashboard_uses_live_alarm_feed_and_dynamic_market_pulse():
     assert "Veri: {dataStatus}" in text
 
 
+def test_dashboard_top_stats_are_limited_to_three_cards():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert 'className="stat-scroll dashboard-top-stats"' in text
+    assert 'label="Aktif Sinyaller"' in text
+    assert 'label="KALKAN"' in text
+    assert 'label="Piyasa Kapsamı"' in text
+    assert 'label="BTC/USD"' not in text
+    assert 'label="XAU/USD"' not in text
+
+
+def test_version_endpoint_and_version_txt_exist_with_required_fields():
+    route_text = read_text(WEB_VERSION_ROUTE)
+    lib_text = read_text(WEB_VERSION_LIB)
+    txt_text = read_text(WEB_VERSION_TXT_ROUTE)
+    assert "getVersionInfo" in route_text
+    for key in ["commitSha", "branch", "buildTime", "environment", "deploymentUrl"]:
+        assert key in lib_text
+        assert key in txt_text
+
+
 def test_professional_chart_supports_fullscreen_controls_and_escape_close():
     text = read_text(WEB_PROFESSIONAL_CHART)
     assert "setIsFullscreen(true)" in text
@@ -356,10 +380,15 @@ def test_asset_universe_precision_rules_are_defined_for_micro_and_fx_assets():
 def test_market_and_command_use_central_asset_universe():
     market_text = read_text(WEB_MARKET_PAGE)
     command_text = read_text(WEB_COMMAND_PALETTE)
+    bp_text = read_text(WEB_BREAKPOINT_HOOK)
     assert "ASSET_UNIVERSE" in market_text
     assert "normalizeSearchText" in market_text
+    assert "useBreakpoint" in market_text
+    assert "isMobile" in market_text
     assert "searchAssets" in command_text
     assert "getCategoryLabel" in command_text
+    assert "isMobile: width <= 640" not in bp_text
+    assert "isMobile = width <= 640" in bp_text
 
 
 def test_asset_detail_modal_uses_canonical_symbol_chart_and_analysis():
@@ -368,6 +397,13 @@ def test_asset_detail_modal_uses_canonical_symbol_chart_and_analysis():
     assert "/api/v1/assets/" in text
     assert "setChartLatestClose" in text
     assert "priceDiffPct" in text
+
+
+def test_social_assets_open_asset_detail_modal():
+    text = read_text(WEB_SOCIAL_PAGE)
+    assert "AssetDetailModal" in text
+    assert "setSelectedAsset" in text
+    assert "onClick={() =>" in text
 
 
 def test_ohlcv_route_returns_no_data_contract_when_sources_fail():

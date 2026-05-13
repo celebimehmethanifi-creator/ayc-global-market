@@ -926,6 +926,16 @@ button, a { touch-action: manipulation; }
   gap: 10px;
   flex-wrap: wrap;
 }
+.dashboard-top-stats {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .dashboard-top-stats {
+    grid-template-columns: 1fr !important;
+  }
+}
 @media (max-width: 640px) {
   .stat-scroll {
     display: grid;

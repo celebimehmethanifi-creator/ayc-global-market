@@ -13,6 +13,7 @@ import {
   type AssetCategory,
 } from "@/lib/markets/asset-universe";
 import { useI18n } from "@/lib/i18n";
+import { useBreakpoint } from "@/lib/responsive/useBreakpoint";
 
 const API = "/api/v1";
 
@@ -131,6 +132,7 @@ function sourceLabel(source: string, locale: "tr" | "en"): string {
 
 export default function MarketPage() {
   const { locale, t } = useI18n();
+  const { isMobile } = useBreakpoint();
   const livePrices = usePrices();
   const [rows, setRows] = useState<MarketRow[]>(toInitialRows());
   const [cat, setCat] = useState<"all" | AssetCategory>("all");
@@ -290,6 +292,17 @@ export default function MarketPage() {
     label: locale === "en" ? filter.labelEn : filter.labelTr,
   }));
 
+  const openAssetDetail = (row: MarketRow) => {
+    setSelected({
+      symbol: row.symbol,
+      display: row.displaySymbol,
+      name: getAssetDisplayName(row, locale),
+      price: row.price || 0,
+      chg: row.chg,
+      market: row.category,
+    });
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -335,6 +348,7 @@ export default function MarketPage() {
       </div>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--b1)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
+        {!isMobile && (
         <div className="market-table-wrap" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table className="market-table" style={{ minWidth: 980 }}>
             <thead>
@@ -357,7 +371,12 @@ export default function MarketPage() {
                 const up7d = (row.chg7d || 0) >= 0;
                 const hasPrice = row.price != null && row.price > 0;
                 return (
-                  <tr key={row.symbol} className="fade-in">
+                  <tr
+                    key={row.symbol}
+                    className="fade-in"
+                    onClick={() => openAssetDetail(row)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>{row.displaySymbol}</td>
                     <td>{getAssetDisplayName(row, locale)}</td>
                     <td>
@@ -392,16 +411,10 @@ export default function MarketPage() {
                       <button
                         className="btn-ghost"
                         style={{ padding: "4px 10px", fontSize: 11 }}
-                        onClick={() =>
-                          setSelected({
-                            symbol: row.symbol,
-                            display: row.displaySymbol,
-                            name: getAssetDisplayName(row, locale),
-                            price: row.price || 0,
-                            chg: row.chg,
-                            market: row.category,
-                          })
-                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAssetDetail(row);
+                        }}
                       >
                         {t("market.chartButton")}
                       </button>
@@ -412,7 +425,9 @@ export default function MarketPage() {
             </tbody>
           </table>
         </div>
+        )}
 
+        {isMobile && (
         <div className="market-mobile-list">
           {filteredRows.map((row) => {
             const up24 = row.chg >= 0;
@@ -427,7 +442,12 @@ export default function MarketPage() {
                   : "var(--up)";
 
             return (
-              <div key={`mobile-${row.symbol}`} className="market-mobile-card">
+              <div
+                key={`mobile-${row.symbol}`}
+                className="market-mobile-card"
+                onClick={() => openAssetDetail(row)}
+                style={{ cursor: "pointer" }}
+              >
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 800 }}>
@@ -486,16 +506,10 @@ export default function MarketPage() {
                   <button
                     className="btn-ghost"
                     style={{ padding: "5px 10px", fontSize: 11 }}
-                    onClick={() =>
-                      setSelected({
-                        symbol: row.symbol,
-                        display: row.displaySymbol,
-                        name: getAssetDisplayName(row, locale),
-                        price: row.price || 0,
-                        chg: row.chg,
-                        market: row.category,
-                      })
-                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openAssetDetail(row);
+                    }}
                   >
                     {t("market.chartButton")}
                   </button>
@@ -504,6 +518,7 @@ export default function MarketPage() {
             );
           })}
         </div>
+        )}
 
         {filteredRows.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "var(--t3)" }}>
@@ -541,9 +556,6 @@ export default function MarketPage() {
           padding: 10px;
         }
         @media (max-width: 767px) {
-          .market-table-wrap {
-            display: none;
-          }
           .market-mobile-list {
             display: flex;
           }
