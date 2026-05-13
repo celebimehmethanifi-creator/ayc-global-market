@@ -838,6 +838,9 @@ body.chart-fullscreen {
   overflow: hidden !important;
   overscroll-behavior: none;
 }
+body.asset-modal-open {
+  overflow: hidden !important;
+}
 body.chart-fullscreen .app-demo-banner,
 body.chart-fullscreen .app-ticker,
 body.chart-fullscreen .app-topbar,
@@ -847,6 +850,15 @@ body.chart-fullscreen .bottom-nav {
 }
 body.chart-fullscreen .app-main {
   padding: 0 !important;
+}
+body.asset-modal-open .app-demo-banner,
+body.asset-modal-open .app-ticker,
+body.asset-modal-open .app-topbar,
+body.asset-modal-open .bottom-nav {
+  display: none !important;
+}
+body.asset-modal-open .app-main {
+  padding-top: 0 !important;
 }
 @media (max-width: 767px) {
   .app-main { padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px)) 12px !important; }

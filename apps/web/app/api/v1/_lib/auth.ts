@@ -38,6 +38,11 @@ export interface UserRecord {
   hashedPassword: string;
   plan: "free" | "pro" | "elite";
   createdAt: string;
+  language?: "tr" | "en";
+  risk_level?: "low" | "medium" | "high";
+  max_drawdown_pct?: number;
+  max_leverage?: number;
+  signal_threshold?: number;
 }
 
 export interface JWTPayload {

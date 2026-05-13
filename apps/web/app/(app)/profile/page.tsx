@@ -34,6 +34,12 @@ const RISK_LEVELS = [
   {value:"high",   labelKey:"profile.risk.high",   desc:"Agresif, yüksek getiri odaklı",           color:"#ef4444", tone:"239,68,68"},
 ];
 
+const RISK_PROFILE_CONFIG = {
+  low: { defaultDrawdown: 5, maxLeverage: 2, signalThreshold: 80 },
+  medium: { defaultDrawdown: 10, maxLeverage: 5, signalThreshold: 70 },
+  high: { defaultDrawdown: 20, maxLeverage: 10, signalThreshold: 60 },
+} as const;
+
 export default function ProfilePage() {
   const { locale, setLocale, t } = useI18n();
   const qc = useQueryClient();
@@ -42,7 +48,16 @@ export default function ProfilePage() {
   const [language, setLanguage] = useState(locale);
   const [riskLevel, setRiskLevel] = useState("medium");
   const [maxDrawdown, setMaxDrawdown] = useState("10");
+  const [drawdownOverridden, setDrawdownOverridden] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const applyRiskDefaults = (level: string) => {
+    const normalized = (level === "low" || level === "high") ? level : "medium";
+    const cfg = RISK_PROFILE_CONFIG[normalized];
+    setRiskLevel(normalized);
+    setMaxDrawdown(String(cfg.defaultDrawdown));
+    setDrawdownOverridden(false);
+  };
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -70,9 +85,26 @@ export default function ProfilePage() {
       setLanguage(normalized);
       setLocale(normalized);
     }
-    if (typeof profile.risk_level === "string") setRiskLevel(profile.risk_level);
+    if (typeof profile.risk_level === "string") {
+      const normalizedRisk: keyof typeof RISK_PROFILE_CONFIG =
+        profile.risk_level === "low" || profile.risk_level === "high"
+          ? profile.risk_level
+          : "medium";
+      setRiskLevel(normalizedRisk);
+      const cfg = RISK_PROFILE_CONFIG[normalizedRisk];
+      if (typeof profile.max_drawdown_pct === "number" && Number.isFinite(profile.max_drawdown_pct)) {
+        setMaxDrawdown(String(profile.max_drawdown_pct));
+        setDrawdownOverridden(true);
+      } else {
+        setMaxDrawdown(String(cfg.defaultDrawdown));
+        setDrawdownOverridden(false);
+      }
+    }
   }, [profile, setLocale]);
 
+  const normalizedRiskLevel: keyof typeof RISK_PROFILE_CONFIG =
+    riskLevel === "low" || riskLevel === "high" ? riskLevel : "medium";
+  const riskCfg = RISK_PROFILE_CONFIG[normalizedRiskLevel];
   const tier = profile?.tier || "free";
   const planMeta = PLAN_META[tier as keyof typeof PLAN_META] || PLAN_META.free;
   const username = profile?.display_name || profile?.email || "Kullanıcı";
@@ -192,7 +224,14 @@ export default function ProfilePage() {
                 </div>
               </div>
               <button
-                onClick={() => updateMutation.mutate({ display_name: displayName || undefined, language })}
+                onClick={() => updateMutation.mutate({
+                  display_name: displayName || undefined,
+                  language,
+                  risk_level: normalizedRiskLevel,
+                  max_drawdown_pct: Number(maxDrawdown),
+                  max_leverage: riskCfg.maxLeverage,
+                  signal_threshold: riskCfg.signalThreshold,
+                })}
                 disabled={updateMutation.isPending}
                 style={{
                   marginTop:18,display:"flex",alignItems:"center",gap:8,
@@ -219,7 +258,7 @@ export default function ProfilePage() {
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
                 {RISK_LEVELS.map(r => (
-                  <button key={r.value} onClick={() => setRiskLevel(r.value)} style={{
+                  <button key={r.value} onClick={() => applyRiskDefaults(r.value)} style={{
                     display:"flex",alignItems:"center",gap:12,padding:"12px 16px",
                     background: riskLevel===r.value ? `rgba(${r.tone},0.1)` : "rgba(255,255,255,0.02)",
                     border: riskLevel===r.value ? `1px solid ${r.color}40` : "1px solid rgba(255,255,255,0.06)",
@@ -242,7 +281,10 @@ export default function ProfilePage() {
                 <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Maksimum Drawdown Eşiği</label>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <input type="range" min="2" max="30" value={maxDrawdown}
-                    onChange={e => setMaxDrawdown(e.target.value)}
+                    onChange={e => {
+                      setMaxDrawdown(e.target.value);
+                      setDrawdownOverridden(true);
+                    }}
                     style={{flex:1,accentColor:"var(--primary)"}} />
                   <div style={{
                     minWidth:48,padding:"4px 10px",background:"rgba(239,68,68,0.1)",
@@ -250,6 +292,11 @@ export default function ProfilePage() {
                     fontSize:13,fontWeight:700,color:"#ef4444",textAlign:"center"
                   }}>%{maxDrawdown}</div>
                 </div>
+                {drawdownOverridden && (
+                  <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:6}}>
+                    Manuel drawdown ayarı aktif.
+                  </div>
+                )}
               </div>
             </div>
           </div>

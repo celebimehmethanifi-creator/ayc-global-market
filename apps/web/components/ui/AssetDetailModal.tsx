@@ -61,6 +61,40 @@ type FinalAnswer = {
   error?: string;
 };
 
+type AssetAnalysis = {
+  ok: boolean;
+  symbol: string;
+  timeframe: string;
+  technical?: {
+    trend?: string;
+    rsi?: number | null;
+    macd?: number | null;
+    sma20?: number | null;
+    sma50?: number | null;
+    ema12?: number | null;
+    ema26?: number | null;
+    atr?: number | null;
+    support?: number | null;
+    resistance?: number | null;
+  };
+  fundamentalSummary?: string;
+  technicalSummary?: string;
+  tradePlan?: {
+    direction?: "LONG" | "SHORT" | "NEUTRAL";
+    entry?: number | null;
+    target?: number | null;
+    stopLoss?: number | null;
+    riskReward?: number | null;
+    confidence?: number | null;
+    reason?: string | null;
+  };
+  dataQuality?: {
+    status?: "live" | "delayed" | "fallback" | "insufficient";
+    updatedAt?: string;
+    provider?: string;
+  };
+};
+
 // ─── Helpers ────────────────────────────────────────────────────
 
 function fmt(p:number|undefined|null, decimals=2) {
@@ -87,12 +121,23 @@ function normDir(d:string|undefined): Dir {
 // ─── Professional Chart (lightweight-charts) ─────────────────────
 import ProfessionalChart from '@/components/ui/ProfessionalChart';
 
-function TVChart({ symbol, market, tf, onTfChange }: { symbol: string; market: string; tf: string; onTfChange: (tf: string) => void }) {
+function TVChart({
+  symbol,
+  market,
+  tf,
+  onTfChange,
+  onLatestCandleClose,
+}: {
+  symbol: string;
+  market: string;
+  tf: string;
+  onTfChange: (tf: string) => void;
+  onLatestCandleClose?: (close: number, updatedAt: number, source?: string) => void;
+}) {
   return (
     <ProfessionalChart
       symbol={symbol}
-
-
+      onLatestCandleClose={onLatestCandleClose}
       height={420}
     />
   );
@@ -162,11 +207,15 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
   const [chg,     setChg]     = useState<number|null>(null);
   const [livePrice, setLivePrice] = useState<number|null>(null);
   const [liveChg,   setLiveChg]   = useState<number|null>(null);
+  const [chartLatestClose, setChartLatestClose] = useState<number | null>(null);
+  const [chartUpdatedAt, setChartUpdatedAt] = useState<number | null>(null);
+  const [chartSource, setChartSource] = useState<string>("ohlcv");
   const [aiLoading,    setAiLoading]    = useState(false);
   const [consensus,    setConsensus]    = useState<Consensus|null>(null);
   const [opinions,     setOpinions]     = useState<Opinion[]>([]);
   const [finalAns,     setFinalAns]     = useState<FinalAnswer|null>(null);
   const [motorData,    setMotorData]    = useState<any>(null);
+  const [analysis, setAnalysis] = useState<AssetAnalysis | null>(null);
   const [priceInterval,setPriceInterval]= useState<ReturnType<typeof setInterval>|null>(null);
   const [showDemoTrade,setShowDemoTrade]= useState(false);
   const [showRealTrade,setShowRealTrade]= useState(false);
@@ -196,7 +245,7 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
     setConsensus(null);
     setOpinions([]);
     try {
-      const sym = asset.display||asset.symbol;
+      const sym = asset.symbol;
       const p   = price??asset.price??0;
       const c   = chg??asset.chg??0;
       const url = `${API}/brain/consensus/${sym}?name=${encodeURIComponent(asset.name)}&price=${p}&change=${c}&market=${asset.market||"crypto"}&score=${asset.confidence||50}&full=true`;
@@ -213,24 +262,44 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
     } finally { setAiLoading(false); }
   }, [asset, price, chg]);
 
+  const fetchAnalysis = useCallback(async () => {
+    if (!asset) return;
+    try {
+      const r = await fetch(
+        `/api/v1/assets/${encodeURIComponent(asset.symbol)}/analysis?timeframe=${encodeURIComponent(tf)}&riskProfile=medium`,
+        { signal: AbortSignal.timeout(15000) },
+      );
+      if (!r.ok) throw new Error("analysis-failed");
+      const d = await r.json();
+      setAnalysis(d);
+    } catch {
+      setAnalysis(null);
+    }
+  }, [asset, tf]);
+
   // ── Init ──
   useEffect(()=>{
     if (!asset) return;
-    const sym = asset.display||asset.symbol;
+    const sym = asset.symbol;
     setConsensus(null); setOpinions([]); setFinalAns(null); setMotorData(null);
+    setAnalysis(null);
     setLivePrice(null); setLiveChg(null);
+    setChartLatestClose(null);
+    setChartUpdatedAt(null);
+    setChartSource("ohlcv");
     setPrice(asset.price??null); setChg(asset.chg??null);
     fetchPrice(sym);
     fetchAI();
+    fetchAnalysis();
     const iv = setInterval(()=>fetchPrice(sym), 3000);
     setPriceInterval(iv);
     return () => clearInterval(iv);
-  }, [asset?.symbol]);
+  }, [asset?.symbol, tf]);
 
   // ── Live price from /api/v1/prices/live?symbols= on modal open ──
   useEffect(()=>{
     if (!asset) return;
-    const sym = (asset.display||asset.symbol).toUpperCase().replace("/","");
+    const sym = asset.symbol.toUpperCase().replace("/","");
     let cancelled = false;
     const fetchLP = async () => {
       try {
@@ -255,11 +324,26 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
     return ()=>window.removeEventListener("keydown",fn);
   },[onClose]);
 
+  useEffect(() => {
+    document.body.classList.add("asset-modal-open");
+    return () => document.body.classList.remove("asset-modal-open");
+  }, []);
+
   if (!asset) return null;
 
   // Prefer live price from /api/v1/prices/live, then backend poll, then passed prop
   const displayPrice = livePrice ?? price ?? asset.price ?? 0;
   const displayChg   = liveChg ?? chg ?? asset.chg ?? 0;
+  const analysisPlan = analysis?.tradePlan ?? null;
+  const targetPrice = analysisPlan?.target ?? consensus?.target_price ?? null;
+  const stopLoss = analysisPlan?.stopLoss ?? consensus?.stop_loss ?? null;
+  const riskReward = analysisPlan?.riskReward ?? consensus?.risk_reward ?? null;
+  const technicalSummary = analysis?.technicalSummary || consensus?.technical_summary;
+  const fundamentalSummary = analysis?.fundamentalSummary || consensus?.fundamental_summary;
+  const priceDiffPct = chartLatestClose && displayPrice > 0
+    ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100
+    : 0;
+  const hasPriceDrift = priceDiffPct > 1;
   const upChg        = displayChg >= 0;
   const dir          = normDir(consensus?.direction||asset.direction||"NEUTRAL");
   const cfg          = DIR_CFG[dir];
@@ -313,6 +397,16 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
                   <div style={{width:5,height:5,borderRadius:"50%",background:"var(--up)",animation:"pulse-live 2s ease-in-out infinite"}}/>
                   <span style={{fontSize:"9px",color:"var(--up)",fontWeight:600}}>CANLI</span>
                 </div>
+                {hasPriceDrift && (
+                  <div style={{
+                    display:"inline-flex",alignItems:"center",gap:4,marginLeft:6,
+                    padding:"1px 6px",borderRadius:6,
+                    background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.32)",
+                    color:"#f59e0b",fontSize:9,fontWeight:700,
+                  }} title={chartUpdatedAt ? new Date(chartUpdatedAt).toLocaleString() : undefined}>
+                    FARK %{priceDiffPct.toFixed(2)} ({chartSource})
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -363,7 +457,17 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
         <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:20}}>
 
           {/* ── Chart ── */}
-          <TVChart symbol={asset.display||asset.symbol} market={asset.market||"crypto"} tf={tf} onTfChange={setTf}/>
+          <TVChart
+            symbol={asset.symbol}
+            market={asset.market||"crypto"}
+            tf={tf}
+            onTfChange={setTf}
+            onLatestCandleClose={(close, updatedAt, source) => {
+              setChartLatestClose(close);
+              setChartUpdatedAt(updatedAt);
+              setChartSource(source || "ohlcv");
+            }}
+          />
 
           {/* ── AI Consensus header ── */}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -432,9 +536,9 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
               {/* Price levels */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
                 {[
-                  {l:"Hedef Fiyat",   v:consensus.target_price, color:"var(--up)",   Icon:Target},
-                  {l:"Stop Loss",     v:consensus.stop_loss,    color:"var(--down)", Icon:ShieldAlert},
-                  {l:"Risk / Ödül",   v:consensus.risk_reward?`${consensus.risk_reward}x`:null, color:"var(--gold)", Icon:BarChart3},
+                  {l:"Hedef Fiyat",   v:targetPrice, color:"var(--up)",   Icon:Target},
+                  {l:"Stop Loss",     v:stopLoss,    color:"var(--down)", Icon:ShieldAlert},
+                  {l:"Risk / Ödül",   v:riskReward?`${riskReward}x`:null, color:"var(--gold)", Icon:BarChart3},
                 ].map(({l,v,color,Icon})=>(
                   <div key={l} style={{background:"var(--bg)",border:"1px solid var(--b1)",borderRadius:"var(--r-sm)",padding:"10px 12px",textAlign:"center"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginBottom:4}}>
@@ -449,16 +553,16 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
 
               {/* Technical + Fundamental */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                {consensus.technical_summary && (
+                {technicalSummary && (
                   <div style={{padding:"10px 12px",background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--b1)"}}>
                     <div style={{fontSize:"9px",color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Teknik Analiz</div>
-                    <div style={{fontSize:"11px",color:"var(--t2)",lineHeight:1.5}}>{consensus.technical_summary}</div>
+                    <div style={{fontSize:"11px",color:"var(--t2)",lineHeight:1.5}}>{technicalSummary}</div>
                   </div>
                 )}
-                {consensus.fundamental_summary && (
+                {fundamentalSummary && (
                   <div style={{padding:"10px 12px",background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--b1)"}}>
                     <div style={{fontSize:"9px",color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Temel Analiz</div>
-                    <div style={{fontSize:"11px",color:"var(--t2)",lineHeight:1.5}}>{consensus.fundamental_summary}</div>
+                    <div style={{fontSize:"11px",color:"var(--t2)",lineHeight:1.5}}>{fundamentalSummary}</div>
                   </div>
                 )}
               </div>
@@ -650,8 +754,3 @@ function genMockConsensus(asset:AssetInfo): Consensus {
     timeframe: "kısa vadeli (1-7 gün)",
   };
 }
-
-
-
-
-

@@ -30,12 +30,14 @@ WEB_EXCHANGES_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "exchanges" / "pa
 WEB_HEALTH_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "health" / "route.ts"
 WEB_HEALTH_PROVIDERS = ROOT / "apps" / "web" / "app" / "api" / "v1" / "health" / "providers" / "route.ts"
 WEB_OHLCV_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "ohlcv" / "[symbol]" / "route.ts"
+WEB_ASSET_ANALYSIS_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "assets" / "[symbol]" / "analysis" / "route.ts"
 WEB_PROFILE_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "profile" / "page.tsx"
 WEB_MARKET_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "market" / "page.tsx"
 WEB_MARKETS_ALIAS_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "markets" / "page.tsx"
 WEB_DASHBOARD_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "dashboard" / "page.tsx"
 WEB_PROFESSIONAL_CHART = ROOT / "apps" / "web" / "components" / "ui" / "ProfessionalChart.tsx"
 WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
+WEB_ASSET_DETAIL_MODAL = ROOT / "apps" / "web" / "components" / "ui" / "AssetDetailModal.tsx"
 WEB_ASSET_UNIVERSE = ROOT / "apps" / "web" / "lib" / "markets" / "asset-universe.ts"
 WEB_MIDDLEWARE = ROOT / "apps" / "web" / "middleware.ts"
 WEB_VERCEL_SETUP = ROOT / "apps" / "web" / "VERCEL_ENV_SETUP.txt"
@@ -157,6 +159,9 @@ def test_auth_me_prefers_persisted_user_plan():
     assert "const resolvedPlan = persisted?.plan || payload.plan || \"free\";" in text
     assert "tier: resolvedPlan" in text
     assert "plan: resolvedPlan" in text
+    assert "export async function PUT" in text
+    assert "risk_level" in text
+    assert "max_drawdown_pct" in text
 
 
 def test_signup_and_login_set_auth_cookies_and_auth_me_route_exists():
@@ -296,6 +301,17 @@ def test_professional_chart_supports_fullscreen_controls_and_escape_close():
     assert 'e.key === "Escape"' in text
     assert "chart-fullscreen" in text
     assert "screen.orientation" in text
+    assert "createPortal" in text
+    assert "requestFullscreen" in text
+
+
+def test_professional_chart_uses_zoom_view_window_for_draw_and_pan():
+    text = read_text(WEB_PROFESSIONAL_CHART)
+    assert "endIdx = clamp(viewEnd || n" in text
+    assert "startIdx = Math.max(0, endIdx - visible)" in text
+    assert "candles.slice(startIdx, endIdx)" in text
+    assert "applyZoomAtX" in text
+    assert "setViewEnd(candles.length || 1)" in text
 
 
 def test_mobile_api_client_defaults_to_canonical_production_domain():
@@ -342,11 +358,46 @@ def test_market_and_command_use_central_asset_universe():
     assert "getCategoryLabel" in command_text
 
 
+def test_asset_detail_modal_uses_canonical_symbol_chart_and_analysis():
+    text = read_text(WEB_ASSET_DETAIL_MODAL)
+    assert "symbol={asset.symbol}" in text
+    assert "/api/v1/assets/" in text
+    assert "setChartLatestClose" in text
+    assert "priceDiffPct" in text
+
+
 def test_ohlcv_route_returns_no_data_contract_when_sources_fail():
     text = read_text(WEB_OHLCV_ROUTE)
     assert 'reason: "NO_DATA"' in text
     assert "providerAttempts" in text
     assert "ok: false" in text
+    assert "requestedSymbol" in text
+    assert "canonicalSymbol" in text
+    assert "providerSymbol" in text
+
+
+def test_ohlcv_route_uses_asset_universe_and_outlier_cleaning():
+    text = read_text(WEB_OHLCV_ROUTE)
+    assert "getAssetBySymbol" in text
+    assert "SYMBOL_ALIASES" in text
+    assert '"GARAN.IS"' in text
+    assert '"THYAO.IS"' in text
+    assert '"XAUUSD"' in text
+    assert '"WTIUSD"' in text
+    assert "cleanedMeta" in text
+    assert "outlierDropped" in text
+    assert "medClose" in text
+
+
+def test_asset_analysis_endpoint_exists_with_tradeplan_contract():
+    assert WEB_ASSET_ANALYSIS_ROUTE.exists()
+    text = read_text(WEB_ASSET_ANALYSIS_ROUTE)
+    assert "tradePlan" in text
+    assert "riskProfile" in text
+    assert "INSUFFICIENT_DATA" in text
+    assert "technicalSummary" in text
+    assert "fundamentalSummary" in text
+    assert "disclaimer" in text
 
 
 def test_provider_health_endpoint_exists_and_lists_required_runtime_keys():
@@ -377,6 +428,17 @@ def test_profile_page_updates_language_and_fixes_mojibake_strings():
     assert "Kişisel Bilgiler" not in text or "profile.personal" in text
     assert "Dü?ük" not in text
     assert "odakl?" not in text
+
+
+def test_profile_risk_level_updates_drawdown_threshold_and_save_payload():
+    text = read_text(WEB_PROFILE_PAGE)
+    assert "RISK_PROFILE_CONFIG" in text
+    assert "defaultDrawdown: 5" in text
+    assert "defaultDrawdown: 10" in text
+    assert "defaultDrawdown: 20" in text
+    assert "applyRiskDefaults" in text
+    assert "risk_level: normalizedRiskLevel" in text
+    assert "max_drawdown_pct: Number(maxDrawdown)" in text
 
 
 def test_mojibake_patterns_absent_in_user_facing_web_ui():
