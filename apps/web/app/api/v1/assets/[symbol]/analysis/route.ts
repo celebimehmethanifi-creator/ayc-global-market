@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { getAssetBySymbol } from "@/lib/markets/asset-universe";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +55,7 @@ function rsi(values: number[], period = 14): number | null {
     else loss += Math.abs(delta);
   }
   if (loss === 0) return 100;
-  const rs = (gain / period) / (loss / period);
+  const rs = gain / period / (loss / period);
   return 100 - 100 / (1 + rs);
 }
 
@@ -73,6 +73,20 @@ function atr(candles: Candle[], period = 14): number | null {
     trs.push(tr);
   }
   return average(trs);
+}
+
+function bollinger(values: number[], period = 20, mult = 2): { upper: number | null; mid: number | null; lower: number | null } {
+  if (values.length < period) return { upper: null, mid: null, lower: null };
+  const slice = values.slice(-period);
+  const mid = average(slice);
+  if (mid == null) return { upper: null, mid: null, lower: null };
+  const variance = slice.reduce((sum, value) => sum + (value - mid) ** 2, 0) / period;
+  const sd = Math.sqrt(variance);
+  return {
+    upper: mid + mult * sd,
+    mid,
+    lower: mid - mult * sd,
+  };
 }
 
 function supportResistance(candles: Candle[]): { support: number | null; resistance: number | null } {
@@ -199,12 +213,15 @@ export async function GET(
   const sma50 = sma(closes, 50);
   const ema12 = ema(closes, 12);
   const ema26 = ema(closes, 26);
+  const bb = bollinger(closes, 20, 2);
   const rsiValue = rsi(closes, 14);
-  const macdValue = (ema12 !== null && ema26 !== null) ? ema12 - ema26 : null;
+  const macdValue = ema12 !== null && ema26 !== null ? ema12 - ema26 : null;
   const atrValue = atr(candles, 14);
   const { support, resistance } = supportResistance(candles);
+
   const hasEnoughData = candles.length >= 24 && latestPrice !== null;
   const direction = inferDirection(latestPrice || 0, sma20, sma50);
+
   const tradePlan = buildTradePlan({
     latest: latestPrice || 0,
     direction,
@@ -215,14 +232,13 @@ export async function GET(
     hasEnoughData,
   });
 
+  const ohlcvStatus = typeof ohlcvJson?.dataQuality === "string" ? ohlcvJson.dataQuality : null;
   const dataStatus =
     !hasEnoughData
       ? "insufficient"
       : liveEntry
         ? "live"
-        : ohlcvJson?.provider
-          ? "fallback"
-          : "delayed";
+        : ohlcvStatus || (ohlcvJson?.provider ? "fallback" : "delayed");
 
   return NextResponse.json(
     {
@@ -243,6 +259,9 @@ export async function GET(
         sma50,
         ema12,
         ema26,
+        bbUpper: bb.upper,
+        bbMid: bb.mid,
+        bbLower: bb.lower,
         atr: atrValue,
         support,
         resistance,

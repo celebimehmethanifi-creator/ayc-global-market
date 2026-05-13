@@ -34,7 +34,11 @@ WEB_ASSET_ANALYSIS_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "asset
 WEB_PROFILE_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "profile" / "page.tsx"
 WEB_MARKET_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "market" / "page.tsx"
 WEB_MARKETS_ALIAS_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "markets" / "page.tsx"
+WEB_SCENARIO_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "scenario" / "page.tsx"
+WEB_SOCIAL_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "social" / "page.tsx"
 WEB_DASHBOARD_PAGE = ROOT / "apps" / "web" / "app" / "(app)" / "dashboard" / "page.tsx"
+WEB_SIGNIN_PAGE = ROOT / "apps" / "web" / "app" / "(auth)" / "signin" / "page.tsx"
+WEB_SIGNUP_PAGE = ROOT / "apps" / "web" / "app" / "(auth)" / "signup" / "page.tsx"
 WEB_PROFESSIONAL_CHART = ROOT / "apps" / "web" / "components" / "ui" / "ProfessionalChart.tsx"
 WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
 WEB_ASSET_DETAIL_MODAL = ROOT / "apps" / "web" / "components" / "ui" / "AssetDetailModal.tsx"
@@ -439,6 +443,77 @@ def test_profile_risk_level_updates_drawdown_threshold_and_save_payload():
     assert "applyRiskDefaults" in text
     assert "risk_level: normalizedRiskLevel" in text
     assert "max_drawdown_pct: Number(maxDrawdown)" in text
+
+
+def test_scenario_page_has_safe_formatters_and_no_undefined_tokens():
+    text = read_text(WEB_SCENARIO_PAGE)
+    assert "formatPercent" in text
+    assert "formatMoney" in text
+    assert "formatRatio" in text
+    assert "formatKelly" in text
+    assert "undefined%" not in text
+    assert "undefinedx" not in text
+    assert "Hesaplanamadı" in text
+
+
+def test_scenario_api_returns_trade_fields_and_disclaimer():
+    text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    assert "expectedPnlPct" in text
+    assert "maxLossPct" in text
+    assert "riskReward" in text
+    assert "kellyFraction" in text
+    assert "Bu içerik yatırım tavsiyesi değildir." in text
+
+
+def test_market_page_has_mobile_card_view_and_source_label_mapping():
+    text = read_text(WEB_MARKET_PAGE)
+    assert "market-mobile-list" in text
+    assert "market-mobile-card" in text
+    assert "sourceLabel" in text
+    assert "Veri yok" in text
+    assert "Kaynak yok" in text
+    assert "fmtChange" in text
+
+
+def test_social_page_covers_all_market_categories_and_tr_en_labels():
+    text = read_text(WEB_SOCIAL_PAGE)
+    for token in [
+        '"crypto"',
+        '"us"',
+        '"bist"',
+        '"precious"',
+        '"commodity"',
+        '"energy"',
+        '"forex"',
+        '"index"',
+        '"etf"',
+    ]:
+        assert token in text
+    assert "Bullish" in text
+    assert "Bearish" in text
+    assert "Yükseliş" in text
+    assert "Düşüş" in text
+
+
+def test_signin_signup_support_back_close_and_return_to_flow():
+    signin_text = read_text(WEB_SIGNIN_PAGE)
+    signup_text = read_text(WEB_SIGNUP_PAGE)
+
+    assert "resolveReturnTo" in signin_text
+    assert "router.back()" in signin_text
+    assert "Kapat" in signin_text
+    assert "goAfterAuth" in signin_text
+
+    assert "resolveReturnTo" in signup_text
+    assert "router.back()" in signup_text
+    assert "Kapat" in signup_text
+    assert "goAfterAuth" in signup_text
+
+
+def test_onboarding_modal_uses_mobile_safe_height_and_scroll():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert "maxHeight: \"calc(100dvh - env(safe-area-inset-top, 0px) - 12px)\"" in text
+    assert "overflowY: \"auto\"" in text
 
 
 def test_mojibake_patterns_absent_in_user_facing_web_ui():

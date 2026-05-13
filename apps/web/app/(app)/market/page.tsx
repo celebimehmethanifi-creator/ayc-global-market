@@ -107,6 +107,28 @@ function parseNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function fmtChange(value: number | null, locale: "tr" | "en"): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function sourceLabel(source: string, locale: "tr" | "en"): string {
+  const raw = (source || "").toLowerCase();
+  if (!raw || raw === "unavailable" || raw === "no_data" || raw === "none") {
+    return locale === "en" ? "No data" : "Veri yok";
+  }
+  if (raw.includes("er-api") || raw.includes("no_provider") || raw.includes("missing")) {
+    return locale === "en" ? "No provider" : "Kaynak yok";
+  }
+  if (raw === "fallback") {
+    return "Fallback";
+  }
+  if (raw === "demo") {
+    return locale === "en" ? "Demo" : "Demo";
+  }
+  return source.toUpperCase();
+}
+
 export default function MarketPage() {
   const { locale, t } = useI18n();
   const livePrices = usePrices();
@@ -313,7 +335,7 @@ export default function MarketPage() {
       </div>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--b1)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
-        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div className="market-table-wrap" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <table className="market-table" style={{ minWidth: 980 }}>
             <thead>
               <tr>
@@ -333,6 +355,7 @@ export default function MarketPage() {
               {filteredRows.map((row) => {
                 const up24 = row.chg >= 0;
                 const up7d = (row.chg7d || 0) >= 0;
+                const hasPrice = row.price != null && row.price > 0;
                 return (
                   <tr key={row.symbol} className="fade-in">
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>{row.displaySymbol}</td>
@@ -356,15 +379,14 @@ export default function MarketPage() {
                       {fmtPrice(row.price, row.precision)}
                     </td>
                     <td className={`right ${up24 ? "chg-up" : "chg-down"}`}>
-                      {up24 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                      {up24 ? "+" : ""}
-                      {row.chg.toFixed(2)}%
+                      {hasPrice ? (up24 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />) : null}
+                      {hasPrice ? fmtChange(row.chg, locale === "en" ? "en" : "tr") : "—"}
                     </td>
                     <td className={`right ${up7d ? "chg-up" : "chg-down"}`}>
-                      {row.chg7d == null ? "—" : `${up7d ? "+" : ""}${row.chg7d.toFixed(2)}%`}
+                      {hasPrice && row.chg7d != null ? `${up7d ? "+" : ""}${row.chg7d.toFixed(2)}%` : "—"}
                     </td>
                     <td className="right" style={{ color: "var(--t3)" }}>{row.volume || "—"}</td>
-                    <td className="right" style={{ color: "var(--t3)", textTransform: "uppercase" }}>{row.source || "—"}</td>
+                    <td className="right" style={{ color: "var(--t3)" }}>{sourceLabel(row.source, locale === "en" ? "en" : "tr")}</td>
                     <td className="right" style={{ color: "var(--t3)" }}>{fmtTime(row.updatedAt)}</td>
                     <td className="right">
                       <button
@@ -391,6 +413,98 @@ export default function MarketPage() {
           </table>
         </div>
 
+        <div className="market-mobile-list">
+          {filteredRows.map((row) => {
+            const up24 = row.chg >= 0;
+            const up7d = (row.chg7d || 0) >= 0;
+            const hasPrice = row.price != null && row.price > 0;
+            const source = sourceLabel(row.source, locale === "en" ? "en" : "tr");
+            const qualityColor =
+              source === "Fallback"
+                ? "var(--warn)"
+                : source === "Veri yok" || source === "No data" || source === "Kaynak yok" || source === "No provider"
+                  ? "var(--down)"
+                  : "var(--up)";
+
+            return (
+              <div key={`mobile-${row.symbol}`} className="market-mobile-card">
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 800 }}>
+                      {row.displaySymbol}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%" }}>
+                      {getAssetDisplayName(row, locale)}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "2px 7px",
+                      borderRadius: 5,
+                      border: "1px solid var(--b1)",
+                      background: "var(--bg-hover)",
+                      color: "var(--t3)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {getCategoryLabel(row.category, locale)}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.price")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 700 }}>
+                      {fmtPrice(row.price, row.precision)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change24h")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: hasPrice ? (up24 ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
+                      {hasPrice ? fmtChange(row.chg, locale === "en" ? "en" : "tr") : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change7d")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: hasPrice && row.chg7d != null ? (up7d ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
+                      {hasPrice && row.chg7d != null ? fmtChange(row.chg7d, locale === "en" ? "en" : "tr") : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.updated")}</div>
+                    <div style={{ fontSize: 12, color: "var(--t2)" }}>{fmtTime(row.updatedAt)}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 10, color: "var(--t4)" }}>{t("market.col.source")}:</span>
+                    <span style={{ fontSize: 10, color: qualityColor, fontWeight: 700 }}>{source}</span>
+                  </div>
+                  <button
+                    className="btn-ghost"
+                    style={{ padding: "5px 10px", fontSize: 11 }}
+                    onClick={() =>
+                      setSelected({
+                        symbol: row.symbol,
+                        display: row.displaySymbol,
+                        name: getAssetDisplayName(row, locale),
+                        price: row.price || 0,
+                        chg: row.chg,
+                        market: row.category,
+                      })
+                    }
+                  >
+                    {t("market.chartButton")}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         {filteredRows.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "var(--t3)" }}>
             <TrendingUp size={26} style={{ marginBottom: 8, opacity: 0.3 }} />
@@ -413,6 +527,26 @@ export default function MarketPage() {
           justify-content: flex-end;
           align-items: center;
           gap: 3px;
+        }
+        .market-mobile-list {
+          display: none;
+          padding: 10px;
+          gap: 10px;
+          flex-direction: column;
+        }
+        .market-mobile-card {
+          border: 1px solid var(--b1);
+          border-radius: 10px;
+          background: var(--bg);
+          padding: 10px;
+        }
+        @media (max-width: 767px) {
+          .market-table-wrap {
+            display: none;
+          }
+          .market-mobile-list {
+            display: flex;
+          }
         }
       `}</style>
     </div>

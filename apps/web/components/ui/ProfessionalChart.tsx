@@ -25,6 +25,7 @@ interface Candle {
 
 interface OHLCVResponse {
   ok?: boolean;
+  reason?: string;
   requestedSymbol?: string;
   canonicalSymbol?: string;
   provider?: string;
@@ -499,11 +500,18 @@ export default function ProfessionalChart({
         return r.json() as Promise<OHLCVResponse>;
       })
       .then((data) => {
-        if (!Array.isArray(data.candles) || data.candles.length === 0)
-          throw new Error('No candle data received');
+        if (!data?.ok && data?.reason === "NO_DATA") {
+          const providerTrail = Array.isArray(data.providerAttempts) && data.providerAttempts.length
+            ? ` (${data.providerAttempts.map((item) => `${item.provider}:${item.status}`).join(", ")})`
+            : "";
+          throw new Error(`Mum verisi alınamadı${providerTrail}`);
+        }
+        if (!Array.isArray(data.candles) || data.candles.length === 0) {
+          throw new Error("Mum verisi alınamadı");
+        }
         const cleaned = cleanCandles(data.candles);
         if (cleaned.candles.length === 0) {
-          throw new Error("No valid candle data");
+          throw new Error("Geçerli mum verisi bulunamadı");
         }
         setCandles(cleaned.candles);
         setViewEnd(cleaned.candles.length);
@@ -513,7 +521,7 @@ export default function ProfessionalChart({
       })
       .catch((e) => {
         if (e.name === 'AbortError') return;
-        setError(e.message ?? 'Failed to load chart data');
+        setError(e.message ?? "Grafik verisi alınamadı");
         setLoading(false);
       });
     return () => ctrl.abort();

@@ -351,7 +351,16 @@ function StatBadge({icon:Icon,label,value,sub,color="var(--t1)"}:{icon:any;label
 
 
 
-    <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:"14px 18px",flex:1,minWidth:0}}>
+    <div
+      style={{
+        background:"var(--bg-card)",
+        border:"1px solid var(--b1)",
+        borderRadius:"var(--r-xl)",
+        padding:"14px 18px",
+        flex:"1 1 180px",
+        minWidth:180,
+      }}
+    >
 
 
 
@@ -1362,7 +1371,7 @@ export default function DashboardPage() {
 
 
 
-        <StatBadge icon={Globe}    label="Piyasa Kapsami" value="8 Kategori"
+        <StatBadge icon={Globe}    label="Piyasa Kapsamı" value="8 Kategori"
 
 
 
@@ -1927,11 +1936,15 @@ export default function DashboardPage() {
 
               padding: "28px 24px",
 
-              width: "100%",
+	              width: "100%",
 
-              maxWidth: 480,
+	              maxWidth: 480,
 
-              textAlign: "center",
+	              maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 12px)",
+
+	              overflowY: "auto",
+
+	              textAlign: "center",
 
               animation: "slideUp 0.3s ease-out",
 
@@ -1999,7 +2012,7 @@ export default function DashboardPage() {
 
                 { step: "1", label: "Sinyaller", sub: "AI sinyal seç" },
 
-                { step: "2", label: "Demo İşlem", sub: "Guvenle dene" },
+	                { step: "2", label: "Demo İşlem", sub: "Güvenle dene" },
 
                 { step: "3", label: "Portföy", sub: "Takip et" },
 

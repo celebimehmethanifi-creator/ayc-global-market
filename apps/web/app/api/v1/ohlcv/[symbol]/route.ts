@@ -45,6 +45,7 @@ const SYMBOL_ALIASES: Record<string, string> = {
   XAG: "XAGUSD",
   WTI: "WTIUSD",
   SP500: "SPX",
+  NASDAQ: "NDX",
   BIST100: "XU100",
 };
 
@@ -600,6 +601,13 @@ export async function GET(
         providerAttempts: attempts,
         candles: [],
         count: 0,
+        dataQuality: "insufficient",
+        cleanedMeta: {
+          originalCount: candles.length,
+          cleanedCount: 0,
+          removedOutliers: outlierDropped,
+          removedInvalid: invalidDropped,
+        },
       },
       {
         status: 200,
@@ -621,7 +629,19 @@ export async function GET(
       candles: cleaned,
       count: cleaned.length,
       category,
+      dataQuality:
+        selectedProvider == null
+          ? "insufficient"
+          : selectedProvider === "binance"
+            ? "live"
+            : selectedProvider === "yahoo" || selectedProvider === "finnhub"
+              ? "delayed"
+              : "fallback",
       cleanedMeta: {
+        originalCount: candles.length,
+        cleanedCount: cleaned.length,
+        removedOutliers: outlierDropped,
+        removedInvalid: invalidDropped,
         invalidDropped,
         outlierDropped,
       },

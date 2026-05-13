@@ -1,17 +1,23 @@
-"use client";
-import { useEffect, useState, useCallback } from "react";
+﻿"use client";
+
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  X, TrendingUp, TrendingDown, Minus, Brain, Target, ShieldAlert,
-  RefreshCw, Zap, BarChart3,
-  CheckCircle2, AlertCircle, Loader2, FlaskConical
+  X,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  FlaskConical,
+  ShieldAlert,
+  Target,
+  BarChart3,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
+import ProfessionalChart from "@/components/ui/ProfessionalChart";
 import { AITradeModal } from "@/components/ui/AITradeModal";
 import RealTradeModal from "@/components/ui/RealTradeModal";
 import { useExchange } from "@/lib/exchange/ExchangeContext";
 
-const API = "/api/v1";
-
-// ─── Types ─────────────────────────────────────────────────────
 export type AssetInfo = {
   symbol: string;
   display?: string;
@@ -22,49 +28,24 @@ export type AssetInfo = {
   confidence?: number;
   direction?: string;
 };
-type Opinion = {
-  model: string;
-  direction?: string;
-  confidence?: number;
-  reasoning?: string;
-  technical_summary?: string;
-  fundamental_summary?: string;
-  target_price?: number;
-  stop_loss?: number;
-  risk_reward?: number;
-  error?: string;
-};
-type Consensus = {
-  direction: string;
-  confidence: number;
-  target_price?: number;
-  stop_loss?: number;
-  risk_reward?: number;
-  reasoning: string;
-  agreement: string;
-  votes: Record<string,number>;
-  opinion_count: number;
-  technical_summary?: string;
-  fundamental_summary?: string;
-  key_levels?: { support?: number; resistance?: number };
-  timeframe?: string;
-  isSynthetic?: boolean;
-};
-type FinalAnswer = {
-  verdict: string;
-  verdict_reason: string;
-  final_confidence: number;
-  risk_level: "LOW"|"MEDIUM"|"HIGH"|"EXTREME";
-  kalkan: { passed: boolean; warnings: string[]; adjustments: string[]; block_reason?: string };
-  contrarian: { counter_direction?: string; arguments?: string[]; biggest_risk?: string; failure_scenario?: string; counter_signal_trigger?: string; devil_confidence?: number };
-  signal_id?: number;
-  error?: string;
-};
+
+type AnalysisStatus = "live" | "delayed" | "fallback" | "insufficient";
 
 type AssetAnalysis = {
   ok: boolean;
   symbol: string;
   timeframe: string;
+  technicalSummary?: string;
+  fundamentalSummary?: string;
+  tradePlan?: {
+    direction?: "LONG" | "SHORT" | "NEUTRAL";
+    entry?: number | null;
+    target?: number | null;
+    stopLoss?: number | null;
+    riskReward?: number | null;
+    confidence?: number | null;
+    reason?: string | null;
+  };
   technical?: {
     trend?: string;
     rsi?: number | null;
@@ -77,643 +58,507 @@ type AssetAnalysis = {
     support?: number | null;
     resistance?: number | null;
   };
-  fundamentalSummary?: string;
-  technicalSummary?: string;
-  tradePlan?: {
-    direction?: "LONG" | "SHORT" | "NEUTRAL";
-    entry?: number | null;
-    target?: number | null;
-    stopLoss?: number | null;
-    riskReward?: number | null;
-    confidence?: number | null;
-    reason?: string | null;
-  };
   dataQuality?: {
-    status?: "live" | "delayed" | "fallback" | "insufficient";
+    status?: AnalysisStatus;
+    provider?: string | null;
     updatedAt?: string;
-    provider?: string;
   };
+  disclaimer?: string;
 };
 
-// ─── Helpers ────────────────────────────────────────────────────
+const TIMEFRAMES = ["15M", "1H", "4H", "1D", "1W", "1M"] as const;
 
-function fmt(p:number|undefined|null, decimals=2) {
-  if (p==null || p===0) return "—";
-  if (p>=1_000_000) return (p/1_000_000).toFixed(2)+"M";
-  if (p>=1_000)     return p.toLocaleString("en",{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
-  if (p>=1)         return p.toFixed(decimals);
-  return p.toFixed(4);
+function fmtPrice(value: number | null | undefined, maxDecimals = 2): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "—";
+  if (value >= 1000) {
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: Math.min(2, maxDecimals),
+      maximumFractionDigits: Math.min(2, maxDecimals),
+    });
+  }
+  if (value < 1) return value.toFixed(Math.min(Math.max(maxDecimals, 4), 8));
+  return value.toFixed(Math.min(Math.max(maxDecimals, 2), 6));
 }
 
-type Dir = "LONG"|"SHORT"|"NEUTRAL";
-const DIR_CFG: Record<Dir,{bg:string;border:string;color:string;Icon:any;label:string}> = {
-  LONG:    {bg:"var(--up-dim)",   border:"var(--up-border)",   color:"var(--up)",   Icon:TrendingUp,   label:"LONG"},
-  SHORT:   {bg:"var(--down-dim)", border:"var(--down-border)", color:"var(--down)", Icon:TrendingDown, label:"SHORT"},
-  NEUTRAL: {bg:"var(--gold-dim)", border:"var(--gold-border)", color:"var(--gold)", Icon:Minus,        label:"NÖTR"},
-};
-function normDir(d:string|undefined): Dir {
-  const u=(d||"").toUpperCase();
-  if(u==="LONG"||u==="BUY"||u==="AL") return "LONG";
-  if(u==="SHORT"||u==="SELL"||u==="SAT") return "SHORT";
+function fmtPercent(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function normalizeDirection(value: string | undefined): "LONG" | "SHORT" | "NEUTRAL" {
+  const input = String(value || "").toUpperCase();
+  if (input === "LONG" || input === "BUY" || input === "AL") return "LONG";
+  if (input === "SHORT" || input === "SELL" || input === "SAT") return "SHORT";
   return "NEUTRAL";
 }
 
-// ─── Professional Chart (lightweight-charts) ─────────────────────
-import ProfessionalChart from '@/components/ui/ProfessionalChart';
+function statusLabel(status: AnalysisStatus | undefined): string {
+  if (status === "live") return "Canlı";
+  if (status === "delayed") return "Gecikmeli";
+  if (status === "fallback") return "Fallback";
+  return "Veri yetersiz";
+}
 
-function TVChart({
-  symbol,
-  market,
-  tf,
-  onTfChange,
-  onLatestCandleClose,
-}: {
-  symbol: string;
-  market: string;
-  tf: string;
-  onTfChange: (tf: string) => void;
-  onLatestCandleClose?: (close: number, updatedAt: number, source?: string) => void;
-}) {
+function statusColor(status: AnalysisStatus | undefined): string {
+  if (status === "live") return "var(--up)";
+  if (status === "delayed") return "var(--warn)";
+  if (status === "fallback") return "var(--gold)";
+  return "var(--down)";
+}
+
+function DirectionChip({ direction }: { direction: "LONG" | "SHORT" | "NEUTRAL" }) {
+  const cfg =
+    direction === "LONG"
+      ? { color: "var(--up)", bg: "var(--up-dim)", border: "var(--up-border)", Icon: TrendingUp, label: "LONG" }
+      : direction === "SHORT"
+        ? { color: "var(--down)", bg: "var(--down-dim)", border: "var(--down-border)", Icon: TrendingDown, label: "SHORT" }
+        : { color: "var(--gold)", bg: "var(--gold-dim)", border: "var(--gold-border)", Icon: Minus, label: "NÖTR" };
+
   return (
-    <ProfessionalChart
-      symbol={symbol}
-      onLatestCandleClose={onLatestCandleClose}
-      height={420}
-    />
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        borderRadius: 8,
+        padding: "4px 10px",
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        fontWeight: 700,
+        color: cfg.color,
+        background: cfg.bg,
+        border: `1px solid ${cfg.border}`,
+      }}
+    >
+      <cfg.Icon size={12} />
+      {cfg.label}
+    </span>
   );
 }
 
-// ─── Opinion Card ───────────────────────────────────────────────
-function OpinionCard({ op, idx }: { op:Opinion; idx:number }) {
-  const dir = normDir(op.direction);
-  const cfg = DIR_CFG[dir];
-  const conf= op.confidence??0;
-  const cc  = conf>=80?"var(--up)":conf>=65?"var(--warn)":"var(--t3)";
+export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; onClose: () => void }) {
+  const [timeframe, setTimeframe] = useState<(typeof TIMEFRAMES)[number]>("1D");
+  const [analysis, setAnalysis] = useState<AssetAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  if (op.error) return (
-    <div style={{background:"var(--bg)",border:"1px solid var(--down-border)",borderRadius:"var(--r-md)",padding:"12px",animationDelay:`${idx*80}ms`}} className="fade-up">
-      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
-        <AlertCircle size={14} color="var(--down)"/>
-        <span style={{fontFamily:"var(--font-mono)",fontSize:"11px",fontWeight:700,color:"var(--t1)"}}>Analist {idx+1}</span>
-      </div>
-      <div style={{fontSize:"11px",color:"var(--t3)"}}>Yanıt alınamadı</div>
-    </div>
-  );
+  const [pollPrice, setPollPrice] = useState<number | null>(null);
+  const [pollChange, setPollChange] = useState<number | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [liveChange, setLiveChange] = useState<number | null>(null);
 
-  return (
-    <div style={{background:"var(--bg)",border:"1px solid var(--b1)",borderRadius:"var(--r-md)",padding:"12px",animationDelay:`${idx*80}ms`}} className="fade-up">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <Brain size={13} color="var(--gold)"/>
-          <span style={{fontFamily:"var(--font-mono)",fontSize:"11px",fontWeight:700,color:"var(--t1)"}}>Analist {idx+1}</span>
-        </div>
-        <div style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 7px",borderRadius:4,background:cfg.bg,border:`1px solid ${cfg.border}`,color:cfg.color,fontFamily:"var(--font-mono)",fontSize:"10px",fontWeight:700}}>
-          <cfg.Icon size={9} strokeWidth={2.5}/>{cfg.label}
-        </div>
-      </div>
-      {/* Confidence */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-        <span style={{fontSize:"10px",color:"var(--t3)"}}>Güven</span>
-        <span style={{fontFamily:"var(--font-mono)",fontSize:"11px",fontWeight:800,color:cc}}>{conf}%</span>
-      </div>
-      <div style={{height:3,borderRadius:2,background:"var(--b1)",marginBottom:8}}>
-        <div style={{height:"100%",borderRadius:2,background:cc,width:`${conf}%`,transition:"width 0.6s ease"}}/>
-      </div>
-      {/* Summary */}
-      {op.technical_summary && (
-        <div style={{fontSize:"10px",color:"var(--t2)",lineHeight:1.5,marginBottom:4}}>
-          <span style={{color:"var(--t3)"}}>Teknik: </span>{op.technical_summary}
-        </div>
-      )}
-      {op.reasoning && (
-        <div style={{fontSize:"10px",color:"var(--t2)",lineHeight:1.5,fontStyle:"italic"}}>"{op.reasoning}"</div>
-      )}
-      {/* Levels */}
-      {(op.target_price||op.stop_loss) && (
-        <div style={{display:"flex",gap:8,marginTop:8}}>
-          {op.target_price && <div style={{fontSize:"10px",color:"var(--up)"}}>H: {fmt(op.target_price)}</div>}
-          {op.stop_loss    && <div style={{fontSize:"10px",color:"var(--down)"}}>S: {fmt(op.stop_loss)}</div>}
-          {op.risk_reward  && <div style={{fontSize:"10px",color:"var(--gold)"}}>R/R: {op.risk_reward}x</div>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Modal ─────────────────────────────────────────────────
-export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onClose:()=>void }) {
-  const [tf,      setTf]      = useState("1M");
-  const [price,   setPrice]   = useState<number|null>(null);
-  const [chg,     setChg]     = useState<number|null>(null);
-  const [livePrice, setLivePrice] = useState<number|null>(null);
-  const [liveChg,   setLiveChg]   = useState<number|null>(null);
   const [chartLatestClose, setChartLatestClose] = useState<number | null>(null);
   const [chartUpdatedAt, setChartUpdatedAt] = useState<number | null>(null);
-  const [chartSource, setChartSource] = useState<string>("ohlcv");
-  const [aiLoading,    setAiLoading]    = useState(false);
-  const [consensus,    setConsensus]    = useState<Consensus|null>(null);
-  const [opinions,     setOpinions]     = useState<Opinion[]>([]);
-  const [finalAns,     setFinalAns]     = useState<FinalAnswer|null>(null);
-  const [motorData,    setMotorData]    = useState<any>(null);
-  const [analysis, setAnalysis] = useState<AssetAnalysis | null>(null);
-  const [priceInterval,setPriceInterval]= useState<ReturnType<typeof setInterval>|null>(null);
-  const [showDemoTrade,setShowDemoTrade]= useState(false);
-  const [showRealTrade,setShowRealTrade]= useState(false);
-  const { exchanges } = useExchange();
+  const [chartProvider, setChartProvider] = useState<string>("ohlcv");
+
+  const [showDemoTrade, setShowDemoTrade] = useState(false);
+  const [showRealTrade, setShowRealTrade] = useState(false);
+
   const [isMobile, setIsMobile] = useState(false);
-  useEffect(()=>{
-    const check=()=>setIsMobile(window.innerWidth<820);
-    check();
-    window.addEventListener("resize",check);
-    return()=>window.removeEventListener("resize",check);
-  },[]);
-
-  // ── Price poll ──
-  const fetchPrice = useCallback(async (symbol:string) => {
-    try {
-      const r = await fetch(`${API}/price/${symbol}`, {signal:AbortSignal.timeout(4000)});
-      if (!r.ok) return;
-      const d = await r.json();
-      if (d.price) setPrice(d.price);
-    } catch {}
-  }, []);
-
-  // ── AI Consensus ──
-  const fetchAI = useCallback(async () => {
-    if (!asset) return;
-    setAiLoading(true);
-    setConsensus(null);
-    setOpinions([]);
-    try {
-      const sym = asset.symbol;
-      const p   = price??asset.price??0;
-      const c   = chg??asset.chg??0;
-      const url = `${API}/brain/consensus/${sym}?name=${encodeURIComponent(asset.name)}&price=${p}&change=${c}&market=${asset.market||"crypto"}&score=${asset.confidence||50}&full=true`;
-      const r   = await fetch(url, {signal:AbortSignal.timeout(35000)});
-      if (!r.ok) throw new Error();
-      const d = await r.json();
-      setConsensus(d.consensus);
-      setOpinions(d.opinions||[]);
-      if (d.final && !d.final.error) setFinalAns(d.final);
-      if (d.motors && !d.motors.error) setMotorData(d.motors);
-    } catch {
-      setConsensus(genMockConsensus(asset));
-      setOpinions([]);
-    } finally { setAiLoading(false); }
-  }, [asset, price, chg]);
-
-  const fetchAnalysis = useCallback(async () => {
-    if (!asset) return;
-    try {
-      const r = await fetch(
-        `/api/v1/assets/${encodeURIComponent(asset.symbol)}/analysis?timeframe=${encodeURIComponent(tf)}&riskProfile=medium`,
-        { signal: AbortSignal.timeout(15000) },
-      );
-      if (!r.ok) throw new Error("analysis-failed");
-      const d = await r.json();
-      setAnalysis(d);
-    } catch {
-      setAnalysis(null);
-    }
-  }, [asset, tf]);
-
-  // ── Init ──
-  useEffect(()=>{
-    if (!asset) return;
-    const sym = asset.symbol;
-    setConsensus(null); setOpinions([]); setFinalAns(null); setMotorData(null);
-    setAnalysis(null);
-    setLivePrice(null); setLiveChg(null);
-    setChartLatestClose(null);
-    setChartUpdatedAt(null);
-    setChartSource("ohlcv");
-    setPrice(asset.price??null); setChg(asset.chg??null);
-    fetchPrice(sym);
-    fetchAI();
-    fetchAnalysis();
-    const iv = setInterval(()=>fetchPrice(sym), 3000);
-    setPriceInterval(iv);
-    return () => clearInterval(iv);
-  }, [asset?.symbol, tf]);
-
-  // ── Live price from /api/v1/prices/live?symbols= on modal open ──
-  useEffect(()=>{
-    if (!asset) return;
-    const sym = asset.symbol.toUpperCase().replace("/","");
-    let cancelled = false;
-    const fetchLP = async () => {
-      try {
-        const r = await fetch(`/api/v1/prices/live?symbols=${sym}`, { signal: AbortSignal.timeout(8000) });
-        if (!r.ok || cancelled) return;
-        const d = await r.json();
-        const entry = d.prices?.[sym];
-        if (entry?.price > 0 && !cancelled) {
-          setLivePrice(entry.price);
-          setLiveChg(typeof entry.change24h === "number" ? entry.change24h : entry.chg ?? null);
-        }
-      } catch {}
-    };
-    fetchLP();
-    return () => { cancelled = true; };
-  }, [asset?.symbol]);
-
-  // ── Close on Escape ──
-  useEffect(()=>{
-    const fn=(e:KeyboardEvent)=>{ if(e.key==="Escape") onClose(); };
-    window.addEventListener("keydown",fn);
-    return ()=>window.removeEventListener("keydown",fn);
-  },[onClose]);
+  const { exchanges } = useExchange();
 
   useEffect(() => {
-    document.body.classList.add("asset-modal-open");
-    return () => document.body.classList.remove("asset-modal-open");
+    const onResize = () => setIsMobile(window.innerWidth < 900);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    if (!asset) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [asset, onClose]);
+
+  useEffect(() => {
+    if (!asset) return;
+    document.body.classList.add("asset-modal-open");
+    return () => {
+      document.body.classList.remove("asset-modal-open");
+    };
+  }, [asset]);
+
+  const fetchLivePrice = useCallback(async (symbol: string) => {
+    const normalized = symbol.toUpperCase().replace("/", "");
+    try {
+      const response = await fetch(`/api/v1/prices/live?symbols=${encodeURIComponent(normalized)}`, {
+        signal: AbortSignal.timeout(7000),
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const entry = data?.prices?.[normalized];
+      if (entry && Number(entry.price) > 0) {
+        setLivePrice(Number(entry.price));
+        const chg = Number(entry.change24h ?? entry.chg);
+        if (Number.isFinite(chg)) setLiveChange(chg);
+      }
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const fetchFallbackPrice = useCallback(async (symbol: string) => {
+    try {
+      const response = await fetch(`/api/v1/price/${encodeURIComponent(symbol)}`, {
+        signal: AbortSignal.timeout(5000),
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (Number(data?.price) > 0) {
+        setPollPrice(Number(data.price));
+      }
+      const chg = Number(data?.change_24h ?? data?.chg);
+      if (Number.isFinite(chg)) setPollChange(chg);
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const fetchAnalysis = useCallback(async (symbol: string, tf: string) => {
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    try {
+      const response = await fetch(
+        `/api/v1/assets/${encodeURIComponent(symbol)}/analysis?timeframe=${encodeURIComponent(tf)}&riskProfile=medium`,
+        { signal: AbortSignal.timeout(12000), cache: "no-store" },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setAnalysis(data);
+    } catch {
+      setAnalysis(null);
+      setAnalysisError("Analiz verisi alınamadı.");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!asset) return;
+
+    setAnalysis(null);
+    setAnalysisError(null);
+    setLivePrice(null);
+    setLiveChange(null);
+    setPollPrice(asset.price ?? null);
+    setPollChange(asset.chg ?? null);
+    setChartLatestClose(null);
+    setChartUpdatedAt(null);
+    setChartProvider("ohlcv");
+
+    fetchLivePrice(asset.symbol);
+    fetchFallbackPrice(asset.symbol);
+    fetchAnalysis(asset.symbol, timeframe);
+
+    const interval = setInterval(() => {
+      fetchLivePrice(asset.symbol);
+      fetchFallbackPrice(asset.symbol);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [asset?.symbol, timeframe, fetchAnalysis, fetchFallbackPrice, fetchLivePrice]);
 
   if (!asset) return null;
 
-  // Prefer live price from /api/v1/prices/live, then backend poll, then passed prop
-  const displayPrice = livePrice ?? price ?? asset.price ?? 0;
-  const displayChg   = liveChg ?? chg ?? asset.chg ?? 0;
-  const analysisPlan = analysis?.tradePlan ?? null;
-  const targetPrice = analysisPlan?.target ?? consensus?.target_price ?? null;
-  const stopLoss = analysisPlan?.stopLoss ?? consensus?.stop_loss ?? null;
-  const riskReward = analysisPlan?.riskReward ?? consensus?.risk_reward ?? null;
-  const technicalSummary = analysis?.technicalSummary || consensus?.technical_summary;
-  const fundamentalSummary = analysis?.fundamentalSummary || consensus?.fundamental_summary;
-  const priceDiffPct = chartLatestClose && displayPrice > 0
-    ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100
-    : 0;
-  const hasPriceDrift = priceDiffPct > 1;
-  const upChg        = displayChg >= 0;
-  const dir          = normDir(consensus?.direction||asset.direction||"NEUTRAL");
-  const cfg          = DIR_CFG[dir];
-  const consConf     = consensus?.confidence??0;
-  const ccCol        = consConf>=80?"var(--up)":consConf>=65?"var(--warn)":"var(--t3)";
+  const direction = normalizeDirection(analysis?.tradePlan?.direction || asset.direction);
+  const displayPrice = livePrice ?? pollPrice ?? asset.price ?? 0;
+  const displayChange = liveChange ?? pollChange ?? asset.chg ?? 0;
+  const isUp = displayChange >= 0;
 
-  const AGREE_COLOR: Record<string,string> = {
-    "TAM":"var(--up)","ÇOĞUNLUK":"var(--gold)","BÖLÜNMÜŞ":"var(--warn)"
-  };
+  const targetPrice = analysis?.tradePlan?.target ?? null;
+  const stopLoss = analysis?.tradePlan?.stopLoss ?? null;
+  const riskReward = analysis?.tradePlan?.riskReward ?? null;
+  const hasSufficientData = analysis?.dataQuality?.status !== "insufficient";
+
+  const priceDiffPct =
+    chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
+  const showDriftWarning = priceDiffPct > 1;
+
+  const headerTitle = asset.display || asset.symbol;
 
   return (
     <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{
-        position:"fixed",inset:0,zIndex:1000,
-        background:"rgba(8,10,16,0.8)",backdropFilter:"blur(8px)",
-      }}/>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1000,
+          background: "rgba(8,10,16,0.8)",
+          backdropFilter: "blur(8px)",
+        }}
+      />
 
-      {/* Panel */}
-      <div style={{
-        position:"fixed",top:0,right:0,bottom:0,
-        width:isMobile?"100vw":"min(820px, 95vw)",maxWidth:"100vw",zIndex:1001,
-        background:"var(--bg-panel)",borderLeft:"1px solid var(--b2)",
-        display:"flex",flexDirection:"column",
-        animation:"slide-in-r 0.25s cubic-bezier(0.4,0,0.2,1) both",
-        overflowY:"auto",
-      }}>
-        {/* Header */}
-        <div style={{
-          display:"flex",alignItems:"center",justifyContent:"space-between",
-          padding:"14px 20px",borderBottom:"1px solid var(--b1)",flexShrink:0,
-          background:"var(--bg-card)",position:"sticky",top:0,zIndex:10,
-        }}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontFamily:"var(--font-head)",fontSize:"20px",fontWeight:800,color:"var(--t1)"}}>{asset.display||asset.symbol}</span>
-                <span style={{fontSize:"12px",color:"var(--t3)"}}>{asset.name}</span>
-                <span style={{fontSize:"9px",fontWeight:600,fontFamily:"var(--font-mono)",
-                  background:"var(--bg-hover)",border:"1px solid var(--b1)",
-                  padding:"2px 6px",borderRadius:3,color:"var(--t3)",textTransform:"uppercase"}}>
-                  {(asset.market||"").toUpperCase()}
-                </span>
+      <div
+        className="asset-detail-panel"
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: isMobile ? "100vw" : "min(860px, 96vw)",
+          maxWidth: "100vw",
+          zIndex: 1001,
+          background: "var(--bg-panel)",
+          borderLeft: "1px solid var(--b2)",
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 12,
+            background: "var(--bg-card)",
+            borderBottom: "1px solid var(--b1)",
+            padding: "12px 14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: "var(--font-head)", fontSize: 20, fontWeight: 800, color: "var(--t1)" }}>{headerTitle}</span>
+                <span style={{ fontSize: 12, color: "var(--t3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>{asset.name}</span>
               </div>
-              <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:4}}>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:"22px",fontWeight:800,color:"var(--t1)"}}>{fmt(displayPrice)}</span>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:"13px",fontWeight:700,color:upChg?"var(--up)":"var(--down)"}}>
-                  {upChg?"+":""}{displayChg.toFixed(2)}%
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 800, color: "var(--t1)" }}>{fmtPrice(displayPrice)}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: isUp ? "var(--up)" : "var(--down)" }}>{fmtPercent(displayChange)}</span>
+                <span style={{ fontSize: 10, color: "var(--up)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--up)", boxShadow: "0 0 8px var(--up)" }} />
+                  Canlı
                 </span>
-                <div style={{display:"flex",alignItems:"center",gap:4,marginLeft:4}}>
-                  <div style={{width:5,height:5,borderRadius:"50%",background:"var(--up)",animation:"pulse-live 2s ease-in-out infinite"}}/>
-                  <span style={{fontSize:"9px",color:"var(--up)",fontWeight:600}}>CANLI</span>
-                </div>
-                {hasPriceDrift && (
-                  <div style={{
-                    display:"inline-flex",alignItems:"center",gap:4,marginLeft:6,
-                    padding:"1px 6px",borderRadius:6,
-                    background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.32)",
-                    color:"#f59e0b",fontSize:9,fontWeight:700,
-                  }} title={chartUpdatedAt ? new Date(chartUpdatedAt).toLocaleString() : undefined}>
-                    FARK %{priceDiffPct.toFixed(2)} ({chartSource})
-                  </div>
+                {showDriftWarning && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#f59e0b",
+                      border: "1px solid rgba(245,158,11,0.35)",
+                      borderRadius: 8,
+                      padding: "1px 7px",
+                      background: "rgba(245,158,11,0.1)",
+                    }}
+                    title={chartUpdatedAt ? new Date(chartUpdatedAt).toLocaleString("tr-TR") : undefined}
+                  >
+                    Fark %{priceDiffPct.toFixed(2)} ({chartProvider})
+                  </span>
                 )}
               </div>
             </div>
+
+            <button
+              onClick={onClose}
+              style={{
+                border: "1px solid var(--b1)",
+                borderRadius: 8,
+                background: "var(--bg-hover)",
+                color: "var(--t2)",
+                padding: 8,
+                cursor: "pointer",
+                display: "inline-flex",
+                flexShrink: 0,
+              }}
+            >
+              <X size={16} />
+            </button>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               onClick={() => setShowDemoTrade(true)}
               style={{
-                display:"flex",alignItems:"center",gap:5,
-                padding:"7px 14px",borderRadius:8,cursor:"pointer",
-                background:"rgba(245,158,11,0.12)",
-                border:"1px solid rgba(245,158,11,0.35)",
-                color:"#f59e0b",fontSize:12,fontWeight:700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                borderRadius: 8,
+                border: "1px solid rgba(245,158,11,0.35)",
+                background: "rgba(245,158,11,0.12)",
+                color: "#f59e0b",
+                padding: "7px 12px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
               }}
             >
-              <FlaskConical size={13}/>Demo İşlem
+              <FlaskConical size={13} /> Demo İşlem
             </button>
+
             {exchanges.length > 0 ? (
               <button
                 onClick={() => setShowRealTrade(true)}
                 style={{
-                  display:"flex",alignItems:"center",gap:5,
-                  padding:"7px 14px",borderRadius:8,cursor:"pointer",
-                  background:"linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.15))",
-                  border:"1px solid rgba(16,185,129,0.5)",
-                  color:"#10b981",fontSize:12,fontWeight:700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  borderRadius: 8,
+                  border: "1px solid rgba(16,185,129,0.5)",
+                  background: "rgba(16,185,129,0.2)",
+                  color: "#10b981",
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
                 }}
               >
                 Gerçek İşlem
               </button>
             ) : (
-              <a href="/brokers" style={{
-                display:"flex",alignItems:"center",gap:5,
-                padding:"7px 14px",borderRadius:8,cursor:"pointer",
-                background:"rgba(255,255,255,0.05)",
-                border:"1px solid rgba(255,255,255,0.12)",
-                color:"rgba(255,255,255,0.5)",fontSize:12,fontWeight:600,
-                textDecoration:"none",
-              }}>
+              <a
+                href="/brokers"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "var(--t3)",
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
                 Borsa Bağla
               </a>
             )}
-            <button onClick={onClose} style={{background:"var(--bg-hover)",border:"1px solid var(--b1)",borderRadius:8,padding:8,cursor:"pointer",color:"var(--t2)",display:"flex"}}>
-              <X size={16}/>
-            </button>
           </div>
         </div>
 
-        <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:20}}>
-
-          {/* ── Chart ── */}
-          <TVChart
+        <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <ProfessionalChart
             symbol={asset.symbol}
-            market={asset.market||"crypto"}
-            tf={tf}
-            onTfChange={setTf}
             onLatestCandleClose={(close, updatedAt, source) => {
               setChartLatestClose(close);
               setChartUpdatedAt(updatedAt);
-              setChartSource(source || "ohlcv");
+              setChartProvider(source || "ohlcv");
             }}
+            height={420}
           />
 
-          {/* ── AI Consensus header ── */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div className="section-title">
-              <Brain size={14} color="var(--gold)"/>Çoklu AI Konsensüs
-            </div>
-            <button onClick={fetchAI} disabled={aiLoading} className="btn-ghost" style={{gap:5,fontSize:"11px",padding:"5px 12px"}}>
-              <RefreshCw size={12} style={{animation:aiLoading?"spin 0.8s linear infinite":""}}/>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                style={{
+                  borderRadius: 7,
+                  border: `1px solid ${timeframe === tf ? "var(--gold-border)" : "var(--b1)"}`,
+                  background: timeframe === tf ? "var(--gold-dim)" : "var(--bg-card)",
+                  color: timeframe === tf ? "var(--gold-bright)" : "var(--t3)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "5px 9px",
+                  cursor: "pointer",
+                }}
+              >
+                {tf}
+              </button>
+            ))}
+            <button
+              onClick={() => asset && fetchAnalysis(asset.symbol, timeframe)}
+              className="btn-ghost"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "5px 10px" }}
+            >
+              <RefreshCw size={12} style={{ animation: analysisLoading ? "spin 0.9s linear infinite" : "none" }} />
               Yenile
             </button>
           </div>
 
-          {/* ── Loading state ── */}
-          {aiLoading && !consensus && (
-            <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-lg)",padding:"32px",textAlign:"center"}}>
-              <Loader2 size={28} color="var(--gold)" style={{animation:"spin 0.8s linear infinite",margin:"0 auto 12px"}}/>
-              <div style={{fontSize:"13px",color:"var(--t2)",fontWeight:600,marginBottom:6}}>3 AI modeli paralel analiz yapıyor…</div>
-              <div style={{fontSize:"11px",color:"var(--t3)"}}>Çoklu model analizi yapılıyor…</div>
-            </div>
-          )}
-
-          {/* ── Consensus card ── */}
-          {consensus && (
-            <div style={{background:"var(--bg-card)",border:`1px solid ${cfg.border}`,borderRadius:"var(--r-lg)",padding:"16px 20px"}} className="fade-in">
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:16}}>
-                {/* Direction */}
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:6,background:cfg.bg,border:`1px solid ${cfg.border}`,color:cfg.color}}>
-                    <cfg.Icon size={14} strokeWidth={2.5}/>
-                    <span style={{fontFamily:"var(--font-mono)",fontSize:"13px",fontWeight:800,letterSpacing:"0.08em"}}>{cfg.label}</span>
-                  </div>
-                  {/* Agreement */}
-                  <div style={{display:"flex",alignItems:"center",gap:4,fontSize:"10px"}}>
-                    <CheckCircle2 size={11} color={consensus.isSynthetic ? "var(--gold)" : (AGREE_COLOR[consensus.agreement]||"var(--t3)")}/>
-                    <span style={{color: consensus.isSynthetic ? "var(--gold)" : (AGREE_COLOR[consensus.agreement]||"var(--t3)"), fontWeight:700}}>
-                      {consensus.isSynthetic ? "AI Teknik Analiz (Yerel Model)" : `${consensus.agreement} UYUM`}
-                    </span>
-                    {!consensus.isSynthetic && (
-                      <span style={{color:"var(--t3)"}}>— {consensus.opinion_count}/3 model</span>
-                    )}
-                  </div>
-                  {consensus.votes && (
-                    <div style={{display:"flex",gap:8,fontSize:"10px",fontFamily:"var(--font-mono)"}}>
-                      <span style={{color:"var(--up)"}}>↑{consensus.votes.LONG||0}</span>
-                      <span style={{color:"var(--down)"}}>↓{consensus.votes.SHORT||0}</span>
-                      <span style={{color:"var(--gold)"}}>−{consensus.votes.NEUTRAL||0}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Confidence */}
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontFamily:"var(--font-mono)",fontSize:"32px",fontWeight:800,color:ccCol,lineHeight:1}}>{consConf}%</div>
-                  <div style={{fontSize:"10px",color:"var(--t3)",marginTop:2}}>Konsensüs Güveni</div>
-                  <div style={{marginTop:6,width:80,height:4,borderRadius:2,background:"var(--b1)",marginLeft:"auto"}}>
-                    <div style={{height:"100%",borderRadius:2,background:ccCol,width:`${consConf}%`,transition:"width 0.6s ease"}}/>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reasoning */}
-              <div style={{fontSize:"13px",color:"var(--t1)",lineHeight:1.6,padding:"12px 14px",background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--b1)",marginBottom:14}}>
-                {consensus.reasoning}
-              </div>
-
-              {/* Price levels */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
-                {[
-                  {l:"Hedef Fiyat",   v:targetPrice, color:"var(--up)",   Icon:Target},
-                  {l:"Stop Loss",     v:stopLoss,    color:"var(--down)", Icon:ShieldAlert},
-                  {l:"Risk / Ödül",   v:riskReward?`${riskReward}x`:null, color:"var(--gold)", Icon:BarChart3},
-                ].map(({l,v,color,Icon})=>(
-                  <div key={l} style={{background:"var(--bg)",border:"1px solid var(--b1)",borderRadius:"var(--r-sm)",padding:"10px 12px",textAlign:"center"}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginBottom:4}}>
-                      <Icon size={10} color={color}/><span style={{fontSize:"9px",color:"var(--t3)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</span>
-                    </div>
-                    <div style={{fontFamily:"var(--font-mono)",fontSize:"14px",fontWeight:800,color:v?color:"var(--t4)"}}>
-                      {(!v || v === 0) ? "—" : typeof v === "string" ? v : fmt(v as number, 2)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Technical + Fundamental */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                {technicalSummary && (
-                  <div style={{padding:"10px 12px",background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--b1)"}}>
-                    <div style={{fontSize:"9px",color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Teknik Analiz</div>
-                    <div style={{fontSize:"11px",color:"var(--t2)",lineHeight:1.5}}>{technicalSummary}</div>
-                  </div>
-                )}
-                {fundamentalSummary && (
-                  <div style={{padding:"10px 12px",background:"var(--bg)",borderRadius:"var(--r-sm)",border:"1px solid var(--b1)"}}>
-                    <div style={{fontSize:"9px",color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Temel Analiz</div>
-                    <div style={{fontSize:"11px",color:"var(--t2)",lineHeight:1.5}}>{fundamentalSummary}</div>
-                  </div>
+          <div
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--b1)",
+              borderRadius: "var(--r-lg)",
+              padding: "14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <DirectionChip direction={direction} />
+                {analysis?.dataQuality?.status && (
+                  <span style={{ fontSize: 10, color: statusColor(analysis.dataQuality.status), fontWeight: 700 }}>
+                    {statusLabel(analysis.dataQuality.status)}
+                  </span>
                 )}
               </div>
-
-              {/* Key levels */}
-              {consensus.key_levels && (consensus.key_levels.support||consensus.key_levels.resistance) && (
-                <div style={{display:"flex",gap:16,marginTop:10,fontSize:"11px"}}>
-                  {consensus.key_levels.support    && <span style={{color:"var(--up)"}}>Destek: {fmt(consensus.key_levels.support)}</span>}
-                  {consensus.key_levels.resistance && <span style={{color:"var(--down)"}}>Direnç: {fmt(consensus.key_levels.resistance)}</span>}
-                  {consensus.timeframe             && <span style={{color:"var(--t3)",marginLeft:"auto"}}>{consensus.timeframe}</span>}
-                </div>
-              )}
+              <span style={{ fontSize: 10, color: "var(--t4)" }}>
+                {analysis?.dataQuality?.updatedAt
+                  ? new Date(analysis.dataQuality.updatedAt).toLocaleString("tr-TR")
+                  : ""}
+              </span>
             </div>
-          )}
 
-          {/* ── KALKAN + FINAL ANSWER panel ── */}
-          {finalAns && (
-            <div style={{display:"flex",flexDirection:"column",gap:10}} className="fade-in">
-              {/* Final Verdict */}
-              <div style={{
-                padding:"14px 18px",borderRadius:"var(--r-md)",
-                background: finalAns.kalkan.passed ? "var(--up-dim)" : "rgba(246,70,93,0.08)",
-                border: `1px solid ${finalAns.kalkan.passed ? "var(--up-border)" : "var(--down-border)"}`,
-                display:"flex",alignItems:"center",justifyContent:"space-between",gap:12
-              }}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  {finalAns.kalkan.passed
-                    ? <CheckCircle2 size={18} color="var(--up)"/>
-                    : <ShieldAlert size={18} color="var(--down)"/>}
-                  <div>
-                    <div style={{fontFamily:"var(--font-mono)",fontSize:"13px",fontWeight:800,
-                      color: finalAns.kalkan.passed ? "var(--up)" : "var(--down)",
-                      letterSpacing:"0.06em"}}>
-                      {finalAns.verdict}
-                    </div>
-                    <div style={{fontSize:"11px",color:"var(--t2)",marginTop:2}}>{finalAns.verdict_reason}</div>
-                  </div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontFamily:"var(--font-mono)",fontSize:"22px",fontWeight:800,
-                    color: finalAns.final_confidence>=72?"var(--up)":finalAns.final_confidence>=55?"var(--warn)":"var(--t3)",
-                    lineHeight:1}}>{finalAns.final_confidence}%</div>
-                  <div style={{fontSize:"9px",color:"var(--t3)",marginTop:2}}>Final Güven</div>
-                  <div style={{fontSize:"9px",marginTop:2,padding:"2px 6px",borderRadius:3,
-                    background: finalAns.risk_level==="LOW"?"var(--up-dim)":finalAns.risk_level==="MEDIUM"?"var(--gold-dim)":"var(--down-dim)",
-                    color: finalAns.risk_level==="LOW"?"var(--up)":finalAns.risk_level==="MEDIUM"?"var(--gold)":"var(--down)",
-                    fontWeight:700,fontFamily:"var(--font-mono)"}}>{finalAns.risk_level}</div>
-                </div>
+            {analysisError && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 7,
+                  borderRadius: 8,
+                  border: "1px solid rgba(239,68,68,0.28)",
+                  background: "rgba(239,68,68,0.1)",
+                  padding: "8px 10px",
+                }}
+              >
+                <AlertCircle size={14} color="var(--down)" style={{ marginTop: 1 }} />
+                <span style={{ fontSize: 12, color: "#fca5a5" }}>{analysisError}</span>
               </div>
+            )}
 
-              {/* Kalkan uyarıları */}
-              {finalAns.kalkan.warnings.length > 0 && (
-                <div style={{padding:"10px 14px",borderRadius:"var(--r-sm)",background:"rgba(243,186,47,0.06)",border:"1px solid rgba(243,186,47,0.2)"}}>
-                  <div style={{fontSize:"9px",color:"var(--gold)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,display:"flex",alignItems:"center",gap:4}}>
-                    <ShieldAlert size={10}/> Kalkan Uyarıları
-                  </div>
-                  {finalAns.kalkan.warnings.map((w,i)=>(
-                    <div key={i} style={{fontSize:"11px",color:"var(--t2)",marginBottom:3,display:"flex",gap:4}}>
-                      <span style={{color:"var(--warn)"}}>⚠</span>{w}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Contrarian AI */}
-              {finalAns.contrarian && finalAns.contrarian.counter_direction && (
-                <div style={{padding:"10px 14px",borderRadius:"var(--r-sm)",background:"rgba(246,70,93,0.05)",border:"1px solid var(--down-border)"}}>
-                  <div style={{fontSize:"9px",color:"var(--down)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                    Şeytan Avukatı ({finalAns.contrarian.counter_direction})
-                  </div>
-                  {finalAns.contrarian.biggest_risk && (
-                    <div style={{fontSize:"11px",color:"var(--t2)",marginBottom:4}}>
-                      <span style={{color:"var(--down)",fontWeight:700}}>Risk: </span>{finalAns.contrarian.biggest_risk}
-                    </div>
-                  )}
-                  {finalAns.contrarian.arguments?.slice(0,2).map((a,i)=>(
-                    <div key={i} style={{fontSize:"11px",color:"var(--t3)",marginBottom:3,display:"flex",gap:4}}>
-                      <span style={{color:"var(--down)"}}>—</span>{a}
-                    </div>
-                  ))}
-                  {finalAns.contrarian.failure_scenario && (
-                    <div style={{fontSize:"10px",color:"var(--t3)",marginTop:4,fontStyle:"italic"}}>
-                      Başarısız senaryo: {finalAns.contrarian.failure_scenario}
-                    </div>
-                  )}
-                </div>
-              )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+              <MetricCard icon={<Target size={12} color="var(--up)" />} label="Hedef" value={hasSufficientData ? fmtPrice(targetPrice) : "Veri yetersiz"} />
+              <MetricCard icon={<ShieldAlert size={12} color="var(--down)" />} label="Stop Loss" value={hasSufficientData ? fmtPrice(stopLoss) : "Veri yetersiz"} />
+              <MetricCard
+                icon={<BarChart3 size={12} color="var(--gold)" />}
+                label="Risk/Ödül"
+                value={hasSufficientData && riskReward != null && Number.isFinite(riskReward) ? `${riskReward.toFixed(2)}x` : "Veri yetersiz"}
+              />
             </div>
-          )}
 
-          {/* ── 6 Motor Skor Paneli ── */}
-          {motorData && motorData.motors && (
-            <div style={{marginBottom:4}}>
-              <div className="section-title" style={{marginBottom:8}}>
-                <Zap size={13} color="var(--t3)"/>Sinyal Motorları
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
-                {motorData.motors.map((m:any,i:number)=>(
-                  <div key={i} style={{
-                    padding:"8px 10px",borderRadius:"var(--r-sm)",
-                    background: m.signal==="LONG"?"var(--up-dim)":m.signal==="SHORT"?"var(--down-dim)":"var(--bg3)",
-                    border:`1px solid ${m.signal==="LONG"?"var(--up-border)":m.signal==="SHORT"?"var(--down-border)":"var(--b1)"}`,
-                  }}>
-                    <div style={{fontSize:"9px",color:"var(--t3)",marginBottom:3,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>{m.motor}</div>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{
-                        fontFamily:"var(--font-mono)",fontSize:"11px",fontWeight:800,
-                        color:m.signal==="LONG"?"var(--up)":m.signal==="SHORT"?"var(--down)":"var(--t2)"
-                      }}>{m.signal}</span>
-                      <span style={{fontFamily:"var(--font-mono)",fontSize:"12px",color:"var(--t2)"}}>{m.score.toFixed(0)}</span>
-                    </div>
-                    <div style={{fontSize:"9px",color:"var(--t3)",marginTop:3,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.reason}</div>
-                  </div>
-                ))}
-              </div>
-              {motorData.indicators && (
-                <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap"}}>
-                  {motorData.indicators.rsi && <div style={{fontSize:"10px",color:"var(--t2)"}}>RSI <span style={{color:"var(--t1)",fontFamily:"var(--font-mono)",fontWeight:700}}>{motorData.indicators.rsi}</span></div>}
-                  {motorData.indicators.ma20 && <div style={{fontSize:"10px",color:"var(--t2)"}}>MA20 <span style={{color:"var(--gold)",fontFamily:"var(--font-mono)"}}>{parseFloat(motorData.indicators.ma20).toLocaleString(undefined,{maximumFractionDigits:2})}</span></div>}
-                  {motorData.indicators.ma50 && <div style={{fontSize:"10px",color:"var(--t2)"}}>MA50 <span style={{color:"rgba(82,113,255,0.9)",fontFamily:"var(--font-mono)"}}>{parseFloat(motorData.indicators.ma50).toLocaleString(undefined,{maximumFractionDigits:2})}</span></div>}
-                  {motorData.indicators.macd_hist !== undefined && <div style={{fontSize:"10px",color:"var(--t2)"}}>MACD hist <span style={{color:motorData.indicators.macd_hist>=0?"var(--up)":"var(--down)",fontFamily:"var(--font-mono)"}}>{parseFloat(motorData.indicators.macd_hist).toFixed(2)}</span></div>}
-                </div>
-              )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+              <TextBox title="Teknik Analiz" text={analysis?.technicalSummary || "Teknik analiz için yeterli veri yok."} />
+              <TextBox title="Temel Analiz" text={analysis?.fundamentalSummary || "Veri yetersiz."} />
             </div>
-          )}
 
-          {/* ── Individual AI opinions ── */}
-          {opinions.length > 0 && (
-            <>
-              <div className="section-title" style={{marginBottom:8}}>
-                <Zap size={13} color="var(--t3)"/>Model Detayları
+            {analysis?.technical && (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <TinyBadge label="RSI" value={analysis.technical.rsi != null ? analysis.technical.rsi.toFixed(2) : "—"} />
+                <TinyBadge label="MACD" value={analysis.technical.macd != null ? analysis.technical.macd.toFixed(4) : "—"} />
+                <TinyBadge label="ATR" value={analysis.technical.atr != null ? analysis.technical.atr.toFixed(4) : "—"} />
+                <TinyBadge label="Destek" value={analysis.technical.support != null ? fmtPrice(analysis.technical.support) : "—"} />
+                <TinyBadge label="Direnç" value={analysis.technical.resistance != null ? fmtPrice(analysis.technical.resistance) : "—"} />
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                {opinions.map((op,i)=><OpinionCard key={i} op={op} idx={i}/>)}
-              </div>
-            </>
-          )}
+            )}
 
+            <div style={{ fontSize: 11, color: "var(--t4)", lineHeight: 1.5 }}>
+              {analysis?.disclaimer || "Bu içerik yatırım tavsiyesi değildir."}
+            </div>
+          </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-      `}</style>
 
       {showDemoTrade && asset && (
         <AITradeModal
           symbol={asset.symbol}
           name={asset.name || asset.display || asset.symbol}
-          seedPrice={livePrice ?? price ?? asset.price}
-          seedChg={liveChg ?? chg ?? asset.chg ?? 0}
+          seedPrice={displayPrice}
+          seedChg={displayChange}
           onClose={() => setShowDemoTrade(false)}
         />
       )}
@@ -724,33 +569,53 @@ export function AssetDetailModal({ asset, onClose }: { asset:AssetInfo|null; onC
           onClose={() => setShowRealTrade(false)}
           symbol={asset.symbol}
           name={asset.name || asset.display || asset.symbol}
-          price={livePrice ?? price ?? asset.price ?? 0}
+          price={displayPrice}
           defaultSide="buy"
         />
       )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </>
   );
 }
 
-// ─── Mock helpers ────────────────────────────────────────────────
-function genMockConsensus(asset:AssetInfo): Consensus {
-  const dir   = normDir(asset.direction||"NEUTRAL");
-  const conf  = asset.confidence||65;
-  const p     = asset.price||100;
-  const mult  = dir==="LONG"?1:-1;
-  return {
-    direction: dir,
-    confidence: conf,
-    target_price: +(p*(1+mult*0.04)).toFixed(2),
-    stop_loss:    +(p*(1-mult*0.02)).toFixed(2),
-    risk_reward:  2.0,
-    reasoning:   `${asset.name} için çoklu AI analizi tamamlandı. ${dir==="LONG"?"Yükseliş":"Düşüş"} eğilimi tespit edildi, teknik ve temel göstergeler ${dir==="LONG"?"olumlu":"olumsuz"} sinyal veriyor.`,
-    agreement:   "TAM",
-    votes:       dir==="LONG"?{LONG:3,SHORT:0,NEUTRAL:0}:dir==="SHORT"?{LONG:0,SHORT:3,NEUTRAL:0}:{LONG:1,SHORT:0,NEUTRAL:2},
-    opinion_count: 3,
-    technical_summary: "Fiyat güçlü destek üzerinde seyrediyor, hacim artışı devam ediyor.",
-    fundamental_summary: "Sektör dinamikleri ve makro ortam pozitif.",
-    key_levels: { support:+(p*0.96).toFixed(2), resistance:+(p*1.06).toFixed(2) },
-    timeframe: "kısa vadeli (1-7 gün)",
-  };
+function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div style={{ border: "1px solid var(--b1)", borderRadius: "var(--r-md)", background: "var(--bg)", padding: "9px 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+        {icon}
+        <span style={{ fontSize: 10, color: "var(--t4)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+      </div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 700 }}>{value}</div>
+    </div>
+  );
 }
+
+function TextBox({ title, text }: { title: string; text: string }) {
+  return (
+    <div style={{ border: "1px solid var(--b1)", borderRadius: "var(--r-md)", background: "var(--bg)", padding: "10px 11px" }}>
+      <div style={{ fontSize: 10, color: "var(--t4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 12, color: "var(--t2)", lineHeight: 1.55 }}>{text}</div>
+    </div>
+  );
+}
+
+function TinyBadge({ label, value }: { label: string; value: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        borderRadius: 6,
+        border: "1px solid var(--b1)",
+        background: "var(--bg)",
+        padding: "4px 8px",
+      }}
+    >
+      <span style={{ fontSize: 10, color: "var(--t4)", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--t2)", fontWeight: 700 }}>{value}</span>
+    </span>
+  );
+}
+

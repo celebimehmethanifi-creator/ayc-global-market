@@ -1,20 +1,40 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Wallet, Zap } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Home, Wallet, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { saveAuth, startGuestDemo } from "@/lib/auth";
 
+function resolveReturnTo(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  const decoded = decodeURIComponent(raw);
+  if (!decoded.startsWith("/")) return "/dashboard";
+  if (decoded.startsWith("//")) return "/dashboard";
+  return decoded;
+}
+
 export default function SignUpPage() {
   const router = useRouter();
+  const [returnTo, setReturnTo] = useState("/dashboard");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nextPath = resolveReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
+    setReturnTo(nextPath);
+  }, []);
+
+  const goAfterAuth = () => {
+    router.push(returnTo || "/dashboard");
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +69,7 @@ export default function SignUpPage() {
         },
       );
       localStorage.setItem("ayc_show_welcome", "1");
-      router.push("/dashboard?welcome=1");
+      goAfterAuth();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Kayıt başarısız.");
     } finally {
@@ -57,20 +77,64 @@ export default function SignUpPage() {
     }
   };
 
+  const signinHref = `/signin${returnTo !== "/dashboard" ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "20px 16px",
+        padding: "calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 20px)",
         background: "var(--bg)",
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              border: "1px solid var(--b1)",
+              background: "var(--bg-card)",
+              color: "var(--t2)",
+              borderRadius: 8,
+              padding: "7px 10px",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            <ArrowLeft size={13} /> Geri
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              border: "1px solid var(--b1)",
+              background: "var(--bg-card)",
+              color: "var(--t2)",
+              borderRadius: 8,
+              padding: "7px 10px",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            <Home size={13} /> Kapat
+          </button>
+        </div>
+
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <h1 style={{ margin: 0, color: "var(--t1)" }}>AYC Global Market</h1>
+          <h1 style={{ margin: 0, color: "var(--t1)", fontFamily: "var(--font-head)" }}>AYC Global Market</h1>
           <p style={{ marginTop: 6, color: "var(--t3)", fontSize: 13 }}>Ücretsiz hesap oluştur</p>
         </div>
 
@@ -91,7 +155,7 @@ export default function SignUpPage() {
             onClick={() => {
               startGuestDemo();
               localStorage.setItem("ayc_show_welcome", "1");
-              router.push("/dashboard?welcome=1");
+              goAfterAuth();
             }}
             style={{
               width: "100%",
@@ -138,6 +202,7 @@ export default function SignUpPage() {
                 border: "1px solid var(--b1)",
                 background: "var(--bg)",
                 color: "var(--t1)",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -157,6 +222,7 @@ export default function SignUpPage() {
                 border: "1px solid var(--b1)",
                 background: "var(--bg)",
                 color: "var(--t1)",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -176,6 +242,7 @@ export default function SignUpPage() {
                   border: "1px solid var(--b1)",
                   background: "var(--bg)",
                   color: "var(--t1)",
+                  boxSizing: "border-box",
                 }}
               />
               <button
@@ -189,6 +256,7 @@ export default function SignUpPage() {
                   border: "none",
                   background: "transparent",
                   cursor: "pointer",
+                  display: "inline-flex",
                 }}
               >
                 {showPass ? <EyeOff size={16} color="var(--t3)" /> : <Eye size={16} color="var(--t3)" />}
@@ -232,7 +300,7 @@ export default function SignUpPage() {
 
         <p style={{ textAlign: "center", marginTop: 14, color: "var(--t3)", fontSize: 12 }}>
           Zaten hesabın var mı?{" "}
-          <Link href="/signin" style={{ color: "var(--gold)", textDecoration: "none" }}>
+          <Link href={signinHref} style={{ color: "var(--gold)", textDecoration: "none" }}>
             Giriş yap
           </Link>
         </p>
@@ -240,3 +308,4 @@ export default function SignUpPage() {
     </div>
   );
 }
+

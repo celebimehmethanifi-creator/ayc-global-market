@@ -928,20 +928,15 @@ button, a { touch-action: manipulation; }
 }
 @media (max-width: 640px) {
   .stat-scroll {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-    scrollbar-width: none;
-    margin: 0 -16px;
-    padding-left: 16px;
-    padding-right: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
   }
-  .stat-scroll::-webkit-scrollbar { display: none; }
   .stat-scroll > * {
-    flex-shrink: 0;
-    min-width: 130px;
-    max-width: 160px;
+    min-width: 0;
+    max-width: 100%;
   }
 }
 
@@ -1084,13 +1079,6 @@ button, a { touch-action: manipulation; }
   }
 }
 
-/* GENERAL: prevent any 2-col inline grid from overflowing */
-@media (max-width: 480px) {
-  [style*="gridTemplateColumns"] {
-    overflow-x: hidden;
-  }
-}
-
 /* Bottom nav: ensure it doesn't overlap content */
 @media (max-width: 768px) {
   .page-main-content {
@@ -1190,7 +1178,7 @@ img, svg, canvas, iframe, video {
 
 /* ── Stats/signal cards: horizontal scroll snap on mobile ──── */
 @media (max-width: 640px) {
-  .stat-scroll, .dash-stats-grid, .stats-bar {
+  .stats-bar {
     display: flex !important;
     overflow-x: auto;
     flex-wrap: nowrap !important;
@@ -1200,8 +1188,8 @@ img, svg, canvas, iframe, video {
     scrollbar-width: none;
     padding-bottom: 4px;
   }
-  .stat-scroll::-webkit-scrollbar, .dash-stats-grid::-webkit-scrollbar, .stats-bar::-webkit-scrollbar { display: none; }
-  .stat-scroll > *, .dash-stats-grid > *, .stats-bar > * {
+  .stats-bar::-webkit-scrollbar { display: none; }
+  .stats-bar > * {
     flex: 0 0 clamp(130px, 42vw, 170px);
     min-width: 0;
     scroll-snap-align: start;
@@ -1250,12 +1238,6 @@ img, svg, canvas, iframe, video {
   }
 }
 
-/* ── Inline grids: force single column on very small ──────── */
-@media (max-width: 380px) {
-  [style*="gridTemplateColumns"] {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-  }
-}
+/* Intentionally avoid forcing generic inline-grid overrides.
+   Page-level components handle their own responsive behavior. */
 
