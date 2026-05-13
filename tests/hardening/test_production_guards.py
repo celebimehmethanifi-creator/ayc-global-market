@@ -15,6 +15,7 @@ WEB_DEV_AUTH = ROOT / "apps" / "web" / "app" / "api" / "v1" / "_lib" / "dev-auth
 WEB_AUTH_LIB = ROOT / "apps" / "web" / "app" / "api" / "v1" / "_lib" / "auth.ts"
 WEB_QUERY_PROVIDER = ROOT / "apps" / "web" / "lib" / "query-provider.tsx"
 WEB_API_EXPORT = ROOT / "apps" / "web" / "lib" / "api.ts"
+WEB_PRICE_CONTEXT = ROOT / "apps" / "web" / "lib" / "prices" / "PriceContext.tsx"
 WEB_BILLING_VERIFY = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "verify" / "route.ts"
 WEB_BILLING_CHECKOUT = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "checkout" / "route.ts"
 WEB_BILLING_WEBHOOK = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "webhook" / "route.ts"
@@ -192,6 +193,15 @@ def test_api_client_keeps_cookie_session_endpoints_same_origin():
     assert "baseURL: SAME_ORIGIN_API_BASE" in text
     assert "export const api = webApi;" in text
     assert "externalApi" in api_export_text
+
+
+def test_price_context_uses_same_origin_backend_for_non_ws_market_data():
+    text = read_text(WEB_PRICE_CONTEXT)
+    assert "https://finnhub.io" not in text
+    assert "https://stooq.com" not in text
+    assert "https://api.coingecko.com" not in text
+    assert "https://open.er-api.com" not in text
+    assert "fetch(\"/api/v1/prices/live\"" in text
 
 
 def test_exchange_connect_ui_is_disabled_in_production():
