@@ -1,0 +1,819 @@
+================================================================================
+          AYC GLOBAL MARKET — KOD ANALİZ RAPORU
+          Tarih: 14 Mayıs 2026
+          Kapsam: Tüm servisler, frontend, mobile, infra, CI/CD
+================================================================================
+
+Bu rapor herhangi bir değişiklik yapılmadan, yalnızca kaynak kod okunarak
+hazırlanmıştır. Bulgular önem sırasına göre gruplandırılmıştır.
+
+================================================================================
+1. KRİTİK GÜVENLİK AÇIKLARI
+================================================================================
+
+[GÜV-01] HARDCODED API ANAHTARLARI — KRİTİK
+Dosya: services/data-service/market_proxy.py (satır 18-24)
+----------------------------------------------------------------------
+Gerçek API anahtarları doğrudan kaynak koduna yazılmış:
+  COINGECKO_KEY    = "CG-MoxLLAjSA3r2JHXanw9fotD5"
+  FINNHUB_KEY      = "d7pp429r01qosaapdudgd7pp429r01qosaapdue0"
+  TWELVEDATA_KEY   = "c6293bae084a4c0fb46e2cb5df525ef8"
+  FMP_KEY          = "nJNYTTBAWGupP7ZAXz5Mh5hVOskZgxwU"
+  CMC_KEY          = "0bf380a7619b417fa1ad2309d6f086fc"
+  ALPHAVANTAGE_KEY = "63T2IM69L6OSSR51"
+
+Bu anahtarlar git geçmişinde sonsuza kadar kalır. Tüm anahtarlar derhal
+iptal edilmeli, yenileri env değişkeni üzerinden alınmalıdır.
+
+[GÜV-02] CORS TAM YETKİ — KRİTİK
+Dosya: services/data-service/market_proxy.py (satır 28)
+----------------------------------------------------------------------
+  allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+
+Tüm kaynaklara izin veriliyor. Bu servisin internete açık olması
+durumunda CSRF ve veri sızıntısı riski oluşturur.
+
+[GÜV-03] GİT'E COMMIT EDİLMİŞ VERİTABANI DOSYALARI — KRİTİK
+----------------------------------------------------------------------
+Aşağıdaki SQLite dosyaları git reposuna eklenmiş:
+  services/ai-service/neura.db
+  services/data-service/neura.db
+  services/gateway/neura.db
+  services/gateway/ayc_market.db
+  services/signal-service/neura.db
+  services/signal-service/neura_signal.db
+
+Bu dosyalar kullanıcı verileri, sinyal geçmişi veya token içerebilir.
+.gitignore'a eklenmeli ve git geçmişinden temizlenmelidir.
+
+[GÜV-04] GÜVENSİZ VARSAYILAN UYGULAMA GİZLİ ANAHTARI
+Dosya: .env.example (satır 44)
+----------------------------------------------------------------------
+  APP_SECRET_KEY=change-me-in-production
+
+Bu değer üretimde değiştirilmeden kullanılırsa JWT'ler taklit edilebilir.
+.env.example'da bu satırın üretimde mutlaka değiştirilmesi gerektiği
+açıkça belirtilmeli, varsayılan değer boş bırakılmalıdır.
+
+[GÜV-05] DEMO MOD ÖDEME BYPASS RİSKİ
+Dosya: services/gateway/payment_router.py
+----------------------------------------------------------------------
+Ödeme akışında "demo modu" bulunuyor. Bu modun yalnızca ortam
+değişkeniyle kontrol edilmesi ve üretimde devre dışı bırakılması
+garanti altına alınmalıdır. Kod incelemesinde bu güvence net değil.
+
+[GÜV-06] RATE LIMIT YALNIZCA GATEWAY'DE
+Dosya: services/gateway/middleware/rate_limit.py
+----------------------------------------------------------------------
+Rate limiting yalnızca gateway katmanında uygulanıyor. Next.js API
+rotalarında (/app/api/v1/*) herhangi bir rate limit yok. Bu durum
+web katmanından doğrudan saldırılara karşı koruma sağlamıyor.
+
+================================================================================
+2. VERİTABANI SORUNLARI
+================================================================================
+
+[DB-01] ÇOK SAYIDA DAĞITIK SQLITE DOSYASI
+----------------------------------------------------------------------
+Her servis kendi SQLite dosyasını yönetiyor (toplam 6 ayrı .db dosyası).
+Mikroservis mimarisinde bu yaklaşım:
+  - Servisler arası veri tutarsızlığı yaratır
+  - Yatay ölçeklemeyi (birden fazla instance) imkânsız kılar
+  - Merkezi yedekleme ve geri yüklemeyi zorlaştırır
+Tüm servislerin tek bir PostgreSQL'e bağlanması gerekir
+(docker-compose'da tanımlı ama servisler hâlâ SQLite kullanıyor).
+
+[DB-02] GATEWAY'DE DUPLICATE VERITABANI MODÜLÜ
+Dosyalar: services/gateway/database.py VE services/gateway/db.py
+----------------------------------------------------------------------
+Gateway'de iki ayrı veritabanı başlatma modülü mevcut. Hangi modülün
+nerede kullanıldığı belirsiz; bu durum farklı session havuzlarının
+açık kalmasına ve bağlantı sızıntısına yol açabilir.
+
+[DB-03] YALNIZCA 1 MİGRASYON DOSYASI
+Dosya: infra/migrations/0001_initial_schema.py
+----------------------------------------------------------------------
+Tüm şema tek bir migration dosyasında. Geliştirme sürecinde şema
+değiştiğinde bu dosya güncellenmek yerine yeni migration'lar eklenmeli.
+Mevcut yapı üretim veritabanı güncellemelerini yönetmeyi zorlaştırır.
+
+[DB-04] PGVECTOR KURULUMU AMA KULLANIM YOK
+Dosya: infra/migrations/0001_initial_schema.py
+----------------------------------------------------------------------
+Migration'da pgvector extension yükleniyor ama kaynak kodun hiçbir
+yerinde vector embedding veya benzerlik araması kullanılmıyor.
+Ya vector özelliği henüz eklenmemiş ya da gereksiz yere yüklenmiş.
+
+[DB-05] PERFORMANCE TRACKER JSON DOSYASI KULLANIYOR
+Dosya: services/gateway/performance_tracker.py
+----------------------------------------------------------------------
+Sinyal performans takibi JSON dosyasına yazılıyor, veritabanına değil.
+Bu veriler yeniden başlatmada kaybolabilir ve çoklu instance'larda
+çakışma yaratır.
+
+================================================================================
+3. MİMARİ SORUNLAR
+================================================================================
+
+[MİM-01] 4 SERVİS TAMAMEN UYGULANMAMIŞ
+----------------------------------------------------------------------
+Docker-compose'da tanımlı ancak yalnızca __init__.py içeren servisler:
+  services/alarm-service/      → Sadece __init__.py
+  services/portfolio-service/  → Sadece __init__.py
+  services/social-service/     → Sadece __init__.py
+  services/user-service/       → Sadece __init__.py
+
+Bu servislere referans veren API rotaları muhtemelen çalışmıyor veya
+gateway'de tekrar uygulanmış. docker-compose bu servisleri ayağa
+kaldırmaya çalışacak ve başarısız olacak.
+
+[MİM-02] DUPLICATE ÇEKIRDEK MODÜLLER
+----------------------------------------------------------------------
+Aynı kod iki farklı serviste tekrar yazılmış:
+  - kalkan.py       → services/ai-service/ VE services/gateway/
+  - final_answer.py → services/ai-service/ VE services/gateway/
+  - db.py           → services/ai-service/ VE services/gateway/
+
+Bu iki kopya birbirinden bağımsız evrilebilir ve tutarsızlık yaratır.
+Ortak mantık packages/ dizininde paylaşılan bir kütüphane olmalıydı.
+
+[MİM-03] HARDCODED SERVİS URL'LERİ
+----------------------------------------------------------------------
+Servisler birbirleriyle hardcoded localhost adresleri üzerinden konuşuyor
+(örn. http://localhost:8001, http://localhost:8002).
+Docker ortamında servis adlarıyla (http://ai-service:8001) çalışması
+gerekir. Bu fark geliştirme/üretim ortamında farklı davranışlara yol açar.
+
+[MİM-04] WEB API V1 KATMANI GEREKSIZ KARMAŞıKLIK
+----------------------------------------------------------------------
+Web uygulamasında iki paralel API erişim yolu var:
+  1. apps/web/app/api/v1/* — Next.js proxy rotaları
+  2. apps/web/lib/api.ts    — Doğrudan gateway çağrıları
+
+Bazı sayfalar birinci yolu, bazıları ikinci yolu kullanıyor. Bu durum
+hangi verinin nasıl geldiğini anlamayı ve hata ayıklamayı zorlaştırır.
+Tek bir tutarlı yol seçilmeli.
+
+[MİM-05] MARKET_PROXY.PY EK SERVİS KATMANI
+Dosya: services/data-service/market_proxy.py (628 satır)
+----------------------------------------------------------------------
+Data-service'in kendi içinde gateway'in engine katmanını kopyalayan
+kapsamlı bir proxy servisi var. İki katman arasındaki sınır belirsiz;
+hangi işin nerede yapıldığı tutarsız.
+
+================================================================================
+4. FRONTEND (WEB) SORUNLARI
+================================================================================
+
+[WEB-01] DASHBOARD TAMAMEN MOCK VERİ KULLANIYOR
+Dosya: apps/web/app/(app)/dashboard/page.tsx
+----------------------------------------------------------------------
+Dashboard'da gerçek API çağrısı başarısız olursa gösterilen veriler:
+  MOCK_SIGNALS  → 6 hardcoded sinyal (sabit fiyatlar, sabit güvenler)
+  MOCK_MOVERS   → 6 hardcoded varlık
+  MOCK_ALARMS   → 3 hardcoded alarm (sabit saat: 02:14, 01:58, 01:32)
+  MOCK_CAUSAL   → BTCUSDT için hardcoded analiz
+
+Bu veriler kullanıcıya gerçekmiş gibi gösterilebilir. En azından
+mock verinin üzerine "DEMO" etiketi eklenmeli.
+
+[WEB-02] FEAR & GREED ENDEKSİ HARDCODED
+Dosya: apps/web/app/(app)/dashboard/page.tsx (satır ~330)
+----------------------------------------------------------------------
+  <div style={{fontFamily:"var(--font-mono)",fontSize:32,...}}>62</div>
+  <div>AÇGÖZLÜLÜK</div>
+
+Değer 62 sabit olarak yazılmış. Gerçek bir API'dan çekilmeli
+(örn. alternative.me Fear & Greed Index).
+
+[WEB-03] WELCOME MODAL'DA BOZUK KARAKTER
+Dosya: apps/web/app/(app)/dashboard/page.tsx
+----------------------------------------------------------------------
+  <div style={{ fontSize: 28 }}>‰</div>
+
+"‰" karakteri (per mille işareti) muhtemelen bir emoji placeholder.
+İstenilen emoji veya ikon bileşeni kullanılmalı.
+
+[WEB-04] İKİ FARKLI TAILWIND CONFIG DOSYASI
+Dosya: apps/web/tailwind.config.js VE apps/web/tailwind.config.ts
+----------------------------------------------------------------------
+Aynı dizinde hem .js hem .ts formatında Tailwind config var.
+Tailwind hangisini kullandığını öncelik sırasına göre seçer, diğeri
+yoksayılır. Biri silinmeli, hangisinin aktif olduğu doğrulanmalı.
+
+[WEB-05] INLINE STYLE KULLANIMI — TAILWIND YAPILANDIRILMIŞ AMA KULLANILMIYOR
+----------------------------------------------------------------------
+Tailwind CSS kurulu ve yapılandırılmış olmasına rağmen tüm bileşenler
+yüzlerce satır inline style objesi kullanıyor. Bu durum:
+  - Dosya boyutlarını gereksiz büyütüyor (dashboard/page.tsx ~700 satır)
+  - Tema/dark mode yönetimini zorlaştırıyor
+  - Yeniden kullanılabilirliği engelliyor
+
+[WEB-06] TYPESCRIPT `any` TİPİ KULLANIMI
+Dosya: apps/web/app/(app)/dashboard/page.tsx
+----------------------------------------------------------------------
+  motor_votes?: any;
+  scores?: any;
+
+Bu alanlar için shared-types/index.ts'deki mevcut tipler kullanılmalı.
+
+[WEB-07] SIGNAL ID UYUMSUZLUĞU
+----------------------------------------------------------------------
+Mock verideki ID'ler: "s1", "s2", ... (string)
+Veritabanındaki gerçek ID'ler: UUID formatı
+
+API gerçek veri döndürdüğünde `sig.id` ile yapılan karşılaştırmalar
+veya route navigasyonları beklenmedik davranış gösterebilir.
+
+[WEB-08] WINDOW NESNESINE SSR'DA ERİŞİM
+Dosya: apps/web/app/(app)/dashboard/page.tsx
+----------------------------------------------------------------------
+  const params = new URLSearchParams(window.location.search);
+
+Bu kod useEffect içinde olduğu için runtime hatası vermez, ancak
+Next.js SSR/SSG döngüsünde risktir. `useSearchParams()` hook'u
+kullanılması daha doğru Next.js yaklaşımıdır.
+
+[WEB-09] HABERLERİ GÖSTEREN BILEŞENLER COMPACT MOD HATASI
+Dosya: apps/web/app/(app)/dashboard/page.tsx (en alt)
+----------------------------------------------------------------------
+  <div className="news-grid-responsive">
+    <NewsWidget category="crypto" limit={6} compact={true} />
+    <NewsWidget category="bist"   limit={6} compact={true} />
+    <NewsWidget category="global" limit={6} compact={true} />
+  </div>
+
+Bu CSS class'ı globals.css'de tanımlı mı belirsiz. Eksikse layout
+bozulur. NewsWidget component'ının `compact` prop'u işleyip işlemediği
+doğrulanmalı.
+
+================================================================================
+5. BACKEND (PYTHON SERVİSLERİ) SORUNLARI
+================================================================================
+
+[PY-01] HTTPX CLIENT HER İSTEKTE YENİDEN OLUŞTURULUYOR
+Dosya: services/data-service/market_proxy.py (satır 45-52)
+----------------------------------------------------------------------
+  async def get(url, ...):
+      async with httpx.AsyncClient(timeout=timeout) as client:
+          ...
+
+Her API çağrısında yeni bir HTTP bağlantısı açılıp kapatılıyor.
+Yüksek trafikte bu ciddi performans kaybı yaratır. Uygulama başlatma
+sırasında tek bir AsyncClient oluşturulup paylaşılmalı.
+
+[PY-02] SİNYAL SKORLAMA FORMÜLÜ ÇOK BASİT
+Dosya: services/data-service/market_proxy.py (satır 56-62)
+----------------------------------------------------------------------
+  def score_item(change: float, volume_ratio: float = 1.0) -> int:
+      base = 50
+      base += min(30, max(-30, change * 4))
+      base += min(10, volume_ratio * 5)
+
+Bu 2-değişkenli basit formül, gateway'deki 6-motorlu sistemle çelişiyor.
+Data-service'in kendi sinyal skoru üretmesi mimari tutarsızlık.
+
+[PY-03] OTOPSI AĞIRLIK SİSTEMİ KALICI DEĞİL
+Dosya: services/gateway/otopsi.py
+----------------------------------------------------------------------
+Model ağırlıkları (GPT-4o, Claude, Gemini başarı oranları) SQLite'a
+kaydedilse de bu veritabanı git'e commit edilmiş ve servis yeniden
+başlatılırsa sıfırlanabilir. Öğrenme döngüsü gerçek anlamda kalıcı
+değil.
+
+[PY-04] CONSENSUS ROUTER 3 LLM'İ PARALEL ÇAĞIRIYOR — TIMEOUT YÖNETİMİ EKSİK
+Dosya: services/gateway/consensus_router.py
+----------------------------------------------------------------------
+3 model (GPT-4o, Claude 3.5, Gemini 1.5) paralel çağrılıyor. Modellerden
+biri yavaş yanıt verirse tüm endpoint bekler. asyncio.wait_for veya
+bireysel model timeout'ları tanımlanmalı.
+
+[PY-05] CONTRARIAN.PY GPT-4O MİNİ KULLANIP JSON PARSE HATASINA FALLBACK
+Dosya: services/gateway/contrarian.py
+----------------------------------------------------------------------
+GPT yanıtı JSON parse edilemiyor durumunda fallback bir dict dönüyor.
+Bu silent failure; log kaydı veya izleme yok. Gerçek hata ne sıklıkla
+oluştuğu bilinmiyor.
+
+[PY-06] SCENARIO ENGINE MONTE CARLO SABİT SEED KULLANMIYOR
+Dosya: services/gateway/scenario_engine.py
+----------------------------------------------------------------------
+Monte Carlo simülasyonu her çalışmada farklı sonuç üretir. Test
+edilebilirlik açısından seed parametresi desteklenmeli.
+
+[PY-07] KALKAN İKİ VERSIYONU — HANGİSİ AKTİF?
+----------------------------------------------------------------------
+  services/ai-service/kalkan.py  → 4 kural, basit yapı
+  services/gateway/kalkan.py     → Muhtemelen farklı versiyon
+
+Hangi Kalkan versiyonunun gerçek sinyalleri filtrelediği belirsiz.
+İki kopya birbirinden farklı geliştirilmiş olabilir.
+
+[PY-08] GATEWAY'DE ASYNCPG DEPENDENCY EKSİK
+Dosya: services/gateway/requirements.txt
+----------------------------------------------------------------------
+requirements.txt'de asyncpg veya psycopg2 yok, ancak db.py ve
+database.py PostgreSQL bağlantısı yapılandırıyor.
+SQLAlchemy async PostgreSQL için asyncpg gerekli; eksikse üretimde
+veritabanı bağlantısı başarısız olur.
+
+[PY-09] GATEWAY REQUIREMENTS.TXT'DE BCRYPT VERSİYON ÇAKIŞMASI
+Dosya: services/gateway/requirements.txt (satır 7-8)
+----------------------------------------------------------------------
+  passlib[bcrypt]==1.7.4
+  bcrypt==5.0.0
+
+passlib 1.7.4, bcrypt 4.x ile uyumlu; bcrypt 5.0.0 ile passlib
+uyumsuzluk sorunu yaşayabilir. bcrypt 4.0.1 veya daha düşük kullanılmalı,
+ya da passlib yerine direkt bcrypt API kullanılmalı.
+
+[PY-10] NEWS ROUTER 5 DAKİKA CACHE — YANLIŞ VERİ RİSKİ
+Dosya: services/gateway/news_router.py
+----------------------------------------------------------------------
+Tüm haber kaynakları 5 dakika cache'leniyor. Kritik piyasa haberleri
+(sert düşüş, FED kararı gibi) en az 5 dakika gecikmeli gösterilir.
+Cache TTL'i haber kategorisine göre ayarlanabilir hale getirilmeli.
+
+================================================================================
+6. CI/CD VE DEPLOYMENT SORUNLARI
+================================================================================
+
+[CI-01] CI YALNIZCA GATEWAY DEPLOY EDIYOR
+Dosya: .github/workflows/ci.yml
+----------------------------------------------------------------------
+deploy-backend job'ı yalnızca gateway servisini deploy ediyor:
+  run: railway up --service gateway
+
+ai-service, data-service ve signal-service için deploy adımı yok.
+Bu servisler manuel olarak mı deploy ediliyor? Açık değil.
+
+[CI-02] DOCKER IMAGE'LAR CI'DA BUILD EDİLMİYOR
+----------------------------------------------------------------------
+4 servisin Dockerfile'ı var ama CI pipeline'da docker build adımı yok.
+Image'lar test edilmeden deploy edilebilir.
+
+[CI-03] CI WORKFLOW BRANDİNG UYUMSUZLUĞU
+Dosya: .github/workflows/ci.yml (satır 1)
+----------------------------------------------------------------------
+  name: NEURA CI
+
+Proje adı "AYC Global Market" ama CI workflow "NEURA CI" diyor.
+Build log'larında ve GitHub'da karışıklık yaratır.
+
+[CI-04] CI'DA SADECE KALKAN TESTİ VAR
+Dosya: .github/workflows/ci.yml (satır 21)
+----------------------------------------------------------------------
+  run: python -m pytest scripts/test_kalkan.py -v
+
+Yalnızca Kalkan modülü test ediliyor. Orchestrator, scoring, billing,
+auth gibi kritik modüllerin testi yok.
+
+[CI-05] RAILWAY_TOKEN SECRET TANIMLANMAMIŞSA SİLENT FAIL
+----------------------------------------------------------------------
+RAILWAY_TOKEN secret tanımlı değilse deploy job'ı belirsiz bir hata
+ile başarısız olur. Job koşuluna explicit kontrol eklenmeli.
+
+[CI-06] BİRDEN FAZLA START SCRIPT — HANGISI KULLANILACAK BELİRSİZ
+----------------------------------------------------------------------
+  start.bat
+  start-all.ps1
+  start-local.ps1
+  start-local.sh
+  start-native.ps1
+
+5 farklı başlatma scripti var. Hangisinin güncel ve önerilen olduğu
+belirsiz. README'da açıklama yok. Güncel olmayan scriptler silinmeli.
+
+================================================================================
+7. MOBİL UYGULAMA SORUNLARI
+================================================================================
+
+[MOB-01] API URL YAPILANDIRMASI EKSİK
+Dosya: apps/mobile/src/api/client.ts
+----------------------------------------------------------------------
+Mobile uygulama API URL'ini nasıl alıyor belirsiz. Expo uygulamalarında
+ortam değişkenleri EXPO_PUBLIC_ öneki ile tanımlanmalı. Bu yapılandırma
+eksik görünüyor.
+
+[MOB-02] WEBSOCKET İSTEMCİSİ YOK
+----------------------------------------------------------------------
+Web uygulamasında PriceContext ile real-time fiyat güncellemesi var.
+Mobile uygulamada eşdeğer bir WebSocket veya SSE istemcisi görünmüyor.
+Mobile kullanıcılar real-time fiyat güncellemesi almıyor olabilir.
+
+[MOB-03] PUSH BİLDİRİMİ İKONU VAR AMA UYGULAMA YOK
+----------------------------------------------------------------------
+  apps/mobile/assets/notification-icon.png   → Var
+  .env.example'da FCM_SERVER_KEY, APNS_KEY_ID → Var
+
+Ancak notification gönderme/alma kodu kaynak kodda görünmüyor.
+Bildirim altyapısı yarım kalmış.
+
+[MOB-04] OFFLINE DESTEK YOK
+----------------------------------------------------------------------
+Mobile uygulama için herhangi bir önbellek veya offline destek stratejisi
+görünmüyor. Ağ bağlantısı kesildiğinde uygulama tamamen çalışmayı
+durdurur.
+
+================================================================================
+8. EKSİK ÖZELLIKLER
+================================================================================
+
+[EKS-01] E-POSTA BİLDİRİMLERİ UYGULANMAMIŞ
+----------------------------------------------------------------------
+.env.example'da RESEND_API_KEY var ama kaynak kodda e-posta gönderme
+kodu görünmüyor. Kullanıcılar sinyal bildirimi, hesap onayı veya
+abonelik e-postası almıyor olabilir.
+
+[EKS-02] 2FA / İKİ FAKTÖRLÜ KİMLİK DOĞRULAMA YOK
+----------------------------------------------------------------------
+Auth akışında iki faktörlü doğrulama desteği görünmüyor. Finansal
+bir platform için bu önemli bir güvenlik eksikliği.
+
+[EKS-03] GERÇEK İŞLEM YÜRÜTME BELİRSİZ
+----------------------------------------------------------------------
+Broker/exchange bağlantısı için UI mevcut ama gerçek emir gönderiminin
+çalışıp çalışmadığı belirsiz. exchange/order/route.ts mevcut ancak
+arkasındaki uygulama doğrulanmamış.
+
+[EKS-04] SOSYAL OYLAMA SERVİSİ UYGULANMAMIŞ
+----------------------------------------------------------------------
+social-service/ sadece __init__.py. Sosyal özellikler (oylama, sentiment)
+gateway'de mock_router.py üzerinden çalışıyor olabilir, gerçek
+kalıcılık yok.
+
+[EKS-05] PORTFÖY SERVİSİ UYGULANMAMIŞ
+----------------------------------------------------------------------
+portfolio-service/ sadece __init__.py. Portföy verileri muhtemelen
+doğrudan gateway veya demo data üzerinden geliyor.
+
+[EKS-06] ALARM SERVİSİ UYGULANMAMIŞ
+----------------------------------------------------------------------
+alarm-service/ sadece __init__.py. Fiyat alarmları için arka plan
+job'ı yok; alarmlar yalnızca kullanıcı sayfayı açtığında kontrol
+ediliyor olabilir.
+
+================================================================================
+9. PAKET VE BAĞIMLILIK SORUNLARI
+================================================================================
+
+[DEP-01] PAYLAŞILAN TİPLER HEM TS HEM PY İÇERİYOR AMA SENKRONİZE DEĞİL
+----------------------------------------------------------------------
+  packages/shared-types/src/types/index.ts   → TypeScript tanımları
+  packages/shared-types/src/types/models.py  → Pydantic modelleri
+
+İki dosya manuel olarak senkronize edilmesi gereken birbirinin kopyası.
+Biri değiştiğinde diğerinin güncellenmesi unutulabilir. Bu tür
+durumlarda genellikle OpenAPI schema'dan kod üretimi tercih edilir.
+
+[DEP-02] GATEWAY REQUIREMENTS EKSIK BAĞIMLILIKLAR
+Dosya: services/gateway/requirements.txt
+----------------------------------------------------------------------
+Eksik ya da version belirtilmemiş olabilecek bağımlılıklar:
+  - asyncpg (PostgreSQL async driver — DB için gerekli)
+  - redis (cache için kullanılıyorsa)
+  - litellm (consensus_router'da LLM çağrıları için)
+
+[DEP-03] MOBİL package-lock.json COMMIT EDİLMİŞ AMA pnpm KULLANILIYOR
+----------------------------------------------------------------------
+  apps/mobile/package-lock.json  → npm lock dosyası
+  Root: pnpm-lock.yaml           → pnpm lock dosyası
+
+Monorepo pnpm kullanıyor ama mobile npm package-lock.json ile
+yönetiliyor. Bu iki farklı paket yöneticisi karışımı bağımlılık
+tutarsızlıklarına yol açabilir.
+
+[DEP-04] PACKAGES/CONFIG VE PACKAGES/UI İÇERİKSİZ
+----------------------------------------------------------------------
+  packages/config/package.json  → sadece package.json
+  packages/ui/package.json      → sadece package.json
+
+Bu paketler pnpm-workspace.yaml'da listelenmiş ancak içerik yok.
+Paylaşılan UI bileşenleri veya config burada olması gerekirken
+her uygulama kendi implementasyonunu yapıyor.
+
+================================================================================
+10. KOD KALİTESİ VE BAKIM
+================================================================================
+
+[KAL-01] TÜRKÇE/İNGİLİZCE TUTARSIZ KARIŞIM
+----------------------------------------------------------------------
+Kodda üç katmanlı dil karışımı var:
+  - Python değişken isimleri: Türkçe (kalkan, otopsi, neura, sinyal)
+  - Python yorumlar: Türkçe ve İngilizce karışık
+  - Frontend UI metni: Türkçe (AL, SAT, İZLE, KALKAN)
+  - Log mesajları: İngilizce
+  - API yanıt alanları: İngilizce
+
+Gelecekteki geliştiriciler için zorluk yaratan tutarsız bir yapı.
+
+[KAL-02] SİHİRLİ SAYILAR
+----------------------------------------------------------------------
+Kod genelinde açıklamasız sabit sayılar mevcut:
+  MIN_CONFIDENCE = 70        (scorer.py)
+  MIN_RISK_REWARD = 1.5      (scorer.py)
+  Fibonacci 1.618            (scorer.py — hedef fiyat hesabı)
+  62                         (Dashboard Fear & Greed)
+  $10,000                    (Demo bakiye)
+  GPT-4o ağırlığı: 0.40     (orchestrator.py)
+  Claude ağırlığı: 0.35      (orchestrator.py)
+
+Bu değerlerin neden bu şekilde seçildiğine dair yorum veya
+konfigürasyon desteği yok.
+
+[KAL-03] TEST KAPSAMASI ÇOK DÜŞÜK
+----------------------------------------------------------------------
+Mevcut testler:
+  scripts/test_kalkan.py  → Yalnızca Kalkan modülü
+  test_ai.py              → Root dizinde, CI'a dahil değil
+
+Test edilmeyen kritik alanlar:
+  - Ödeme akışları (Stripe/iyzico)
+  - Auth ve JWT doğrulama
+  - Sinyal üretim pipeline'ı
+  - Portfolio hesaplamaları
+  - Tüm Next.js frontend bileşenleri
+
+[KAL-04] FRONTEND'DE HİÇ BİR TEST YOK
+----------------------------------------------------------------------
+Web uygulamasında Jest, Vitest veya Playwright konfigürasyonu görünmüyor.
+UI davranışı, form validasyonu ve API entegrasyonu test edilmiyor.
+
+[KAL-05] TEST_AI.PY ROOT DIZININDE — DÜZENSIZ
+Dosya: test_ai.py (root)
+----------------------------------------------------------------------
+Root dizininde tek başına duran test dosyası CI'a dahil değil ve
+ne test ettiği belli değil. Uygun dizine taşınmalı.
+
+[KAL-06] ENGINE/SOURCES VE ENGINE/SOURCE_DEBUG BOŞ PLACEHOLDER
+----------------------------------------------------------------------
+  services/gateway/engine/sources/__init__.py → İçerik belirsiz
+  services/gateway/engine/source_debug.py     → İçerik belirsiz
+
+Bu dosyalar yarım bırakılmış geliştirme kalıntısı olabilir.
+
+================================================================================
+11. BELGELEME EKSİKLİKLERİ
+================================================================================
+
+[DOC-01] README.MD ÇOK GENEL
+Dosya: README.md
+----------------------------------------------------------------------
+README projeyi tanımlıyor ancak şunlar eksik:
+  - Servislerin nasıl başlatılacağı (hangi script?)
+  - .env dosyasının nasıl yapılandırılacağı
+  - Her servisin portu ve amacı
+  - Katkıda bulunma rehberi
+
+[DOC-02] YAYINA_ALMA_REHBERI.MD VAR AMA CI BUNU KAPSAMIYOR
+Dosya: YAYINA_ALMA_REHBERI.md
+----------------------------------------------------------------------
+Manuel yayına alma rehberi var ancak CI/CD bunu otomatikleştirmiyor.
+Rehber ile CI workflow arasında tutarsızlık olabilir.
+
+[DOC-03] API DÖKÜMANTASYONU EKSİK
+----------------------------------------------------------------------
+FastAPI otomatik /docs endpoint'i üretiyor ama:
+  - Üretimde /docs devre dışı bırakılmalı (güvenlik)
+  - Endpoint'lerin beklentileri dokümante değil
+
+================================================================================
+12. WEB API KRİTİK GÜVENLİK VE LOJİK HATALARI
+    (Ajan analizinden elde edilen ek bulgular)
+================================================================================
+
+[WEB-KG-01] JWT SECRET HARDCODED FALLBACK — KRİTİK
+Dosya: apps/web/app/api/v1/_lib/auth.ts (satır 4-6)
+----------------------------------------------------------------------
+  const SECRET = new TextEncoder().encode(
+    process.env.JWT_SECRET || "ayc-market-secret-2026-xk9m2p"
+  );
+
+JWT_SECRET env değişkeni tanımlı değilse "ayc-market-secret-2026-xk9m2p"
+kullanılıyor. Bu değer kaynak kodda görünüyor yani herkes bu değeri
+biliyor. Herhangi biri bu anahtarla keyfi JWT imzalayabilir.
+JWT_SECRET ZORUNLU hale getirilmeli, yoksa uygulama başlamamalı.
+
+[WEB-KG-02] TEST HESAPLARI PLAIN-TEXT ŞİFRELERLE HARDCODED — KRİTİK
+Dosya: apps/web/app/api/v1/auth/login/route.ts (satır 19-27)
+----------------------------------------------------------------------
+  const TEST_ACCOUNTS = {
+    "elite@aycmarket.com": { password: "AycElite2026!", tier: "elite", balance: 100000 },
+    "pro@aycmarket.com":   { password: "AycPro2026!",   tier: "pro",   balance: 25000  },
+    "free@aycmarket.com":  { password: "AycFree2026!",  tier: "free",  balance: 10000  },
+    "admin@aycmarket.com": { password: "AycAdmin2026!", tier: "elite", balance: 500000 },
+    ...
+  }
+
+Bu hesaplar:
+  - Üretim kodunda çalışıyor (ortam değişkeniyle devre dışı bırakılmıyor)
+  - "admin" hesabı $500.000 bakiye ve "elite" yetkisiyle erişim sağlıyor
+  - Şifreler kaynak koda yazılmış → git geçmişinde sonsuza kadar kalıyor
+  - Bu hesaplarla giriş yapan biri tüm sistemi admin olarak kullanabilir
+
+[WEB-KG-03] TEST HESABI TOKEN'I İMZASIZ BASE64 — KRİTİK
+Dosya: apps/web/app/api/v1/auth/login/route.ts (satır 37-38)
+----------------------------------------------------------------------
+  const token = Buffer.from(JSON.stringify(tokenPayload)).toString("base64url");
+
+Test hesapları için gerçek JWT imzalanmıyor, sadece JSON base64
+encode ediliyor. Bu token'ı herkes kendisi oluşturabilir:
+  1. İstediği payload'ı JSON'a çevir
+  2. base64url ile encode et
+  3. API'a gönder
+
+Gerçek hesaplar için signAccess() kullanılıyor ama test hesapları
+imzasız token alıyor. Frontend bu farkı ayırt edemiyor.
+
+[WEB-KG-04] WEBHOOK SECRET YOKSA HEPSİ KABUL EDİLİYOR — KRİTİK
+Dosya: apps/web/app/api/v1/billing/webhook/route.ts (satır 10-12)
+----------------------------------------------------------------------
+  function verifySignature(body, signature): boolean {
+    if (!WEBHOOK_SECRET) return true; // skip verification if no secret set
+    ...
+  }
+
+LEMON_WEBHOOK_SECRET env değişkeni tanımlı değilse imza doğrulaması
+atlanıyor ve tüm webhook istekleri geçerli kabul ediliyor. Herhangi
+biri sahte "order_created" eventi göndererek abonelik aktivasyonu
+tetikleyebilir.
+
+[WEB-KG-05] KULLANICI VERİLERİ IN-MEMORY GLOBALTHIS'TE — KRİTİK
+Dosyalar:
+  apps/web/app/api/v1/_lib/auth.ts  → __AYC_USERS_CACHE
+  apps/web/app/api/v1/alarms/route.ts → __AYC_ALARMS
+  apps/web/app/api/v1/portfolio/positions/route.ts → __AYC_POSITIONS
+----------------------------------------------------------------------
+Kullanıcı hesapları, alarmlar ve portföy pozisyonları Next.js
+process memory'sinde (globalThis) saklanıyor. Vercel/serverless
+ortamında:
+  - Her cold start tüm verileri siler
+  - Farklı serverless instance'lar farklı veri görür
+  - Restart = tüm kullanıcı verisi kayıp
+Edge Config'e yedekleme var ama sadece kullanıcı kayıtları için,
+alarmlar ve pozisyonlar için yok.
+
+[WEB-KG-06] CREDENTIAL TOKEN İÇİNDE HASHED ŞİFRE — YÜKSEK
+Dosya: apps/web/app/api/v1/_lib/auth.ts (signCredential fonksiyonu)
+----------------------------------------------------------------------
+  return new SignJWT({ ..., hp: user.hashedPassword, type: "credential" })
+    .setExpirationTime("365d")
+    .sign(SECRET)
+
+Hashed şifre 365 gün geçerli bir JWT içine konulmuş. Bu token:
+  - Client-side localStorage'da saklanıyor
+  - 365 gün boyunca geçerli
+  - XSS saldırısıyla çalınırsa kullanıcı hesabına erişim sağlanabilir
+
+[WEB-KG-07] ACCESS TOKEN 7 GÜN GEÇERLİ — YÜKSEK
+Dosya: apps/web/app/api/v1/_lib/auth.ts (signAccess fonksiyonu)
+----------------------------------------------------------------------
+  .setExpirationTime("7d")
+
+Standart güvenlik pratiği: access token 15 dakika - 1 saat.
+7 günlük access token çalınırsa 7 gün boyunca geçerli.
+
+[WEB-KG-08] ABONELİK İPTALİ GERÇEKLEŞMİYOR — YÜKSEK
+Dosya: apps/web/app/api/v1/billing/cancel/route.ts
+----------------------------------------------------------------------
+  return NextResponse.json({
+    success: true,
+    message: "Abonelik iptal edildi",
+    cancelled_at: new Date().toISOString(),
+  });
+
+İptal endpoint'i sadece "başarılı" yanıtı dönüyor. Gerçek abonelik
+iptali (LemonSqueezy, Stripe veya iyzico'da) gerçekleşmiyor. Kullanıcı
+iptal ettiğini sanıyor ama ücretlendirilmeye devam ediyor.
+
+[WEB-KG-09] SINYAL API'LARI TAMAMEN HARDCODED — YÜKSEK
+Dosyalar:
+  apps/web/app/api/v1/signals/route.ts
+  apps/web/app/api/v1/signals/[id]/route.ts
+  apps/web/app/api/v1/signals/featured/route.ts
+----------------------------------------------------------------------
+Tüm sinyal API'ları statik hardcoded veriler dönüyor. Gerçek gateway
+veya sinyal servisine bağlanmıyor. Kullanıcı her zaman aynı 5 sinyali
+görüyor (BTC, XAU, NVDA, ETH, TSLA).
+
+[WEB-KG-10] COPILOT ROUTER POSTGRESQL LATERAL JOIN — SQLite ÇALIŞMAZ
+Dosya: services/gateway/routers/copilot.py (satır 36-44)
+----------------------------------------------------------------------
+  FROM portfolio_positions pp
+  LEFT JOIN LATERAL (
+      SELECT price FROM asset_prices WHERE asset_id = pp.asset_id
+      ORDER BY fetched_at DESC LIMIT 1
+  ) ap ON true
+
+LATERAL JOIN PostgreSQL'e özgü bir sözdizimi. SQLite'ta bu sorgu
+hata verir. Gateway'in SQLite üzerinde çalıştığı durumlarda copilot
+endpoint'i tamamen çöker.
+
+[WEB-KG-11] LEMONSQUEEZY DEĞIŞKENLERI .ENV.EXAMPLE'DA YOK
+----------------------------------------------------------------------
+Checkout route'ta kullanılan değişkenler:
+  LEMON_API_KEY, LEMON_STORE_ID, LEMON_PRO_VARIANT_ID,
+  LEMON_ELITE_VARIANT_ID, LEMON_WEBHOOK_SECRET
+
+Root .env.example'da sadece Stripe ve iyzico var, LemonSqueezy yok.
+Yeni geliştirici bu değişkenleri bilmeden kurulum yapamaz.
+
+[WEB-KG-12] PRODUCTION DOMAIN TÜM SAYFALAR COMING-SOON'A YÖNLENDİRİLİYOR
+Dosya: apps/web/middleware.ts (satır 36-43)
+----------------------------------------------------------------------
+  if (host === "aycmarket.com" || host === "www.aycmarket.com") {
+    // Tüm sayfalar coming-soon'a yönlendirilir
+    url.pathname = "/coming-soon";
+    response = NextResponse.rewrite(url);
+  }
+
+Bu intended bir davranış olabilir (soft launch) ama belgelenmemiş.
+Üretim kullanıcıları hiçbir şey göremez. Bu middleware'in ne zaman
+kaldırılacağı belirsiz.
+
+[WEB-KG-13] PROFİL SAYFASI PLAN GÜNCELLEMESI KALICI DEĞİL
+Dosya: apps/web/app/api/v1/billing/verify/route.ts (satır 50-53)
+----------------------------------------------------------------------
+  const user = USERS_BY_ID.get(targetId);
+  if (user) {
+    user.plan = validPlan;
+  }
+
+Kullanıcı planı sadece in-memory güncelleniyor. Sayfa yenilendiğinde
+veya cold start olduğunda ödeme yapan kullanıcı tekrar "free" görünür.
+
+================================================================================
+ÖZET TABLO
+================================================================================
+
+Kategori                 | Kritik | Yüksek | Orta | Düşük | Toplam
+-------------------------|--------|--------|------|-------|-------
+Güvenlik                 |   7    |   5    |  1   |   0   |  13
+Veritabanı               |   1    |   2    |  2   |   0   |   5
+Mimari                   |   1    |   3    |  2   |   0   |   6
+Frontend (Web)           |   4    |   5    |  5   |   1   |  15
+Backend (Python)         |   1    |   3    |  4   |   2   |  10
+CI/CD & Deployment       |   0    |   2    |  3   |   1   |   6
+Mobile                   |   0    |   2    |  2   |   0   |   4
+Eksik Özellikler         |   0    |   3    |  3   |   0   |   6
+Bağımlılıklar            |   1    |   1    |  2   |   0   |   4
+Kod Kalitesi             |   0    |   1    |  3   |   2   |   6
+Belgeleme                |   0    |   0    |  2   |   1   |   3
+-------------------------|--------|--------|------|-------|-------
+TOPLAM                   |  15    |  27    | 29   |   7   |  78
+
+================================================================================
+ÖNCELİKLİ EYLEM LİSTESİ (İlk yapılması gerekenler)
+================================================================================
+
+1. [ACİL] market_proxy.py'daki hardcoded API anahtarlarını iptal et
+           ve env değişkenlerine taşı.
+
+2. [ACİL] Git geçmişindeki .db dosyalarını temizle (git filter-branch
+           veya BFG Repo Cleaner).
+
+3. [YÜKSEK] asyncpg'yi gateway/requirements.txt'e ekle;
+             yoksa üretim DB bağlantısı çalışmaz.
+
+4. [YÜKSEK] bcrypt==5.0.0'ı passlib ile uyumlu sürüme düşür (4.0.1).
+
+5. [YÜKSEK] docker-compose'daki 4 uygulanmamış servisi ya uygula
+             ya da kaldır; çalışmayan container referansları bırakma.
+
+6. [YÜKSEK] Gateway'deki database.py ve db.py'ı birleştir;
+             ikisinin aynı anda açık kalması connection leak yaratır.
+
+7. [ORTA]   Dashboard'daki hardcoded mock alarmları ve Fear & Greed
+             değerini gerçek API verisine bağla.
+
+8. [ORTA]   apps/web/tailwind.config.js ile tailwind.config.ts'den
+             birini kaldır.
+
+9. [ORTA]   CI pipeline'a ai-service, data-service, signal-service
+             deploy adımlarını ekle.
+
+10.[ORTA]   kalkan.py ve final_answer.py'ın iki kopyasını packages/
+            altında ortak kütüphaneye taşı.
+
+11.[ACİL]   auth.ts'deki hardcoded JWT secret fallback ("ayc-market-secret-2026-xk9m2p")
+            kaldır; JWT_SECRET yoksa uygulama başlamasın.
+
+12.[ACİL]   Tüm hardcoded test hesaplarını (admin@, elite@, pro@...) kaldır
+            veya yalnızca ENVIRONMENT=development iken aktif et.
+
+13.[ACİL]   Test hesabı token üretimini imzasız base64'ten gerçek JWT'ye çevir.
+
+14.[ACİL]   Webhook endpoint'inde WEBHOOK_SECRET yoksa isteği reddet,
+            "return true" etme.
+
+15.[YÜKSEK] Sinyal API'larındaki hardcoded verileri gerçek gateway çağrılarına bağla.
+
+16.[YÜKSEK] Billing/cancel endpoint'ine gerçek LemonSqueezy/Stripe iptal çağrısı ekle.
+
+17.[YÜKSEK] LemonSqueezy env değişkenlerini root .env.example'a ekle.
+
+================================================================================
+Son Not: Bu rapor yalnızca statik kod analizi sonucuna dayanmaktadır.
+Runtime davranışları, ağ gecikmesi, gerçek API yanıt hataları ve kullanıcı
+deneyimi sorunları test ortamında ayrıca incelenmelidir.
+================================================================================
