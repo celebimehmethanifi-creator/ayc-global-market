@@ -1,22 +1,28 @@
 ﻿"use client";
+
 import React, {
-  createContext, useCallback, useContext,
-  useEffect, useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
-import { usePrices } from "@/lib/prices/PriceContext";
+import { webApi } from "@/lib/api";
 
-const DEMO_INITIAL = 10000;          // $10,000 virtual USD
-const STORAGE_KEY  = "ayc_demo_v1";
+const DEMO_INITIAL = 10000;
+const STORAGE_KEY = "ayc_demo_api_fallback_v1";
+const POLL_INTERVAL_MS = 15000;
 
-/* ─── Types ────────────────────────────────────────────────── */
+/* ¦¦¦ Types ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
 export interface DemoTrade {
   id: string;
   symbol: string;
   name: string;
   direction: "LONG" | "SHORT";
   entryPrice: number;
-  quantity: number;       // units of asset
-  investedUSD: number;    // how much balance was used
+  quantity: number;
+  investedUSD: number;
   openedAt: number;
 }
 export interface ClosedDemoTrade extends DemoTrade {
@@ -28,6 +34,15 @@ export interface ClosedDemoTrade extends DemoTrade {
 export interface DemoState {
   balance: number;
   initialBalance: number;
+  equity: number;
+  availableBalance: number;
+  usedMargin: number;
+  openPnl: number;
+  realizedPnl: number;
+  totalPnl: number;
+  winRate: number;
+  mode: "demo";
+  source: "api" | "local-fallback";
   openTrades: DemoTrade[];
   closedTrades: ClosedDemoTrade[];
   createdAt: number;
@@ -39,19 +54,33 @@ export interface DemoCtx {
   totalPnlPct: number;
   openPnlUSD: number;
   openTrade: (
-    symbol: string, name: string,
+    symbol: string,
+    name: string,
     direction: "LONG" | "SHORT",
-    price: number, investedUSD: number
-  ) => boolean;
-  closeTrade: (id: string, currentPrice: number) => void;
-  reset: () => void;
+    price: number,
+    investedUSD: number,
+  ) => Promise<boolean>;
+  closeTrade: (id: string, currentPrice?: number) => Promise<boolean>;
+  reset: () => Promise<void>;
+  refresh: () => Promise<void>;
+  loading: boolean;
+  error: string | null;
 }
 
-/* ─── Init ─────────────────────────────────────────────────── */
+/* ¦¦¦ Init ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
 function initState(): DemoState {
   return {
     balance: DEMO_INITIAL,
     initialBalance: DEMO_INITIAL,
+    equity: DEMO_INITIAL,
+    availableBalance: DEMO_INITIAL,
+    usedMargin: 0,
+    openPnl: 0,
+    realizedPnl: 0,
+    totalPnl: 0,
+    winRate: 0,
+    mode: "demo",
+    source: "local-fallback",
     openTrades: [],
     closedTrades: [],
     createdAt: Date.now(),
@@ -60,94 +89,207 @@ function initState(): DemoState {
 
 const Ctx = createContext<DemoCtx | null>(null);
 
+function safeNum(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function loadFallbackState(): DemoState {
+  if (typeof window === "undefined") return initState();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return initState();
+    const parsed = JSON.parse(raw) as Partial<DemoState>;
+    return {
+      ...initState(),
+      ...parsed,
+      source: "local-fallback",
+    };
+  } catch {
+    return initState();
+  }
+}
+
+function toOpenTrade(position: any): DemoTrade {
+  return {
+    id: String(position.id),
+    symbol: String(position.symbol || ""),
+    name: String(position.symbol || ""),
+    direction: String(position.side || "LONG").toUpperCase() === "SHORT" ? "SHORT" : "LONG",
+    entryPrice: safeNum(position.entryPrice),
+    quantity: safeNum(position.quantity),
+    investedUSD: safeNum(position.notional),
+    openedAt: new Date(String(position.openedAt || Date.now())).getTime(),
+  };
+}
+
+function toClosedTrade(item: any): ClosedDemoTrade {
+  const entry = safeNum(item.entryPrice);
+  const exit = safeNum(item.exitPrice);
+  const side = String(item.side || "LONG").toUpperCase() === "SHORT" ? "SHORT" : "LONG";
+  const pnl = safeNum(item.realizedPnL);
+  const invested = safeNum(item.investedUSD, safeNum(item.notional, Math.abs(entry)));
+  const qty = entry > 0 ? invested / entry : 0;
+
+  return {
+    id: String(item.id || item.positionId || `closed_${Date.now()}`),
+    symbol: String(item.symbol || ""),
+    name: String(item.symbol || ""),
+    direction: side,
+    entryPrice: entry,
+    quantity: qty,
+    investedUSD: invested,
+    openedAt: new Date(String(item.openedAt || Date.now())).getTime(),
+    exitPrice: exit,
+    closedAt: new Date(String(item.closedAt || Date.now())).getTime(),
+    pnlUSD: pnl,
+    pnlPct: safeNum(item.realizedPnLPct, invested > 0 ? (pnl / invested) * 100 : 0),
+  };
+}
+
+function fromApiPayload(payload: any): DemoState {
+  const account = payload?.account || {};
+  const positions = Array.isArray(payload?.positions) ? payload.positions : [];
+  const history = Array.isArray(payload?.history) ? payload.history : [];
+  const available = safeNum(account.availableBalance, DEMO_INITIAL);
+  const baseBalance = safeNum(account.balance, DEMO_INITIAL);
+
+  return {
+    balance: available,
+    initialBalance: baseBalance,
+    equity: safeNum(account.equity, baseBalance),
+    availableBalance: available,
+    usedMargin: safeNum(account.usedMargin),
+    openPnl: safeNum(account.openPnL),
+    realizedPnl: safeNum(account.realizedPnL),
+    totalPnl: safeNum(account.totalPnL),
+    winRate: safeNum(account.winRate),
+    mode: "demo",
+    source: "api",
+    openTrades: positions.map(toOpenTrade),
+    closedTrades: history.map(toClosedTrade),
+    createdAt: new Date(String(account.createdAt || Date.now())).getTime(),
+  };
+}
+
 export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [demo, setDemo] = useState<DemoState>(initState);
-  const prices = usePrices();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  /* load from localStorage */
+  const refresh = useCallback(async () => {
+    try {
+      const response = await webApi.get("/demo/account", { timeout: 12000 });
+      const next = fromApiPayload(response.data);
+      setDemo(next);
+      setError(null);
+    } catch {
+      const fallback = loadFallbackState();
+      setDemo(fallback);
+      setError("Demo servisine erisilemedi. Yerel fallback kullaniliyor.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const timer = setInterval(() => {
+      void refresh();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [refresh]);
+
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setDemo(JSON.parse(raw));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(demo));
     } catch {}
-  }, []);
-
-  /* persist to localStorage */
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(demo)); } catch {}
   }, [demo]);
 
-  /* helper: get live price */
-  const lp = (sym: string) => {
-    const e = prices[sym] ?? prices[sym + "USDT"] ?? prices[sym.replace("/", "").toUpperCase()];
-    return e?.price ?? 0;
-  };
+  const openPnlUSD = demo.openPnl;
+  const totalValue = demo.equity;
+  const totalPnlUSD = demo.totalPnl;
+  const totalPnlPct = demo.initialBalance > 0 ? (totalPnlUSD / demo.initialBalance) * 100 : 0;
 
-  /* open P&L across all open trades */
-  const openPnlUSD = demo.openTrades.reduce((sum, t) => {
-    const cur = lp(t.symbol);
-    if (!cur) return sum;
-    const pnl =
-      t.direction === "LONG"
-        ? (cur - t.entryPrice) * t.quantity
-        : (t.entryPrice - cur) * t.quantity;
-    return sum + pnl;
-  }, 0);
-
-  const lockedUSD   = demo.openTrades.reduce((s, t) => s + t.investedUSD, 0);
-  const totalValue  = demo.balance + lockedUSD + openPnlUSD;
-  const totalPnlUSD = totalValue - DEMO_INITIAL;
-  const totalPnlPct = (totalPnlUSD / DEMO_INITIAL) * 100;
-
-  /* open trade */
   const openTrade = useCallback(
-    (symbol: string, name: string, direction: "LONG" | "SHORT", price: number, investedUSD: number): boolean => {
-      if (price <= 0 || investedUSD <= 0) return false;
-      setDemo(prev => {
-        if (investedUSD > prev.balance) return prev;
-        const t: DemoTrade = {
-          id: `dt_${Date.now()}`,
-          symbol, name, direction,
-          entryPrice: price,
-          quantity: investedUSD / price,
-          investedUSD,
-          openedAt: Date.now(),
-        };
-        return { ...prev, balance: prev.balance - investedUSD, openTrades: [...prev.openTrades, t] };
-      });
-      return true;
+    async (
+      symbol: string,
+      _name: string,
+      direction: "LONG" | "SHORT",
+      _price: number,
+      investedUSD: number,
+    ): Promise<boolean> => {
+      try {
+        const response = await webApi.post(
+          "/demo/order",
+          {
+            symbol,
+            side: direction,
+            notional: investedUSD,
+            leverage: 1,
+          },
+          { timeout: 12000 },
+        );
+        if (!response.data?.ok) {
+          setError(String(response.data?.detail || "Demo işlem açılamadı."));
+          return false;
+        }
+        await refresh();
+        return true;
+      } catch (err: any) {
+        setError(String(err?.response?.data?.detail || "Demo işlem açılamadı."));
+        return false;
+      }
     },
-    []
+    [refresh],
   );
 
-  /* close trade */
-  const closeTrade = useCallback((id: string, currentPrice: number) => {
-    setDemo(prev => {
-      const t = prev.openTrades.find(x => x.id === id);
-      if (!t) return prev;
-      const pnlUSD = t.direction === "LONG"
-        ? (currentPrice - t.entryPrice) * t.quantity
-        : (t.entryPrice - currentPrice) * t.quantity;
-      const closed: ClosedDemoTrade = {
-        ...t, exitPrice: currentPrice, closedAt: Date.now(),
-        pnlUSD, pnlPct: (pnlUSD / t.investedUSD) * 100,
-      };
-      return {
-        ...prev,
-        balance: prev.balance + t.investedUSD + pnlUSD,
-        openTrades: prev.openTrades.filter(x => x.id !== id),
-        closedTrades: [closed, ...prev.closedTrades],
-      };
-    });
-  }, []);
-
-  const reset = useCallback(() => setDemo(initState()), []);
-
-  return (
-    <Ctx.Provider value={{ demo, totalValue, totalPnlUSD, totalPnlPct, openPnlUSD, openTrade, closeTrade, reset }}>
-      {children}
-    </Ctx.Provider>
+  const closeTrade = useCallback(
+    async (id: string): Promise<boolean> => {
+      try {
+        const response = await webApi.post("/demo/close", { positionId: id }, { timeout: 12000 });
+        if (!response.data?.ok) {
+          setError(String(response.data?.detail || "Pozisyon kapatılamadı."));
+          return false;
+        }
+        await refresh();
+        return true;
+      } catch (err: any) {
+        setError(String(err?.response?.data?.detail || "Pozisyon kapatılamadı."));
+        return false;
+      }
+    },
+    [refresh],
   );
+
+  const reset = useCallback(async () => {
+    try {
+      await webApi.post("/demo/reset", {}, { timeout: 12000 });
+      await refresh();
+    } catch {
+      setDemo(initState());
+      setError("Demo reset API erişilemedi, yerel reset uygulandı.");
+    }
+  }, [refresh]);
+
+  const value = useMemo<DemoCtx>(
+    () => ({
+      demo,
+      totalValue,
+      totalPnlUSD,
+      totalPnlPct,
+      openPnlUSD,
+      openTrade,
+      closeTrade,
+      reset,
+      refresh,
+      loading,
+      error,
+    }),
+    [closeTrade, demo, error, loading, openPnlUSD, openTrade, refresh, reset, totalPnlPct, totalPnlUSD, totalValue],
+  );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export const useDemo = (): DemoCtx => {
@@ -155,3 +297,4 @@ export const useDemo = (): DemoCtx => {
   if (!c) throw new Error("useDemo must be inside DemoProvider");
   return c;
 };
+

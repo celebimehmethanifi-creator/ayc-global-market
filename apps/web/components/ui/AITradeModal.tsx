@@ -83,8 +83,9 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
   const [amtRaw, setAmtRaw] = useState("500");
   const [result, setResult] = useState<"ok" | "fail" | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const { demo, openTrade } = useDemo();
+  const { demo, openTrade, loading: demoLoading } = useDemo();
   const pe = usePrice(symbol.includes("USDT") || symbol.length <= 6 ? symbol : symbol + "USDT");
   const livePrice = pe?.price ?? seedPrice ?? 0;
   const liveChg   = pe?.chg  ?? seedChg;
@@ -104,9 +105,11 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
   const aiDirColor = ai.dir === "LONG" ? "var(--up)" : ai.dir === "SHORT" ? "var(--down)" : "var(--gold)";
   const aiDirLabel = ai.dir === "LONG" ? "AL (LONG)" : ai.dir === "SHORT" ? "SAT (SHORT)" : "NOTR - Bekle";
 
-  function handleTrade() {
+  async function handleTrade() {
     if (!livePrice) return;
-    const ok = openTrade(symbol, name, dir, livePrice, amt);
+    setSubmitting(true);
+    const ok = await openTrade(symbol, name, dir, livePrice, amt);
+    setSubmitting(false);
     setResult(ok ? "ok" : "fail");
     if (ok) setTimeout(onClose, 2200);
   }
@@ -552,8 +555,8 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               </div>
             ) : (
               <button
-                onClick={handleTrade}
-                disabled={!livePrice || amt > demo.balance || amt < 10}
+                onClick={() => void handleTrade()}
+                disabled={!livePrice || amt > demo.balance || amt < 10 || submitting || demoLoading}
                 style={{
                   width: "100%", padding: "15px 0",
                   background: dir === "LONG"
@@ -561,13 +564,13 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                     : "linear-gradient(135deg, var(--down), #b91c1c)",
                   border: "none", borderRadius: 12, cursor: "pointer",
                   fontWeight: 900, fontSize: 15, color: "#fff",
-                  opacity: (!livePrice || amt > demo.balance || amt < 10) ? 0.5 : 1,
+                  opacity: (!livePrice || amt > demo.balance || amt < 10 || submitting || demoLoading) ? 0.5 : 1,
                   boxShadow: `0 5px 20px ${dirColor}33`,
                   letterSpacing: "0.03em",
                   transition: "opacity 0.2s",
                 }}
               >
-                {dir === "LONG" ? "DEMO AL" : "DEMO SAT"} - ${amt.toLocaleString()}
+                {submitting ? "İşleniyor..." : `${dir === "LONG" ? "DEMO AL" : "DEMO SAT"} - $${amt.toLocaleString()}`}
               </button>
             )}
 
