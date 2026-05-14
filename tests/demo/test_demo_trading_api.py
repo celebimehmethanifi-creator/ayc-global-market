@@ -40,9 +40,9 @@ def test_demo_lib_contains_default_balance_and_validation_guards():
     assert "const DEMO_DEFAULT_BALANCE = 10_000;" in text
     assert "side LONG veya SHORT olmalı." in text
     assert "Geçerli notional girin." in text
-    assert "Geçerli leverage girin." in text
     assert "Bu varlık için demo işlem fiyatı alınamadı." in text
-    assert "Risk profili için maksimum kaldıraç" in text
+    assert "Kaldıraç 1 ile ${maxAllowedLeverage} arasında olmalıdır." in text
+    assert "Leverage must be between 1 and ${maxAllowedLeverage}." in text
     assert "demo state is stored in-memory" in text.lower()
 
 
@@ -52,6 +52,29 @@ def test_demo_lib_rejects_invalid_math_and_enforces_account_formulas():
     assert "equity = record.account.balance + realizedPnL + openPnL" in text
     assert "if (!Number.isFinite(quantity) || quantity <= 0)" in text
     assert "if (notional > record.account.availableBalance)" in text
+    assert "const leverage = Number(b.leverage);" in text
+    assert "if (!Number.isFinite(leverage) || leverage < 1 || leverage > maxAllowedLeverage)" in text
+
+
+def test_demo_close_writes_history_and_returns_trade_payload():
+    text = read_text(DEMO_LIB)
+    assert "const reason = String(b.reason || \"\").trim() || \"manual_close\";" in text
+    assert "const historyItem: DemoTradeHistory =" in text
+    assert "record.history.unshift(historyItem);" in text
+    assert "trade: historyItem," in text
+    assert "historyItem," in text
+    assert "quantity: position.quantity," in text
+    assert "leverage: position.leverage," in text
+    assert "marginUsed: position.marginUsed," in text
+
+
+def test_demo_close_realized_pnl_and_percent_are_finite_and_formula_based():
+    text = read_text(DEMO_LIB)
+    assert "function computeRealizedPnlPct(" in text
+    assert "((exitPrice - entryPrice) / entryPrice) * leverage * 100" in text
+    assert "((entryPrice - exitPrice) / entryPrice) * leverage * 100" in text
+    assert "const realizedPnL = Number.isFinite(realizedPnLRaw) ? realizedPnLRaw : 0;" in text
+    assert "const realizedPnLPct = Number.isFinite(realizedPnLPctRaw) ? realizedPnLPctRaw : 0;" in text
 
 
 def test_demo_order_flow_does_not_call_real_exchange_order_endpoint():
@@ -73,3 +96,9 @@ def test_demo_context_is_api_first_with_local_fallback():
     assert "\"/demo/reset\"" in text
     assert "source: \"api\" | \"local-fallback\"" in text
     assert "Demo servisine erisilemedi. Yerel fallback kullaniliyor." in text
+
+
+def test_demo_history_route_returns_closed_trades():
+    text = read_text(DEMO_HISTORY)
+    assert "history: record.history" in text
+    assert "count: record.history.length" in text

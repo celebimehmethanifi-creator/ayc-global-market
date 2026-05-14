@@ -80,6 +80,9 @@ interface DemoTradeHistory {
   side: PositionSide;
   entryPrice: number;
   exitPrice: number;
+  quantity: number;
+  leverage: number;
+  marginUsed: number;
   realizedPnL: number;
   realizedPnLPct: number;
   openedAt: string;
@@ -223,6 +226,14 @@ function computeOpenPnl(side: PositionSide, entryPrice: number, markPrice: numbe
   return (entryPrice - markPrice) * quantity;
 }
 
+function computeRealizedPnlPct(side: PositionSide, entryPrice: number, exitPrice: number, leverage: number): number {
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0) return 0;
+  if (!Number.isFinite(exitPrice) || exitPrice <= 0) return 0;
+  if (!Number.isFinite(leverage) || leverage <= 0) return 0;
+  if (side === "LONG") return ((exitPrice - entryPrice) / entryPrice) * leverage * 100;
+  return ((entryPrice - exitPrice) / entryPrice) * leverage * 100;
+}
+
 function computeAccountMetrics(record: DemoStoreRecord): DemoAccount {
   const now = nowIso();
   const usedMargin = record.positions.reduce((sum, position) => sum + Math.max(0, Number(position.marginUsed) || 0), 0);
@@ -230,6 +241,7 @@ function computeAccountMetrics(record: DemoStoreRecord): DemoAccount {
   const realizedPnL = record.history.reduce((sum, item) => sum + (Number(item.realizedPnL) || 0), 0);
   const wins = record.history.filter((item) => (Number(item.realizedPnL) || 0) > 0).length;
   const winRate = record.history.length > 0 ? (wins / record.history.length) * 100 : 0;
+  // `balance` is the fixed demo principal; realized/open PnL are derived ledgers added on top.
   const equity = record.account.balance + realizedPnL + openPnL;
   const availableBalance = record.account.balance + realizedPnL - usedMargin;
   const totalPnL = realizedPnL + openPnL;
@@ -354,7 +366,7 @@ export async function placeDemoOrder(
   const symbol = normalizeSymbol(String(b.symbol || ""));
   const side = String(b.side || "").toUpperCase();
   const notional = Number(b.notional);
-  const leverage = Number(b.leverage || 1);
+  const leverage = Number(b.leverage);
   const stopLoss = parseOptionalPositive(b.stopLoss);
   const takeProfit = parseOptionalPositive(b.takeProfit);
 
@@ -362,13 +374,14 @@ export async function placeDemoOrder(
   if (side !== "LONG" && side !== "SHORT") return { status: 400, payload: toNoDataError("side LONG veya SHORT olmalı.") };
   if (!Number.isFinite(notional) || notional <= 0) return { status: 400, payload: toNoDataError("Geçerli notional girin.") };
   if (notional > DEMO_MAX_NOTIONAL) return { status: 400, payload: toNoDataError("Notional demo limitini aşıyor.") };
-  if (!Number.isFinite(leverage) || leverage <= 0) return { status: 400, payload: toNoDataError("Geçerli leverage girin.") };
 
   const maxAllowedLeverage = identity.maxLeverage;
-  if (leverage > maxAllowedLeverage) {
+  if (!Number.isFinite(leverage) || leverage < 1 || leverage > maxAllowedLeverage) {
     return {
       status: 400,
-      payload: toNoDataError(`Risk profili için maksimum kaldıraç ${maxAllowedLeverage}x.`),
+      payload: toNoDataError(
+        `Kaldıraç 1 ile ${maxAllowedLeverage} arasında olmalıdır. Leverage must be between 1 and ${maxAllowedLeverage}.`,
+      ),
     };
   }
 
@@ -464,6 +477,7 @@ export async function closeDemoPosition(
 ): Promise<{ status: number; payload: unknown }> {
   const b = (body || {}) as Record<string, unknown>;
   const positionId = String(b.positionId || "").trim();
+  const reason = String(b.reason || "").trim() || "manual_close";
   if (!positionId) return { status: 400, payload: toNoDataError("positionId gerekli.") };
 
   const record = await getSynchronizedRecord(req, identity);
@@ -481,9 +495,10 @@ export async function closeDemoPosition(
     return { status: 400, payload: toNoDataError("Pozisyon kapatma fiyatı alınamadı.") };
   }
 
-  const realizedPnL = computeOpenPnl(position.side, position.entryPrice, closePrice, position.quantity);
-  const notional = position.entryPrice * position.quantity;
-  const realizedPnLPct = notional > 0 ? (realizedPnL / notional) * 100 : 0;
+  const realizedPnLRaw = computeOpenPnl(position.side, position.entryPrice, closePrice, position.quantity);
+  const realizedPnL = Number.isFinite(realizedPnLRaw) ? realizedPnLRaw : 0;
+  const realizedPnLPctRaw = computeRealizedPnlPct(position.side, position.entryPrice, closePrice, position.leverage);
+  const realizedPnLPct = Number.isFinite(realizedPnLPctRaw) ? realizedPnLPctRaw : 0;
   const closedAt = nowIso();
 
   const closedPosition: DemoPosition = {
@@ -498,19 +513,24 @@ export async function closeDemoPosition(
   };
 
   record.positions.splice(idx, 1);
-  record.history.unshift({
+  const historyItem: DemoTradeHistory = {
     id: `dh_${crypto.randomUUID().replace(/-/g, "").slice(0, 18)}`,
     positionId: position.id,
     symbol: position.symbol,
     side: position.side,
     entryPrice: position.entryPrice,
     exitPrice: closePrice,
+    quantity: position.quantity,
+    leverage: position.leverage,
+    marginUsed: position.marginUsed,
     realizedPnL,
-    realizedPnLPct: Number.isFinite(realizedPnLPct) ? realizedPnLPct : 0,
+    realizedPnLPct,
     openedAt: position.openedAt,
     closedAt,
-    reason: "MANUAL_CLOSE",
-  });
+    reason,
+  };
+  record.history.unshift(historyItem);
+
   record.orders.unshift({
     id: `do_${crypto.randomUUID().replace(/-/g, "").slice(0, 18)}`,
     accountId: record.account.id,
@@ -539,7 +559,8 @@ export async function closeDemoPosition(
       mode: DEMO_MODE,
       closed: closedPosition,
       account: record.account,
-      historyItem: record.history[0],
+      trade: historyItem,
+      historyItem,
     },
   };
 }
@@ -550,4 +571,5 @@ export async function resetDemoAccount(req: NextRequest, identity: DemoIdentity)
   STORE.set(identity.ownerKey, reset);
   return reset;
 }
+
 
