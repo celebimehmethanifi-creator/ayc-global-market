@@ -134,7 +134,12 @@ function formatRatio(value: number | null, fallback = "Hesaplanamadı"): string 
 
 function formatKelly(value: number | null, fallback = "Veri yetersiz"): string {
   if (value == null || !Number.isFinite(value) || value <= 0) return fallback;
-  return `%${(value * 100).toFixed(1)}`;
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatLossPercent(value: number | null, fallback = "Hesaplanamadı"): string {
+  if (value == null || !Number.isFinite(value)) return fallback;
+  return `${value.toFixed(2)}%`;
 }
 
 function scoreScenario(s: ScenarioResult): number {
@@ -171,7 +176,7 @@ function ScenarioCard({
   locale: "tr" | "en";
 }) {
   const expectedPnlPct = formatPercent(scenario.expectedPnlPct);
-  const maxLossPct = scenario.maxLossPct == null ? "Hesaplanamadı" : formatPercent(Math.abs(scenario.maxLossPct));
+  const maxLossPct = formatLossPercent(scenario.maxLossPct);
 
   return (
     <div
@@ -277,6 +282,7 @@ export default function ScenarioPage() {
     leverage: "1",
     amount: "0.1",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["scenario-report", form],
@@ -294,6 +300,39 @@ export default function ScenarioPage() {
       return normalizeReport(response.data, form.symbol, form.direction);
     },
   });
+
+  const validateForm = (): Record<string, string> => {
+    const next: Record<string, string> = {};
+    const entryPrice = Number(form.entryPrice);
+    const amount = Number(form.amount);
+    const leverage = Number(form.leverage);
+    const confidence = Number(form.confidence);
+    const volatility = Number(form.volatility);
+
+    if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+      next.entryPrice = lang === "en" ? "Enter a valid price" : "Geçerli fiyat girin";
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      next.amount = lang === "en" ? "Enter a valid amount" : "Geçerli miktar girin";
+    }
+    if (!Number.isFinite(leverage) || leverage <= 0) {
+      next.leverage = lang === "en" ? "Enter valid leverage" : "Geçerli kaldıraç girin";
+    }
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 100) {
+      next.confidence = lang === "en" ? "Confidence must be 0-100" : "Güven 0-100 aralığında olmalı";
+    }
+    if (!Number.isFinite(volatility) || volatility < 0) {
+      next.volatility = lang === "en" ? "Enter valid volatility" : "Geçerli volatilite girin";
+    }
+    return next;
+  };
+
+  const runSimulation = async () => {
+    const nextErrors = validateForm();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+    await refetch();
+  };
 
   const report = useMemo<SimulationReport>(() => {
     if (data) return data;
@@ -342,7 +381,7 @@ export default function ScenarioPage() {
         </div>
 
         <button
-          onClick={() => refetch()}
+          onClick={runSimulation}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -364,11 +403,11 @@ export default function ScenarioPage() {
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--b1)", borderRadius: "var(--r-lg)", padding: 14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
           <Input label={lang === "en" ? "Symbol" : "Sembol"} value={form.symbol} onChange={(value) => setForm((prev) => ({ ...prev, symbol: value.toUpperCase() }))} />
-          <Input label={lang === "en" ? "Entry Price" : "Giriş Fiyatı"} value={form.entryPrice} onChange={(value) => setForm((prev) => ({ ...prev, entryPrice: value }))} />
-          <Input label={lang === "en" ? "Amount" : "Miktar"} value={form.amount} onChange={(value) => setForm((prev) => ({ ...prev, amount: value }))} />
-          <Input label={lang === "en" ? "Leverage" : "Kaldıraç"} value={form.leverage} onChange={(value) => setForm((prev) => ({ ...prev, leverage: value }))} />
-          <Input label={lang === "en" ? "Confidence %" : "Güven %"} value={form.confidence} onChange={(value) => setForm((prev) => ({ ...prev, confidence: value }))} />
-          <Input label={lang === "en" ? "Volatility %" : "Volatilite %"} value={form.volatility} onChange={(value) => setForm((prev) => ({ ...prev, volatility: value }))} />
+          <Input label={lang === "en" ? "Entry Price" : "Giriş Fiyatı"} value={form.entryPrice} error={errors.entryPrice} inputMode="decimal" onChange={(value) => setForm((prev) => ({ ...prev, entryPrice: value }))} />
+          <Input label={lang === "en" ? "Amount" : "Miktar"} value={form.amount} error={errors.amount} inputMode="decimal" onChange={(value) => setForm((prev) => ({ ...prev, amount: value }))} />
+          <Input label={lang === "en" ? "Leverage" : "Kaldıraç"} value={form.leverage} error={errors.leverage} inputMode="numeric" onChange={(value) => setForm((prev) => ({ ...prev, leverage: value }))} />
+          <Input label={lang === "en" ? "Confidence %" : "Güven %"} value={form.confidence} error={errors.confidence} inputMode="numeric" onChange={(value) => setForm((prev) => ({ ...prev, confidence: value }))} />
+          <Input label={lang === "en" ? "Volatility %" : "Volatilite %"} value={form.volatility} error={errors.volatility} inputMode="decimal" onChange={(value) => setForm((prev) => ({ ...prev, volatility: value }))} />
 
           <div>
             <div style={{ fontSize: 10, color: "var(--t4)", marginBottom: 6, letterSpacing: "0.04em" }}>
@@ -430,17 +469,30 @@ export default function ScenarioPage() {
   );
 }
 
-function Input({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function Input({
+  label,
+  value,
+  onChange,
+  error,
+  inputMode,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  inputMode?: "text" | "numeric" | "decimal";
+}) {
   return (
     <div>
       <div style={{ fontSize: 10, color: "var(--t4)", marginBottom: 6, letterSpacing: "0.04em" }}>{label}</div>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        inputMode={inputMode}
         style={{
           width: "100%",
           borderRadius: 8,
-          border: "1px solid var(--b1)",
+          border: error ? "1px solid rgba(239,68,68,0.55)" : "1px solid var(--b1)",
           background: "var(--bg-hover)",
           color: "var(--t1)",
           padding: "9px 10px",
@@ -448,6 +500,7 @@ function Input({ label, value, onChange }: { label: string; value: string; onCha
           boxSizing: "border-box",
         }}
       />
+      {error && <div style={{ marginTop: 5, fontSize: 11, color: "#fca5a5" }}>{error}</div>}
     </div>
   );
 }

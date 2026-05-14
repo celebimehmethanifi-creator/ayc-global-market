@@ -35,11 +35,6 @@ type ScenarioResult = {
   warning?: string;
 };
 
-function toNumber(value: unknown, fallback = 0): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
@@ -152,11 +147,34 @@ export async function POST(req: NextRequest) {
 
   const symbol = String(body?.symbol || "BTCUSDT").toUpperCase();
   const direction = String(body?.direction || "LONG").toUpperCase() === "SHORT" ? "SHORT" : "LONG";
-  const entryPrice = Math.max(0.00000001, toNumber(body?.price ?? body?.entryPrice, 50000));
-  const amount = Math.max(0.0001, toNumber(body?.amount, 0.1));
-  const leverage = clamp(toNumber(body?.leverage, 1), 1, 20);
-  const confidence = clamp(toNumber(body?.confidence_score ?? body?.confidence, 65), 1, 100);
-  const volatility = Math.max(0, toNumber(body?.volatility_daily ?? body?.volatility, 3));
+
+  const rawEntryPrice = Number(body?.price ?? body?.entryPrice);
+  const rawAmount = Number(body?.amount);
+  const rawLeverage = Number(body?.leverage);
+  const rawConfidence = Number(body?.confidence_score ?? body?.confidence);
+  const rawVolatility = Number(body?.volatility_daily ?? body?.volatility);
+
+  if (!Number.isFinite(rawEntryPrice) || rawEntryPrice <= 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_ENTRY_PRICE", message: "Geçerli fiyat girin." }, { status: 400 });
+  }
+  if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_AMOUNT", message: "Geçerli miktar girin." }, { status: 400 });
+  }
+  if (!Number.isFinite(rawLeverage) || rawLeverage <= 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_LEVERAGE", message: "Geçerli kaldıraç girin." }, { status: 400 });
+  }
+  if (!Number.isFinite(rawConfidence) || rawConfidence < 0 || rawConfidence > 100) {
+    return NextResponse.json({ ok: false, error: "INVALID_CONFIDENCE", message: "Güven 0-100 aralığında olmalı." }, { status: 400 });
+  }
+  if (!Number.isFinite(rawVolatility) || rawVolatility < 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_VOLATILITY", message: "Geçerli volatilite girin." }, { status: 400 });
+  }
+
+  const entryPrice = Math.max(0.00000001, rawEntryPrice);
+  const amount = Math.max(0.0001, rawAmount);
+  const leverage = clamp(rawLeverage, 1, 20);
+  const confidence = clamp(rawConfidence, 1, 100);
+  const volatility = Math.max(0, rawVolatility);
 
   const stopDistance = entryPrice * clamp(0.007 + volatility / 200, 0.005, 0.08);
   const targetDistance = entryPrice * clamp(0.012 + volatility / 120, 0.008, 0.12);

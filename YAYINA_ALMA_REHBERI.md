@@ -1,10 +1,13 @@
-# AYC Global Market - Yayina Alma Rehberi
+﻿# AYC Global Market - Yayina Alma Rehberi
 
 ## 1. Frontend (Vercel)
 1. Vercel'de projeyi import et.
 2. Root Directory olarak `apps/web` sec.
 3. Framework `Next.js` olmali.
 4. Asagidaki env degiskenlerini gir:
+5. apps/web/vercel.json kullanilmiyor; bu dosya deployment sorunlari nedeniyle bilincli olarak kaldirildi.
+6. Production deploy, Vercel project-level ayarlar + Vercel CLI akisi ile yapilmalidir.
+7. Git-triggered deploy su an guvenilir degilse production yayininda Verdent/Vercel CLI akisini kullan.
 
 ```env
 NEXT_PUBLIC_API_URL=<optional-public-api-url-or-empty>
@@ -56,3 +59,5 @@ LEMON_ELITE_VARIANT_ID=<lemon-variant-id-elite>
 ## 5. Zorunlu Operasyon Notu
 - Gecmiste repo veya dokumanda gecmis olabilecek tum anahtarlar/public key benzeri degerler **rotate edilmelidir**.
 - Rotation tamamlanmadan production rollout onermeyin.
+
+

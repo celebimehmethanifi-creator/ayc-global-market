@@ -3,6 +3,11 @@
 1. Root Directory: apps/web
 2. Framework: Next.js
 3. Build Command: pnpm --filter neura-web build
+Deploy notu:
+- apps/web/vercel.json **bilincli olarak kaldirilmistir** ve kullanilmiyor.
+- Production deploy, Vercel project-level ayarlar + Vercel CLI akisi ile yapilir.
+- Git-triggered deploy su an guvenilir degildir; production yayininda CLI/operasyon akisi kullanilmalidir.
+- apps/web/vercel.json dosyasini geri eklemek eski build/deploy sorunlarini tekrar olusturabilir.
 
 Gerekli environment degiskenleri:
 
@@ -24,3 +29,5 @@ Not:
 - `app.aycmarket.com` alias olarak calisabilir (APP_ALIAS_REDIRECT=0) veya canonical domaine yonlenebilir (APP_ALIAS_REDIRECT=1).
 - `blog.aycmarket.com` WordPress/Natro trafigi icin ayridir; app route'lariyla karismamalidir.
 - Refresh session rotation state su an in-memory tutulur; cold-start/redeploy sonrasi aktif refresh oturumlari dusebilir.
+
+

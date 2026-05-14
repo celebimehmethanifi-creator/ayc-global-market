@@ -96,7 +96,7 @@ type Mover = { sym:string; name:string; price:number; chg:number; cat:string };
 
 
 
-type CausalCard = { symbol:string; primary_cause:string; primary_conf:number; narrative:string; manipulation_risk:number };
+type CausalCard = { symbol:string; primary_cause:string; primary_conf:number; narrative:string; manipulation_risk:number; has_meaningful_move?: boolean };
 
 
 
@@ -226,37 +226,18 @@ const EMPTY_ALARM_HINT: AlarmItem = {
 
 
 const CAUSE_LABELS: Record<string,string> = {
-
-
-
-  TECHNICAL_BREAKOUT:"Teknik Kırılım",
-
-
-
-  VOLUME_ANOMALY:"Hacim Anomalisi",
-
-
-
-  NEWS_CATALYST:"Haber Katalizörü",
-
-
-
-  MACRO_CATALYST:"Makro Olay",
-
-
-
-  LIQUIDITY_EVENT:"Likidite Değişimi",
-
-
-
-  MANIPULATION_SIGNAL:"Manipülasyon",
-
-
-
-  ORGANIC_TREND:"Organik Trend",
-
-
-
+  TECHNICAL_BREAKOUT:"Teknik kırılım",
+  VOLUME_SPIKE:"Hacim artışı",
+  VOLUME_ANOMALY:"Hacim artışı",
+  MOMENTUM_SURGE:"Momentum artışı",
+  NEWS_IMPACT:"Haber etkisi",
+  NEWS_CATALYST:"Haber etkisi",
+  MACRO_CATALYST:"Makro etki",
+  LIQUIDITY_EVENT:"Düşük likidite",
+  LOW_LIQUIDITY:"Düşük likidite",
+  MANIPULATION_SIGNAL:"Manipülasyon riski",
+  MANIPULATION_RISK:"Manipülasyon riski",
+  ORGANIC_TREND:"Organik trend",
   UNKNOWN:"Belirsiz",
 
 
@@ -692,133 +673,50 @@ function SignalCard({sig,onDetail}:{sig:Signal;onDetail:()=>void}) {
 
 
 function CausalSection({data}:{data:CausalCard}) {
+  const causeLabel = CAUSE_LABELS[data.primary_cause] || "Belirsiz";
+  const hasMeaningfulMove = data.has_meaningful_move ?? !/%0\.00/.test(data.narrative || "");
+  const normalizedNarrative = (data.narrative || "")
+    .replace(/\*\*/g, "")
+    .replace(/ORGANIC_TREND|VOLUME_ANOMALY|VOLUME_SPIKE|MANIPULATION_SIGNAL|MANIPULATION_RISK/g, (token) => CAUSE_LABELS[token] || token);
+  const narrative = hasMeaningfulMove
+    ? normalizedNarrative
+    : "Bu varlık için anlamlı hareket verisi henüz oluşmadı.";
 
-
-
-  const causeLabel = CAUSE_LABELS[data.primary_cause] || data.primary_cause;
-
-
+  const showRisk = hasMeaningfulMove && data.manipulation_risk > 0;
+  const riskLabel = showRisk ? `${data.manipulation_risk}%` : "Veri yetersiz";
 
   return (
-
-
-
     <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:20}}>
-
-
-
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-
-
-
         <BookOpen size={14} color="var(--gold)"/>
-
-
-
         <span style={{fontFamily:"var(--font-head)",fontSize:13,fontWeight:700,color:"var(--t1)"}}>
-
-
-
-          Neden Bu Hareket?   {data.symbol}
-
-
-
+          Neden Bu Hareket? {data.symbol}
         </span>
-
-
-
         <span style={{marginLeft:"auto",fontSize:9,fontWeight:800,letterSpacing:"0.06em",
-
-
-
           color:"var(--gold)",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.25)",
-
-
-
           padding:"2px 8px",borderRadius:4}}>
-
-
-
-          {causeLabel.toUpperCase()}
-
-
-
+          {causeLabel}
         </span>
-
-
-
       </div>
-
-
 
       <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,marginBottom:14}}>
-
-
-
-        {data.narrative.replace(/\*\*/g,"")}
-
-
-
+        {narrative}
       </p>
 
-
-
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-
-
-
-        <span style={{fontSize:10,color:"var(--t4)",fontWeight:700}}>MANIPULASYON RISKI</span>
-
-
-
+        <span style={{fontSize:10,color:"var(--t4)",fontWeight:700}}>MANİPÜLASYON RİSKİ</span>
         <div style={{flex:1,height:4,background:"var(--b1)",borderRadius:2,overflow:"hidden"}}>
-
-
-
-          <div style={{width:`${data.manipulation_risk}%`,height:"100%",
-
-
-
+          <div style={{width: showRisk ? `${data.manipulation_risk}%` : "0%",height:"100%",
             background:data.manipulation_risk>55?"var(--down)":data.manipulation_risk>30?"var(--gold)":"var(--up)",
-
-
-
             borderRadius:2}}/>
-
-
-
         </div>
-
-
-
         <span style={{fontFamily:"var(--font-mono)",fontSize:10,fontWeight:700,
-
-
-
-          color:data.manipulation_risk>55?"var(--down)":data.manipulation_risk>30?"var(--gold)":"var(--up)"}}>
-
-
-
-          {data.manipulation_risk}%
-
-
-
+          color:showRisk ? (data.manipulation_risk>55?"var(--down)":data.manipulation_risk>30?"var(--gold)":"var(--up)") : "var(--t4)"}}>
+          {riskLabel}
         </span>
-
-
-
       </div>
-
-
-
     </div>
-
-
-
   );
-
-
-
 }
 
 
