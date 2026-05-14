@@ -157,7 +157,7 @@ export default function CopilotPage() {
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs,mut.isPending]);
 
   return (
-    <div className="copilot-layout" style={{display:"flex",gap:16,height:"calc(100dvh - 120px)",maxWidth:1100,margin:"0 auto"}}>
+    <div className="copilot-layout" style={{display:"flex",gap:16,height:"calc(100dvh - 120px)",maxWidth:1100,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom, 0px)"}}>
 
       {/* LEFT SIDEBAR */}
       <div className="copilot-sidebar" style={{width:240,flexShrink:0,display:"flex",flexDirection:"column",gap:12,overflowY:"auto"}}>
@@ -385,7 +385,7 @@ export default function CopilotPage() {
         </div>
 
         {/* Input */}
-        <div style={{padding:"12px 16px",borderTop:"1px solid var(--b1)",flexShrink:0}}>
+        <div style={{padding:"12px 16px calc(12px + env(safe-area-inset-bottom, 0px))",borderTop:"1px solid var(--b1)",flexShrink:0}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
             <div style={{flex:1,position:"relative"}}>
               <textarea rows={1} value={input}
@@ -433,7 +433,7 @@ export default function CopilotPage() {
         @keyframes stream-bar{from{transform:scaleY(0.3)}to{transform:scaleY(1)}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @media(max-width:768px){
-          .copilot-layout{height:calc(100dvh - 130px)!important;gap:0!important}
+          .copilot-layout{height:calc(100dvh - 96px)!important;gap:0!important;padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px))!important}
           .copilot-sidebar{display:none!important}
           .copilot-mobile-chips{display:flex!important}
           .copilot-mobile-chips::-webkit-scrollbar{display:none}

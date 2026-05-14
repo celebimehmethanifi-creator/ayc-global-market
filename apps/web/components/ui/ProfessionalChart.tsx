@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, {
   useRef,
@@ -10,9 +10,9 @@ import React, {
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Types
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface Candle {
   t: number; // Unix timestamp ms
@@ -55,9 +55,9 @@ interface Props {
   onLatestCandleClose?: (close: number, updatedAt: number, source?: string) => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Constants & Theme
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const TF_OPTIONS: Timeframe[] = ['5M', '15M', '1H', '4H', '1D', '1W', '1M'];
 
@@ -104,9 +104,9 @@ const MAX_CANDLE_WIDTH = 80;
 const SUB_PANEL_MAX = 70; // px per sub-panel (when 1 active)
 const CHART_TOP_PAD = 8;
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Indicator math
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function calcSMA(closes: number[], period: number): (number | null)[] {
   const out: (number | null)[] = new Array(closes.length).fill(null);
@@ -213,9 +213,9 @@ function calcMACD(closes: number[], fast = 12, slow = 26, sig = 9): MACDResult {
   return { macd, signal, hist };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Layout
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PanelInfo { y: number; h: number; label: string }
 interface Layout {
@@ -253,9 +253,9 @@ function buildLayout(W: number, H: number, vis: IndicatorVisibility): Layout {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Tiny utilities
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -294,7 +294,7 @@ function cleanCandles(raw: Candle[]): { candles: Candle[]; dropped: number } {
 }
 
 function nicePrice(v: number): string {
-  if (!isFinite(v)) return '—';
+  if (!isFinite(v)) return 'â€”';
   if (Math.abs(v) >= 1000) return v.toFixed(2);
   if (Math.abs(v) >= 1) return v.toFixed(4);
   if (Math.abs(v) >= 0.001) return v.toFixed(6);
@@ -355,9 +355,9 @@ function rrect(
   ctx.closePath();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Indicator pills config
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DEFAULT_IND: IndicatorVisibility = {
   sma20: true, sma50: true, ema12: false, ema26: false,
@@ -375,9 +375,9 @@ const PILLS: { key: keyof IndicatorVisibility; label: string; color: string }[] 
   { key: 'volume',  label: 'Vol',     color: THEME.volumePos },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Main component
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ProfessionalChart({
   symbol,
@@ -420,7 +420,7 @@ export default function ProfessionalChart({
   const zoomRef = useRef(zoomLevel);
   viewEndRef.current = viewEnd;
   zoomRef.current = zoomLevel;
-  const chartHeight = isFullscreen ? Math.max(320, (viewportH || height) - 210) : height;
+  const chartHeight = isFullscreen ? Math.max(320, (viewportH || height) - 178) : height;
 
   useEffect(() => {
     setPortalReady(true);
@@ -439,11 +439,35 @@ export default function ProfessionalChart({
   }, []);
 
   useEffect(() => {
-    const updateViewport = () => setViewportH(window.innerHeight);
+    const updateViewport = () => setViewportH(window.visualViewport?.height || window.innerHeight);
     updateViewport();
     window.addEventListener("resize", updateViewport);
-    return () => window.removeEventListener("resize", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+      window.visualViewport?.removeEventListener("resize", updateViewport);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return undefined;
+    const syncCanvasSize = () => {
+      const width = Math.floor(containerRef.current?.getBoundingClientRect().width || 0);
+      if (width > 0) setCanvasW(width);
+    };
+    const t1 = window.setTimeout(syncCanvasSize, 40);
+    const t2 = window.setTimeout(syncCanvasSize, 180);
+    window.addEventListener("orientationchange", syncCanvasSize);
+    window.visualViewport?.addEventListener("resize", syncCanvasSize);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener("orientationchange", syncCanvasSize);
+      window.visualViewport?.removeEventListener("resize", syncCanvasSize);
+    };
+  }, [isFullscreen, viewportH]);
 
   useEffect(() => {
     if (!isFullscreen) return undefined;
@@ -503,7 +527,7 @@ export default function ProfessionalChart({
     return () => window.clearTimeout(timeout);
   }, [isFullscreen, viewportH]);
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     setLoading(true);
@@ -550,7 +574,7 @@ export default function ProfessionalChart({
     onLatestCandleClose(latest.c, latest.t, dataSource);
   }, [candles, onLatestCandleClose, dataSource]);
 
-  // ── ResizeObserver ────────────────────────────────────────────────────────
+  // â”€â”€ ResizeObserver â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -564,7 +588,7 @@ export default function ProfessionalChart({
     return () => ro.disconnect();
   }, []);
 
-  // ── Wheel zoom + Mouse/Touch pan ──────────────────────────────────────────
+  // â”€â”€ Wheel zoom + Mouse/Touch pan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     const el = overlayCanvasRef.current;
@@ -687,7 +711,7 @@ export default function ProfessionalChart({
     };
   }, [candles.length, canvasW]);
 
-  // ── Computed indicators ───────────────────────────────────────────────────
+  // â”€â”€ Computed indicators â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const computed = useMemo(() => {
     if (!candles.length) return null;
@@ -703,14 +727,14 @@ export default function ProfessionalChart({
     };
   }, [candles]);
 
-  // ── Layout ────────────────────────────────────────────────────────────────
+  // â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const layout = useMemo(
     () => buildLayout(canvasW, chartHeight, indicators),
     [canvasW, chartHeight, indicators],
   );
 
-  // ── Prepare canvas (DPR-aware) ────────────────────────────────────────────
+  // â”€â”€ Prepare canvas (DPR-aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   function prepCanvas(
     canvas: HTMLCanvasElement,
@@ -732,7 +756,7 @@ export default function ProfessionalChart({
     return ctx;
   }
 
-  // ── Main chart draw ───────────────────────────────────────────────────────
+  // â”€â”€ Main chart draw â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const drawMain = useCallback(() => {
     const canvas = mainCanvasRef.current;
@@ -763,7 +787,7 @@ export default function ProfessionalChart({
     const pad = (maxP - minP) * 0.08;
     minP -= pad; maxP += pad;
 
-    // ── Grid ────────────────────────────────────────────────────────────────
+    // â”€â”€ Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ctx.strokeStyle = THEME.gridLine;
     ctx.lineWidth = 1;
     const gs = 6;
@@ -772,7 +796,7 @@ export default function ProfessionalChart({
       ctx.beginPath(); ctx.moveTo(chartX, y); ctx.lineTo(chartX + chartW, y); ctx.stroke();
     }
 
-    // ── Bollinger Bands ──────────────────────────────────────────────────────
+    // â”€â”€ Bollinger Bands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (indicators.bb) {
       const { upper, lower, mid } = computed.bb;
 
@@ -813,7 +837,7 @@ export default function ProfessionalChart({
       drawLine(mid, THEME.bbMid);
     }
 
-    // ── Overlay lines helper ─────────────────────────────────────────────────
+    // â”€â”€ Overlay lines helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const overlayLine = (arr: (number | null)[], color: string, lw = 1.5) => {
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
       let moved = false;
@@ -831,7 +855,7 @@ export default function ProfessionalChart({
     if (indicators.ema12) overlayLine(computed.ema12, THEME.ema12);
     if (indicators.ema26) overlayLine(computed.ema26, THEME.ema26);
 
-    // ── Close gradient fill ──────────────────────────────────────────────────
+    // â”€â”€ Close gradient fill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {
       const grad = ctx.createLinearGradient(0, chartY, 0, chartY + chartH);
       grad.addColorStop(0, 'rgba(16,185,129,0.10)');
@@ -852,7 +876,7 @@ export default function ProfessionalChart({
       }
     }
 
-    // ── Candles ──────────────────────────────────────────────────────────────
+    // â”€â”€ Candles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for (let i = 0; i < vc; i++) {
       const c = vis[i];
       const bull = c.c >= c.o;
@@ -873,7 +897,7 @@ export default function ProfessionalChart({
       ctx.fillRect(cx - bw / 2, Math.min(oY, cY), bw, Math.max(1, Math.abs(cY - oY)));
     }
 
-    // ── Last price dashed line ────────────────────────────────────────────────
+    // â”€â”€ Last price dashed line â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {
       const lastC = candles[endIdx - 1].c;
       const ly = pToY(lastC, minP, maxP, chartY, chartH);
@@ -900,7 +924,7 @@ export default function ProfessionalChart({
       }
     }
 
-    // ── Y-axis labels ─────────────────────────────────────────────────────────
+    // â”€â”€ Y-axis labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ctx.font = `10px ${THEME.fontMono}`;
     ctx.fillStyle = THEME.textSecondary;
     ctx.textAlign = 'left';
@@ -911,7 +935,7 @@ export default function ProfessionalChart({
       ctx.fillText(nicePrice(price), chartX + chartW + 4, y);
     }
 
-    // ── X-axis labels ─────────────────────────────────────────────────────────
+    // â”€â”€ X-axis labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ctx.font = `10px ${THEME.fontSans}`;
     ctx.fillStyle = THEME.textTertiary;
     ctx.textAlign = 'center';
@@ -922,7 +946,7 @@ export default function ProfessionalChart({
       ctx.fillText(dateShort(vis[i].t, timeframe), cxOf(i, slotW, chartX), xAxisY + 4);
     }
 
-    // ── Sub panels ────────────────────────────────────────────────────────────
+    // â”€â”€ Sub panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for (const panel of subPanels) {
       const { y: pY, h: pH, label } = panel;
 
@@ -1050,7 +1074,7 @@ export default function ProfessionalChart({
     }
   }, [candles, computed, layout, indicators, canvasW, chartHeight, timeframe, zoomLevel, viewEnd]);
 
-  // ── Overlay / crosshair draw ───────────────────────────────────────────────
+  // â”€â”€ Overlay / crosshair draw â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const drawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current;
@@ -1132,7 +1156,7 @@ export default function ProfessionalChart({
     }
   }, [candles, computed, layout, canvasW, chartHeight, timeframe, zoomLevel, viewEnd]);
 
-  // ── Schedule redraws ───────────────────────────────────────────────────────
+  // â”€â”€ Schedule redraws â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(drawMain);
@@ -1144,7 +1168,7 @@ export default function ProfessionalChart({
     return () => cancelAnimationFrame(rafOverlayRef.current);
   }, [drawOverlay]);
 
-  // ── Pointer events ─────────────────────────────────────────────────────────
+  // â”€â”€ Pointer events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1191,13 +1215,13 @@ export default function ProfessionalChart({
     };
   }, [drawOverlay]);
 
-  // ── Toggle indicator ───────────────────────────────────────────────────────
+  // â”€â”€ Toggle indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const toggleInd = useCallback((key: keyof IndicatorVisibility) => {
     setIndicators((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  // ── Derived display values ─────────────────────────────────────────────────
+  // â”€â”€ Derived display values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const lastCandle = candles.length > 0 ? candles[candles.length - 1] : null;
   const prevCandle = candles.length > 1 ? candles[candles.length - 2] : null;
@@ -1206,7 +1230,7 @@ export default function ProfessionalChart({
     : 0;
   const isUp = pctChange >= 0;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const chartInner = (
     <div
@@ -1224,7 +1248,7 @@ export default function ProfessionalChart({
         minWidth: isFullscreen ? 0 : 320,
       }}
     >
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div
         style={{
           display: 'flex',
@@ -1311,7 +1335,7 @@ export default function ProfessionalChart({
               setZoomLevel(1);
               setViewEnd(candles.length || 1);
             }}
-            title="Zoom sıfırla"
+            title="Zoom sÄ±fÄ±rla"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1345,7 +1369,7 @@ export default function ProfessionalChart({
             }}
           >
             {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-            {isFullscreen ? 'Çık' : 'Tam ekran'}
+            {isFullscreen ? "Çık" : "Tam ekran"}
           </button>
           {isFullscreen && (
             <button
@@ -1419,7 +1443,7 @@ export default function ProfessionalChart({
         </div>
       )}
 
-      {/* ── Canvas container ───────────────────────────────────────────────── */}
+      {/* â”€â”€ Canvas container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div
         style={{
           position: 'relative',
@@ -1590,9 +1614,9 @@ export default function ProfessionalChart({
   return chartInner;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Tooltip drawing (canvas)
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function drawCandleTooltip(
   ctx: CanvasRenderingContext2D,
@@ -1666,9 +1690,9 @@ function drawCandleTooltip(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Small React sub-components
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function LegendItem({ color, label }: { color: string; label: string }) {
   return (

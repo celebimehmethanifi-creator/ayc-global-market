@@ -59,6 +59,11 @@ export interface DemoCtx {
     direction: "LONG" | "SHORT",
     price: number,
     investedUSD: number,
+    options?: {
+      leverage?: number;
+      stopLoss?: number | null;
+      takeProfit?: number | null;
+    },
   ) => Promise<boolean>;
   closeTrade: (id: string, currentPrice?: number) => Promise<boolean>;
   reset: () => Promise<void>;
@@ -155,7 +160,7 @@ function fromApiPayload(payload: any): DemoState {
   const baseBalance = safeNum(account.balance, DEMO_INITIAL);
 
   return {
-    balance: available,
+    balance: baseBalance,
     initialBalance: baseBalance,
     equity: safeNum(account.equity, baseBalance),
     availableBalance: available,
@@ -218,15 +223,26 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       direction: "LONG" | "SHORT",
       _price: number,
       investedUSD: number,
+      options?: {
+        leverage?: number;
+        stopLoss?: number | null;
+        takeProfit?: number | null;
+      },
     ): Promise<boolean> => {
       try {
+        const leverage = Number(options?.leverage);
+        const stopLoss = Number(options?.stopLoss);
+        const takeProfit = Number(options?.takeProfit);
+
         const response = await webApi.post(
           "/demo/order",
           {
             symbol,
             side: direction,
             notional: investedUSD,
-            leverage: 1,
+            leverage: Number.isFinite(leverage) ? leverage : 1,
+            ...(Number.isFinite(stopLoss) && stopLoss > 0 ? { stopLoss } : {}),
+            ...(Number.isFinite(takeProfit) && takeProfit > 0 ? { takeProfit } : {}),
           },
           { timeout: 12000 },
         );

@@ -288,11 +288,13 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
   const stopLoss = analysis?.tradePlan?.stopLoss ?? null;
   const riskReward = analysis?.tradePlan?.riskReward ?? null;
   const hasSufficientData = analysis?.dataQuality?.status !== "insufficient";
-
+  const analysisStatus = analysis?.dataQuality?.status;
+  const analysisProvider = analysis?.dataQuality?.provider || chartProvider;
+  const headerStatus: AnalysisStatus = analysis?.dataQuality?.status || (livePrice ? "live" : "fallback");
+  const delayedVsLive = headerStatus === "live" && (analysisStatus === "delayed" || analysisStatus === "fallback");
   const priceDiffPct =
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
   const showDriftWarning = priceDiffPct > 1;
-  const headerStatus: AnalysisStatus = analysis?.dataQuality?.status || (livePrice ? "live" : "fallback");
   const isBistAsset = asset.symbol.endsWith(".IS") || asset.market === "bist";
 
   const headerTitle = asset.display || asset.symbol;
@@ -546,6 +548,17 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               </span>
             </div>
 
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, color: "var(--t4)" }}>
+              <span>Fiyat kaynağı: {headerStatus === "live" ? "canlı" : "anlık değil"}</span>
+              <span>Mum sağlayıcı: {analysisProvider || "bilinmiyor"}</span>
+              <span>Analiz TF: {timeframe}</span>
+            </div>
+            {delayedVsLive && (
+              <div style={{ fontSize: 10, color: "var(--warn)" }}>
+                Fiyat canlı, analiz gecikmeli mum verisiyle hesaplandı.
+              </div>
+            )}
+
             {analysisError && (
               <div
                 style={{
@@ -572,6 +585,9 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
                 value={hasSufficientData && riskReward != null && Number.isFinite(riskReward) ? `${riskReward.toFixed(2)}x` : "Veri yetersiz"}
               />
             </div>
+            <div style={{ fontSize: 10, color: "var(--t4)" }}>
+              ATR ve destek/direnç bazlı tahmini seviye.
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
               <TextBox title="Teknik Analiz" text={analysis?.technicalSummary || "Teknik analiz için yeterli veri yok."} />
@@ -581,7 +597,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             {analysis?.technical && (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <TinyBadge label="RSI" value={analysis.technical.rsi != null ? analysis.technical.rsi.toFixed(2) : "—"} />
-                <TinyBadge label="MACD" value={analysis.technical.macd != null ? analysis.technical.macd.toFixed(4) : "—"} />
+                <TinyBadge label="MACD" value={analysis.technical.macd != null ? analysis.technical.macd.toFixed(4) : "MACD verisi yetersiz"} />
                 <TinyBadge label="ATR" value={analysis.technical.atr != null ? analysis.technical.atr.toFixed(4) : "—"} />
                 <TinyBadge label="Destek" value={analysis.technical.support != null ? fmtPrice(analysis.technical.support) : "—"} />
                 <TinyBadge label="Direnç" value={analysis.technical.resistance != null ? fmtPrice(analysis.technical.resistance) : "—"} />

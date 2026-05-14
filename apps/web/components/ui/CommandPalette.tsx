@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useAssetModal } from "@/lib/AssetModalContext";
 import { usePrices } from "@/lib/prices/PriceContext";
+import { useBreakpoint } from "@/lib/responsive/useBreakpoint";
 import {
   getAssetDisplayName,
   getCategoryLabel,
@@ -96,6 +97,7 @@ export function CommandPalette({ open, onClose }: Props) {
   const { openAsset } = useAssetModal();
   const prices = usePrices();
   const { locale, t } = useI18n();
+  const { isMobile } = useBreakpoint();
 
   const getLive = (symbol: string) => {
     const keys = mapToPriceKeys(symbol);
@@ -205,20 +207,23 @@ export function CommandPalette({ open, onClose }: Props) {
               <X size={14} />
             </button>
           )}
-          <kbd
-            style={{
-              padding: "2px 7px",
-              borderRadius: 5,
-              fontSize: 10,
-              fontWeight: 600,
-              background: "var(--bg-hover)",
-              border: "1px solid var(--b2)",
-              color: "var(--t3)",
-              flexShrink: 0,
-            }}
-          >
-            ESC
-          </kbd>
+          {!isMobile && (
+            <kbd
+              className="cmd-kbd"
+              style={{
+                padding: "2px 7px",
+                borderRadius: 5,
+                fontSize: 10,
+                fontWeight: 600,
+                background: "var(--bg-hover)",
+                border: "1px solid var(--b2)",
+                color: "var(--t3)",
+                flexShrink: 0,
+              }}
+            >
+              ESC
+            </kbd>
+          )}
         </div>
 
         <div className="cmd-results">
@@ -314,6 +319,7 @@ export function CommandPalette({ open, onClose }: Props) {
         </div>
 
         <div
+          className="cmd-footer"
           style={{
             padding: "8px 16px",
             borderTop: "1px solid var(--b1)",
@@ -324,24 +330,28 @@ export function CommandPalette({ open, onClose }: Props) {
             color: "var(--t4)",
           }}
         >
-          <span>
-            <kbd style={{ padding: "1px 5px", borderRadius: 3, background: "var(--bg-hover)", border: "1px solid var(--b2)" }}>
-              ↑↓
-            </kbd>{" "}
-            {t("search.navigate")}
-          </span>
-          <span>
-            <kbd style={{ padding: "1px 5px", borderRadius: 3, background: "var(--bg-hover)", border: "1px solid var(--b2)" }}>
+          {!isMobile && (
+            <span className="cmd-footer-item">
+              <kbd className="cmd-kbd" style={{ padding: "1px 5px", borderRadius: 3, background: "var(--bg-hover)", border: "1px solid var(--b2)" }}>
+                ↑↓
+              </kbd>{" "}
+              {t("search.navigate")}
+            </span>
+          )}
+          <span className="cmd-footer-item">
+            <kbd className="cmd-kbd" style={{ padding: "1px 5px", borderRadius: 3, background: "var(--bg-hover)", border: "1px solid var(--b2)" }}>
               ↵
             </kbd>{" "}
             {t("search.open")}
           </span>
-          <span>
-            <kbd style={{ padding: "1px 5px", borderRadius: 3, background: "var(--bg-hover)", border: "1px solid var(--b2)" }}>
-              Esc
-            </kbd>{" "}
-            {t("search.close")}
-          </span>
+          {!isMobile && (
+            <span className="cmd-footer-item">
+              <kbd className="cmd-kbd" style={{ padding: "1px 5px", borderRadius: 3, background: "var(--bg-hover)", border: "1px solid var(--b2)" }}>
+                Esc
+              </kbd>{" "}
+              {t("search.close")}
+            </span>
+          )}
         </div>
       </div>
     </div>

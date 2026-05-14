@@ -42,10 +42,23 @@ function safeNum(v: any, fallback = 0): number {
   const n = Number(v);
   return isFinite(n) ? n : fallback;
 }
+
+function hasMeaningfulSignal(sig: any): boolean {
+  if (!sig) return false;
+  const stage = String(sig.stage || "NONE").toUpperCase();
+  if (stage === "NONE") return false;
+  const confidence = safeNum(sig?.scores?.confidence, 0);
+  const opportunity = safeNum(sig?.scores?.opportunity, 0);
+  const risk = safeNum(sig?.scores?.risk, 0);
+  const hasReason = typeof sig.ai_hint === "string" && sig.ai_hint.trim().length > 0;
+  return hasReason || confidence > 0 || opportunity > 0 || risk > 0;
+}
+
 function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:number; onDetail:()=>void; onDemo:()=>void}) {
   const displayPrice = livePrice ?? safeNum(sig.price, 0);
   const chg24 = safeNum(sig.change_24h, 0);
   const m = STAGE_META[sig.stage as Stage] || STAGE_META.NONE;
+  const isNoSignal = !hasMeaningfulSignal(sig);
   const up = chg24 >= 0;
   return (
     <div onClick={onDetail} style={{
@@ -84,11 +97,15 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
             color:m.color,background:m.dim,border:`1px solid ${m.border}`,
             padding:"2px 8px",borderRadius:4,marginBottom:4,display:"inline-block"
           }}>{m.label.toUpperCase()}</div>
-          <div style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:700,
-            color:up?"var(--up)":"var(--down)",display:"flex",alignItems:"center",gap:3,justifyContent:"flex-end"}}>
-            {up?<TrendingUp size={10}/>:<TrendingDown size={10}/>}
-            {up?"+":""}{(sig.change_24h||0).toFixed(2)}%
-          </div>
+          {isNoSignal ? (
+            <div style={{fontSize:10,color:"var(--t4)",fontWeight:600}}>Sinyal yok</div>
+          ) : (
+            <div style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:700,
+              color:up?"var(--up)":"var(--down)",display:"flex",alignItems:"center",gap:3,justifyContent:"flex-end"}}>
+              {up?<TrendingUp size={10}/>:<TrendingDown size={10}/>}
+              {up?"+":""}{(sig.change_24h||0).toFixed(2)}%
+            </div>
+          )}
         </div>
       </div>
 
@@ -99,20 +116,24 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
 
       {/* Stage reason */}
       <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.5,marginBottom:12,minHeight:32}}>
-        {sig.ai_hint?.substring(0,100)}{sig.ai_hint?.length>100?"...":""}
+        {isNoSignal
+          ? "Bu varlık için aktif sinyal yok. Son fiyat hareketi izleniyor."
+          : `${sig.ai_hint?.substring(0,100) || ""}${sig.ai_hint?.length>100?"...":""}`}
       </div>
 
       {/* 6 score bars */}
-      <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
-        {Object.entries(SCORE_LABELS).map(([key,meta])=>(
-          <ScoreBar key={key} label={meta.label}
-            value={sig.scores?.[key]||0}
-            color={meta.color(sig.scores?.[key]||0)}/>
-        ))}
-      </div>
+      {!isNoSignal && (
+        <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
+          {Object.entries(SCORE_LABELS).map(([key,meta])=>(
+            <ScoreBar key={key} label={meta.label}
+              value={sig.scores?.[key]||0}
+              color={meta.color(sig.scores?.[key]||0)}/>
+          ))}
+        </div>
+      )}
 
       {/* Trigger / Invalidation */}
-      {(sig.trigger_level || sig.invalidation) && (
+      {!isNoSignal && (sig.trigger_level || sig.invalidation) && (
         <div style={{
           display:"flex",gap:8,marginTop:10,
           padding:"8px 10px",background:"var(--bg-hover)",borderRadius:"var(--r-sm)"
@@ -139,7 +160,7 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
       )}
 
       {/* KALKAN warning */}
-      {sig.kalkan_reason && (
+      {!isNoSignal && sig.kalkan_reason && (
         <div style={{
           marginTop:8,padding:"6px 10px",
           background:"var(--down-dim)",border:"1px solid var(--down-border)",borderRadius:"var(--r-sm)",

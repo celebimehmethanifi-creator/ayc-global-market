@@ -262,35 +262,36 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 
 /* Demo Mode Banner */
 function DemoBanner() {
-  const { demo, totalValue, totalPnlUSD, totalPnlPct } = useDemo();
-  const [guest, setGuest] = React.useState(false);
-  const router = typeof window !== "undefined" ? null : null;
-
-  React.useEffect(() => {
-    setGuest(isGuestDemo());
-  }, []);
-
+  const { demo, totalValue, totalPnlUSD, totalPnlPct, openPnlUSD } = useDemo();
   const up = totalPnlUSD >= 0;
   const fmtUSD = (v: number) => {
     const abs = Math.abs(v);
     if (abs >= 1000) return `$${(abs/1000).toFixed(1)}K`;
-    return `$${abs.toFixed(0)}`;
+    return `$${abs.toFixed(2)}`;
   };
 
   return (
     <div style={{
-      height:30, flexShrink:0, display:"flex", alignItems:"center",
-      justifyContent:"center", gap:10,
+      minHeight:34, flexShrink:0, display:"flex", alignItems:"center",
+      justifyContent:"center", gap:10, flexWrap:"wrap",
       background:"linear-gradient(90deg,rgba(212,175,55,0.10),rgba(212,175,55,0.06))",
       borderBottom:"1px solid var(--gold-border)",
-      fontSize:11, fontFamily:"var(--font-mono)",
+      fontSize:11, fontFamily:"var(--font-mono)", padding:"4px 8px",
     }}>
       <span style={{
         background:"var(--gold)", color:"#0C0E16",
         padding:"1px 7px", borderRadius:3, fontWeight:800, fontSize:10, letterSpacing:"0.06em",
       }}>DEMO MOD</span>
       <span style={{color:"var(--t2)", fontWeight:600}}>
-        Bakiye: <span style={{color:"var(--gold)", fontWeight:800}}>{fmtUSD(totalValue)}</span>
+        Demo bakiye: <span style={{color:"var(--gold)", fontWeight:800}}>{fmtUSD(demo.balance)}</span>
+      </span>
+      <span style={{color:"var(--b1)"}}>|</span>
+      <span style={{color:"var(--t2)", fontWeight:600}}>
+        Equity: <span style={{color:"var(--t1)", fontWeight:800}}>{fmtUSD(totalValue)}</span>
+      </span>
+      <span style={{color:"var(--b1)"}}>|</span>
+      <span style={{color:openPnlUSD>=0?"var(--up)":"var(--down)", fontWeight:700}}>
+        Açık K/Z {openPnlUSD>=0?"+":""}{fmtUSD(openPnlUSD)}
       </span>
       <span style={{color:"var(--b1)"}}>|</span>
       <span style={{color:up?"var(--up)":"var(--down)", fontWeight:700}}>

@@ -81,11 +81,13 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
   const [step, setStep] = useState<"analysis" | "trade">("analysis");
   const [dir, setDir]   = useState<"LONG" | "SHORT">("LONG");
   const [amtRaw, setAmtRaw] = useState("500");
+  const [leverageRaw, setLeverageRaw] = useState("1");
   const [result, setResult] = useState<"ok" | "fail" | null>(null);
+  const [tradeError, setTradeError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { demo, openTrade, loading: demoLoading } = useDemo();
+  const { demo, openTrade, loading: demoLoading, error: demoError } = useDemo();
   const pe = usePrice(symbol.includes("USDT") || symbol.length <= 6 ? symbol : symbol + "USDT");
   const livePrice = pe?.price ?? seedPrice ?? 0;
   const liveChg   = pe?.chg  ?? seedChg;
@@ -98,8 +100,21 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const amt = Math.max(10, Math.min(parseFloat(amtRaw)||10, demo.balance));
-  const qty = livePrice > 0 ? amt / livePrice : 0;
+  useEffect(() => {
+    if (result === "fail" && demoError) {
+      setTradeError(demoError);
+    }
+  }, [demoError, result]);
+
+  const availableBalance = Number.isFinite(demo.availableBalance) ? demo.availableBalance : demo.balance;
+  const parsedAmount = parseFloat(amtRaw);
+  const amt = Number.isFinite(parsedAmount) ? parsedAmount : 0;
+  const leverage = parseFloat(leverageRaw);
+  const isAmountValid = Number.isFinite(amt) && amt > 0;
+  const isLeverageValid = Number.isFinite(leverage) && leverage >= 1 && leverage <= 10;
+  const canSubmit = livePrice > 0 && isAmountValid && amt <= availableBalance && isLeverageValid && !submitting && !demoLoading;
+  const qty = livePrice > 0 && isAmountValid ? amt / livePrice : 0;
+  const estimatedMargin = isAmountValid && isLeverageValid ? amt / leverage : null;
   const PRESETS = [100, 250, 500, 1000, 2500];
   const dirColor = dir === "LONG" ? "var(--up)" : "var(--down)";
   const aiDirColor = ai.dir === "LONG" ? "var(--up)" : ai.dir === "SHORT" ? "var(--down)" : "var(--gold)";
@@ -107,8 +122,28 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
 
   async function handleTrade() {
     if (!livePrice) return;
+    setTradeError(null);
+    if (!isAmountValid) {
+      setTradeError("Geçerli notional girin.");
+      setResult("fail");
+      return;
+    }
+    if (amt > availableBalance) {
+      setTradeError("Notional kullanılabilir bakiyeyi aşıyor.");
+      setResult("fail");
+      return;
+    }
+    if (!isLeverageValid) {
+      setTradeError("Kaldıraç 1 ile 10 arasında olmalıdır.");
+      setResult("fail");
+      return;
+    }
     setSubmitting(true);
-    const ok = await openTrade(symbol, name, dir, livePrice, amt);
+    const ok = await openTrade(symbol, name, dir, livePrice, amt, {
+      leverage,
+      stopLoss: dir === "LONG" ? ai.sl : ai.tp,
+      takeProfit: dir === "LONG" ? ai.tp : ai.sl,
+    });
     setSubmitting(false);
     setResult(ok ? "ok" : "fail");
     if (ok) setTimeout(onClose, 2200);
@@ -437,11 +472,20 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "10px 14px", background: "var(--bg-hover)", borderRadius: 10,
             }}>
-              <span style={{ fontSize: 12, color: "var(--t3)" }}>Demo Bakiye</span>
+              <span style={{ fontSize: 12, color: "var(--t3)" }}>Demo bakiye</span>
               <span style={{
                 fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 800,
                 color: "var(--gold)",
               }}>${demo.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
+            </div>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "8px 14px", background: "var(--bg-hover)", borderRadius: 10,
+            }}>
+              <span style={{ fontSize: 11, color: "var(--t3)" }}>Kullanılabilir</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--t1)" }}>
+                ${availableBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+              </span>
             </div>
 
             {/* Direction */}
@@ -493,7 +537,18 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 type="text" inputMode="decimal"
                 value={amtRaw}
                 onChange={e => { const v=e.target.value; if(/^\d*\.?\d*$/.test(v)||v==="") setAmtRaw(v); }}
-                onBlur={e => { const n=parseFloat(e.target.value)||10; setAmtRaw(String(Math.min(Math.max(10,n),demo.balance))); }}
+                onBlur={e => {
+                  if (!e.target.value.trim()) {
+                    setAmtRaw("0");
+                    return;
+                  }
+                  const n = parseFloat(e.target.value);
+                  if (!Number.isFinite(n) || n < 0) {
+                    setAmtRaw("0");
+                    return;
+                  }
+                  setAmtRaw(String(n));
+                }}
                 style={{
                   width: "100%", padding: "11px 14px",
                   background: "var(--bg-hover)", border: "1px solid var(--b2)",
@@ -503,10 +558,39 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 }}
               />
               <div style={{ fontSize: 10, color: "var(--t4)", marginTop: 5 }}>
-                Kullanılabilir: ${demo.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-                {amt > demo.balance && (
+                Kullanılabilir: ${availableBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                {amt > availableBalance && (
                   <span style={{ color: "var(--down)", marginLeft: 8 }}>UYARI: Yetersiz bakiye</span>
                 )}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: "var(--t3)", marginBottom: 8, fontWeight: 600 }}>Kaldıraç (1-10)</div>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={leverageRaw}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (/^\d*\.?\d*$/.test(v) || v === "") setLeverageRaw(v);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "11px 14px",
+                  background: "var(--bg-hover)",
+                  border: "1px solid var(--b2)",
+                  borderRadius: 10,
+                  color: "var(--t1)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div style={{ fontSize: 10, color: isLeverageValid ? "var(--t4)" : "var(--down)", marginTop: 5 }}>
+                {isLeverageValid ? "Kaldıraç demo limitinde." : "Kaldıraç 1 ile 10 arasında olmalıdır."}
               </div>
             </div>
 
@@ -515,10 +599,11 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               <div style={{
                 background: "var(--bg-hover)", borderRadius: 12,
                 padding: "12px 14px", display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr", gap: 10,
+                gridTemplateColumns: "1fr 1fr", gap: 10,
               }}>
                 {[
                   { label: "Miktar", val: qty < 0.001 ? qty.toExponential(2) : qty < 1 ? qty.toFixed(4) : qty.toFixed(3) },
+                  { label: "Tahmini Marjin", val: estimatedMargin == null ? "—" : `$${fmt(estimatedMargin)}` },
                   { label: "TP ~2.5%", val: `$${fmt(livePrice * (dir==="LONG"?1.025:0.975))}` },
                   { label: "SL ~1.6%", val: `$${fmt(livePrice * (dir==="LONG"?0.984:1.016))}` },
                 ].map(({ label, val }) => (
@@ -550,13 +635,13 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                 <AlertCircle size={22} />
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15 }}>Yetersiz bakiye!</div>
-                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>Daha küçük bir miktar girin</div>
+                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>{tradeError || "Daha küçük bir miktar girin"}</div>
                 </div>
               </div>
             ) : (
               <button
                 onClick={() => void handleTrade()}
-                disabled={!livePrice || amt > demo.balance || amt < 10 || submitting || demoLoading}
+                disabled={!canSubmit}
                 style={{
                   width: "100%", padding: "15px 0",
                   background: dir === "LONG"
@@ -564,18 +649,22 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                     : "linear-gradient(135deg, var(--down), #b91c1c)",
                   border: "none", borderRadius: 12, cursor: "pointer",
                   fontWeight: 900, fontSize: 15, color: "#fff",
-                  opacity: (!livePrice || amt > demo.balance || amt < 10 || submitting || demoLoading) ? 0.5 : 1,
+                  opacity: canSubmit ? 1 : 0.5,
                   boxShadow: `0 5px 20px ${dirColor}33`,
                   letterSpacing: "0.03em",
                   transition: "opacity 0.2s",
                 }}
               >
-                {submitting ? "İşleniyor..." : `${dir === "LONG" ? "DEMO AL" : "DEMO SAT"} - $${amt.toLocaleString()}`}
+                {submitting ? "İşleniyor..." : `${dir === "LONG" ? "DEMO AL" : "DEMO SAT"} - $${(isAmountValid ? amt : 0).toLocaleString()}`}
               </button>
             )}
 
+            {tradeError && result !== "ok" && (
+              <div style={{ fontSize: 11, color: "var(--down)", textAlign: "center" }}>{tradeError}</div>
+            )}
+
             <div style={{ textAlign: "center", fontSize: 10, color: "var(--t4)" }}>
-              Bu işlem gerçek para içermez · Sanal bakiye · Eğitim amaçlıdır
+              Bu işlem gerçek para içermez · Sanal bakiye · Eğitim amaçlıdır · Gerçek emir gönderilmez
             </div>
           </div>
         )}
