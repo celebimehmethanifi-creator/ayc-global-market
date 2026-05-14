@@ -1,4 +1,4 @@
-import type { AssetCategory } from "./asset-universe";
+﻿import type { AssetCategory } from "./asset-universe";
 
 export type DataStatus =
   | "live"
@@ -132,11 +132,13 @@ export function buildDataStatusMeta(args: {
   const bistRealtimeLicensed = Boolean(args.bistRealtimeLicensed);
 
   let dataStatus = inferBaseStatus(source, args.hasPrice, delayMinutes);
+
   if (category === "bist" && !bistRealtimeLicensed) {
     if (!args.hasPrice) dataStatus = "no_data";
     else if (!args.hasVolume) dataStatus = "license_required";
     else dataStatus = "delayed";
   }
+
   if (dataStatus === "live" && delayMinutes != null && delayMinutes >= 5) {
     dataStatus = "delayed";
   }

@@ -132,6 +132,35 @@ function fmtChange(value: number | null, locale: "tr" | "en"): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function statusVisual(status: string) {
+  if (status === "live") {
+    return {
+      color: "var(--up)",
+      bg: "var(--up-dim)",
+      border: "var(--up-border)",
+    };
+  }
+  if (status === "delayed" || status === "license_required") {
+    return {
+      color: "var(--warn)",
+      bg: "rgba(245,158,11,0.12)",
+      border: "rgba(245,158,11,0.35)",
+    };
+  }
+  if (status === "fallback") {
+    return {
+      color: "var(--gold)",
+      bg: "var(--gold-dim)",
+      border: "var(--gold-border)",
+    };
+  }
+  return {
+    color: "var(--t3)",
+    bg: "rgba(148,163,184,0.12)",
+    border: "rgba(148,163,184,0.25)",
+  };
+}
+
 export default function MarketPage() {
   const { locale, t } = useI18n();
   const { isMobile } = useBreakpoint();
@@ -351,7 +380,7 @@ export default function MarketPage() {
             {t("market.title")}
           </h1>
           <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>
-            {filteredRows.length} {t("market.subtitle")} · {apiOk ? t("market.live") : t("market.demo")}
+            {filteredRows.length} {t("market.subtitle")} · {locale === "en" ? "Live/Delayed mixed by asset" : "Veri durumu varlığa göre değişir"}
           </div>
         </div>
 
@@ -411,6 +440,7 @@ export default function MarketPage() {
                 const up24 = row.chg >= 0;
                 const up7d = (row.chg7d || 0) >= 0;
                 const hasPrice = row.price != null && row.price > 0;
+                const statusStyle = statusVisual(row.dataStatus);
                 return (
                   <tr
                     key={row.symbol}
@@ -440,13 +470,29 @@ export default function MarketPage() {
                     </td>
                     <td className={`right ${up24 ? "chg-up" : "chg-down"}`}>
                       {hasPrice ? (up24 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />) : null}
-                      {hasPrice ? fmtChange(row.chg, locale === "en" ? "en" : "tr") : "—"}
+                      {hasPrice ? fmtChange(row.chg, locale === "en" ? "en" : "tr") : (locale === "en" ? "No data" : "Veri yok")}
                     </td>
                     <td className={`right ${up7d ? "chg-up" : "chg-down"}`}>
-                      {hasPrice && row.chg7d != null ? `${up7d ? "+" : ""}${row.chg7d.toFixed(2)}%` : "—"}
+                      {hasPrice && row.chg7d != null ? `${up7d ? "+" : ""}${row.chg7d.toFixed(2)}%` : (locale === "en" ? "No data" : "Veri yok")}
                     </td>
-                    <td className="right" style={{ color: "var(--t3)" }}>{row.volume || "—"}</td>
-                    <td className="right" style={{ color: "var(--t3)" }}>{hasPrice ? row.dataStatusLabel : (locale === "en" ? "No data" : "Veri yok")}</td>
+                    <td className="right" style={{ color: "var(--t3)" }}>
+                      {hasPrice ? (row.volume || row.volumeStatusLabel) : (locale === "en" ? "No volume" : "Hacim yok")}
+                    </td>
+                    <td className="right">
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: statusStyle.color,
+                          background: statusStyle.bg,
+                          border: `1px solid ${statusStyle.border}`,
+                          borderRadius: 6,
+                          padding: "2px 8px",
+                        }}
+                      >
+                        {hasPrice ? row.dataStatusLabel : (locale === "en" ? "No data" : "Veri yok")}
+                      </span>
+                    </td>
                     <td className="right" style={{ color: "var(--t3)" }}>{row.sourceLabel}</td>
                     <td className="right" style={{ color: "var(--t3)" }}>{fmtTime(row.updatedAt)}</td>
                     <td className="right">
@@ -476,12 +522,7 @@ export default function MarketPage() {
             const up7d = (row.chg7d || 0) >= 0;
             const hasPrice = row.price != null && row.price > 0;
             const source = row.sourceLabel;
-            const qualityColor =
-              row.dataStatus === "fallback"
-                ? "var(--warn)"
-                : row.dataStatus === "no_data" || row.dataStatus === "api_error" || row.dataStatus === "license_required"
-                  ? "var(--down)"
-                  : "var(--up)";
+            const quality = statusVisual(row.dataStatus);
 
             return (
               <div
@@ -531,19 +572,34 @@ export default function MarketPage() {
                   <div>
                     <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change7d")}</div>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: hasPrice && row.chg7d != null ? (up7d ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
-                      {hasPrice && row.chg7d != null ? fmtChange(row.chg7d, locale === "en" ? "en" : "tr") : "—"}
+                      {hasPrice && row.chg7d != null ? fmtChange(row.chg7d, locale === "en" ? "en" : "tr") : (locale === "en" ? "No data" : "Veri yok")}
                     </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 9, color: "var(--t4)" }}>{locale === "en" ? "Data Status" : "Veri Durumu"}</div>
-                    <div style={{ fontSize: 12, color: qualityColor, fontWeight: 700 }}>{row.dataStatusLabel}</div>
+                    <div
+                      style={{
+                        marginTop: 1,
+                        fontSize: 11,
+                        color: quality.color,
+                        fontWeight: 700,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        background: quality.bg,
+                        border: `1px solid ${quality.border}`,
+                      }}
+                    >
+                      {row.dataStatusLabel}
+                    </div>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10 }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <span style={{ fontSize: 10, color: "var(--t4)" }}>{t("market.col.source")}:</span>
-                    <span style={{ fontSize: 10, color: qualityColor, fontWeight: 700 }}>{source}</span>
+                    <span style={{ fontSize: 10, color: quality.color, fontWeight: 700 }}>{source}</span>
                   </div>
                   <span style={{ fontSize: 10, color: "var(--t4)" }}>{fmtTime(row.updatedAt)}</span>
                   <button

@@ -43,6 +43,7 @@ WEB_SIGNUP_PAGE = ROOT / "apps" / "web" / "app" / "(auth)" / "signup" / "page.ts
 WEB_PROFESSIONAL_CHART = ROOT / "apps" / "web" / "components" / "ui" / "ProfessionalChart.tsx"
 WEB_COMMAND_PALETTE = ROOT / "apps" / "web" / "components" / "ui" / "CommandPalette.tsx"
 WEB_ASSET_DETAIL_MODAL = ROOT / "apps" / "web" / "components" / "ui" / "AssetDetailModal.tsx"
+WEB_DEMO_BANNER = ROOT / "apps" / "web" / "components" / "ui" / "DemoBanner.tsx"
 WEB_ASSET_UNIVERSE = ROOT / "apps" / "web" / "lib" / "markets" / "asset-universe.ts"
 WEB_BREAKPOINT_HOOK = ROOT / "apps" / "web" / "lib" / "responsive" / "useBreakpoint.ts"
 WEB_MIDDLEWARE = ROOT / "apps" / "web" / "middleware.ts"
@@ -642,3 +643,39 @@ def test_bist_data_status_is_not_live_without_licensed_feed():
     assert "license_required" in status_text
     assert "category === \"bist\" && latestPrice === null" in analysis_text
     assert "status: dataStatus" in analysis_text
+
+
+def test_scenario_route_uses_asset_data_quality_and_avoids_fake_confidence():
+    text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    assert "resolveAssetDataQuality" in text
+    assert "if (dataQuality === \"insufficient\")" in text
+    assert "Bu varlık için güvenilir senaryo üretilemedi. Veri yetersiz." in text
+    assert "Stop-loss olmadan pozisyon önerilmez." in text
+    assert "scenario.resultLabel = \"Tahmini\";" in text
+
+
+def test_scenario_page_marks_fallback_as_educational_and_blocks_recommendation_on_insufficient():
+    text = read_text(WEB_SCENARIO_PAGE)
+    assert "qualityBannerText" in text
+    assert "Eğitim amaçlı tahmini senaryo" in text
+    assert "allowRecommended = report.dataQuality !== \"insufficient\"" in text
+    assert "Reliable scenario could not be generated for this asset." in text
+
+
+def test_market_page_uses_clear_status_copy_and_badges():
+    text = read_text(WEB_MARKET_PAGE)
+    assert "Veri durumu varlığa göre değişir" in text
+    assert "statusVisual" in text
+    assert "row.volumeStatusLabel" in text
+
+
+def test_demo_banner_explains_virtual_money_and_training_purpose():
+    text = read_text(WEB_DEMO_BANNER)
+    assert "Bu demo bakiyedir, gerçek para değildir." in text
+    assert "Demo işlemler eğitim amaçlıdır." in text
+
+
+def test_professional_chart_rotate_hint_is_temporary():
+    text = read_text(WEB_PROFESSIONAL_CHART)
+    assert "showRotateHint" in text
+    assert "setTimeout(() => setShowRotateHint(false), 2800)" in text

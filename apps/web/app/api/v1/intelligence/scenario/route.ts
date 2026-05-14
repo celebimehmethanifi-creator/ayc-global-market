@@ -52,6 +52,43 @@ function parseStrictNumericInput(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+type RawDataQuality =
+  | "live"
+  | "delayed"
+  | "fallback"
+  | "insufficient"
+  | "license_required"
+  | "no_volume"
+  | "no_data"
+  | "api_error";
+
+function mapQualityToScenario(value: string): "live" | "delayed" | "fallback" | "insufficient" {
+  const status = value as RawDataQuality;
+  if (status === "live") return "live";
+  if (status === "delayed") return "delayed";
+  if (status === "fallback") return "fallback";
+  return "insufficient";
+}
+
+async function resolveAssetDataQuality(
+  req: NextRequest,
+  symbol: string,
+): Promise<"live" | "delayed" | "fallback" | "insufficient"> {
+  try {
+    const analysisUrl = new URL(
+      `/api/v1/assets/${encodeURIComponent(symbol)}/analysis?timeframe=1D&riskProfile=medium`,
+      req.url,
+    );
+    const response = await fetch(analysisUrl.toString(), { cache: "no-store" });
+    if (!response.ok) return "fallback";
+    const payload = await response.json().catch(() => null);
+    const rawStatus = String(payload?.dataQuality?.status || "");
+    return mapQualityToScenario(rawStatus);
+  } catch {
+    return "fallback";
+  }
+}
+
 function computePnlPct(direction: Direction, entry: number, target: number): number | null {
   if (!(entry > 0) || !(target > 0)) return null;
   const raw = direction === "SHORT" ? (entry - target) / entry : (target - entry) / entry;
@@ -183,9 +220,25 @@ export async function POST(req: NextRequest) {
   const leverage = clamp(rawLeverage, 1, 20);
   const confidence = clamp(rawConfidence, 1, 100);
   const volatility = Math.max(0, rawVolatility);
+  const dataQuality = await resolveAssetDataQuality(req, symbol);
 
-  const stopDistance = entryPrice * clamp(0.007 + volatility / 200, 0.005, 0.08);
-  const targetDistance = entryPrice * clamp(0.012 + volatility / 120, 0.008, 0.12);
+  if (dataQuality === "insufficient") {
+    return NextResponse.json({
+      symbol,
+      price: round(entryPrice, 6),
+      direction,
+      recommended: "Yok",
+      key_insight: "Bu varlık için güvenilir senaryo üretilemedi. Veri yetersiz.",
+      generatedAt: new Date().toISOString(),
+      disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
+      dataQuality,
+      scenarios: [],
+    });
+  }
+
+  const qualityMultiplier = dataQuality === "live" ? 1 : dataQuality === "delayed" ? 1.08 : 1.2;
+  const stopDistance = entryPrice * clamp((0.007 + volatility / 200) * qualityMultiplier, 0.005, 0.12);
+  const targetDistance = entryPrice * clamp((0.012 + volatility / 120) * qualityMultiplier, 0.008, 0.16);
 
   const longTarget = entryPrice + targetDistance;
   const longStop = Math.max(0.00000001, entryPrice - stopDistance);
@@ -206,7 +259,8 @@ export async function POST(req: NextRequest) {
       amount,
       leverage,
       probability: clamp(confidence - 5, 1, 99),
-      dataQuality: "fallback",
+      dataQuality,
+      warning: dataQuality === "fallback" ? "Eğitim amaçlı tahmini senaryo. Veri kalitesi sınırlı." : undefined,
     }),
     buildScenario({
       name: "Tetik Bekle",
@@ -218,7 +272,8 @@ export async function POST(req: NextRequest) {
       amount,
       leverage,
       probability: clamp(confidence + 4, 1, 99),
-      dataQuality: "fallback",
+      dataQuality,
+      warning: dataQuality === "fallback" ? "Eğitim amaçlı tahmini senaryo. Veri kalitesi sınırlı." : undefined,
     }),
     buildScenario({
       name: "Yarı Pozisyon",
@@ -230,7 +285,8 @@ export async function POST(req: NextRequest) {
       amount: amount * 0.5,
       leverage,
       probability: clamp(confidence + 2, 1, 99),
-      dataQuality: "fallback",
+      dataQuality,
+      warning: dataQuality === "fallback" ? "Eğitim amaçlı tahmini senaryo. Veri kalitesi sınırlı." : undefined,
     }),
     buildScenario({
       name: "Stopsuz",
@@ -242,7 +298,7 @@ export async function POST(req: NextRequest) {
       amount,
       leverage,
       probability: clamp(confidence - 25, 1, 99),
-      warning: "Kalkan: Stopsuz işlem risk politikasını ihlal eder.",
+      warning: "Stop-loss olmadan pozisyon önerilmez.",
       dataQuality: "insufficient",
     }),
     buildScenario({
@@ -256,7 +312,7 @@ export async function POST(req: NextRequest) {
       leverage: Math.max(3, leverage),
       probability: clamp(confidence - 10, 1, 99),
       warning: "Kalkan: Yüksek kaldıraçta tasfiye riski artar.",
-      dataQuality: "fallback",
+      dataQuality,
     }),
     buildScenario({
       name: "Bekle / Geç",
@@ -268,11 +324,24 @@ export async function POST(req: NextRequest) {
       amount: 0,
       leverage: 1,
       probability: 100,
-      dataQuality: "live",
+      dataQuality,
     }),
   ];
 
+  if (dataQuality === "fallback") {
+    for (const scenario of scenarios) {
+      scenario.resultLabel = "Tahmini";
+      if (scenario.probability != null) {
+        scenario.probability = Math.min(62, Math.max(38, scenario.probability - 10));
+      }
+      if (scenario.kellyFraction != null) {
+        scenario.kellyFraction = Math.min(0.18, scenario.kellyFraction);
+      }
+    }
+  }
+
   const scored = scenarios
+    .filter((scenario) => scenario.stopLoss != null && scenario.name !== "Stopsuz")
     .map((scenario) => {
       const rrScore = scenario.riskReward ?? 0;
       const probScore = (scenario.probability ?? 0) / 100;
@@ -284,16 +353,22 @@ export async function POST(req: NextRequest) {
     .sort((a, b) => b.score - a.score);
 
   const recommended = scored[0]?.scenario?.name || "Bekle / Geç";
+  const insightByQuality =
+    dataQuality === "live"
+      ? "Canlı veriyle senaryo üretildi. Yine de risk yönetimi olmadan işlem açmayın."
+      : dataQuality === "delayed"
+        ? "Gecikmeli veriyle tahmini senaryo üretildi. Karar öncesi güncel fiyatı doğrulayın."
+        : "Eğitim amaçlı tahmini senaryo üretildi. Veri kalitesi sınırlı olabilir.";
 
   return NextResponse.json({
     symbol,
     price: round(entryPrice, 6),
     direction,
     recommended,
-    key_insight:
-      "Bu çıktı eğitim amaçlıdır. Teknik ve temel veriler sınırlıysa hedef/stop boş bırakılabilir.",
+    key_insight: insightByQuality,
     generatedAt: new Date().toISOString(),
     disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
+    dataQuality,
     scenarios,
   });
 }

@@ -133,6 +133,20 @@ export default function SignInPage() {
 
         <div
           style={{
+            border: "1px solid var(--b1)",
+            background: "rgba(255,255,255,0.03)",
+            borderRadius: "var(--r-lg)",
+            padding: 12,
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "var(--t2)", lineHeight: 1.5 }}>
+            Demo modda gerçek para riski olmadan strateji deneyebilir, canlıya geçmeden önce sinyallerinizi test edebilirsiniz.
+          </div>
+        </div>
+
+        <div
+          style={{
             border: "1px solid var(--gold-border)",
             background: "rgba(245,158,11,0.10)",
             borderRadius: "var(--r-lg)",

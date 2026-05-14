@@ -317,7 +317,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
           top: 0,
           right: 0,
           bottom: 0,
-          width: isMobile ? "100vw" : "min(860px, 96vw)",
+          width: isMobile ? "100vw" : "min(960px, 97vw)",
           maxWidth: "100vw",
           zIndex: 1001,
           background: "var(--bg-panel)",
@@ -334,7 +334,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             zIndex: 12,
             background: "var(--bg-card)",
             borderBottom: "1px solid var(--b1)",
-            padding: "12px 14px",
+            padding: "14px 16px",
             display: "flex",
             flexDirection: "column",
             gap: 10,
@@ -343,14 +343,27 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "var(--font-head)", fontSize: 20, fontWeight: 800, color: "var(--t1)" }}>{headerTitle}</span>
-                <span style={{ fontSize: 12, color: "var(--t3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>{asset.name}</span>
+                <span style={{ fontFamily: "var(--font-head)", fontSize: 22, fontWeight: 800, color: "var(--t1)" }}>{headerTitle}</span>
+                <span style={{ fontSize: 13, color: "var(--t2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 260 }}>{asset.name}</span>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 800, color: "var(--t1)" }}>{fmtPrice(displayPrice)}</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: isUp ? "var(--up)" : "var(--down)" }}>{fmtPercent(displayChange)}</span>
-                <span style={{ fontSize: 10, color: statusColor(headerStatus), fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 800, color: "var(--t1)" }}>{fmtPrice(displayPrice)}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: isUp ? "var(--up)" : "var(--down)" }}>{fmtPercent(displayChange)}</span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: statusColor(headerStatus),
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    borderRadius: 8,
+                    border: `1px solid ${statusColor(headerStatus)}33`,
+                    background: `${statusColor(headerStatus)}14`,
+                    padding: "2px 8px",
+                  }}
+                >
                   <span
                     style={{
                       width: 6,
@@ -363,7 +376,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
                   {statusLabel(headerStatus)}
                 </span>
                 {isBistAsset && headerStatus !== "live" && (
-                  <span style={{ fontSize: 10, color: "var(--t4)" }} title="BIST gerçek zamanlı fiyat/hacim için lisanslı veri sağlayıcı gereklidir.">
+                  <span style={{ fontSize: 11, color: "var(--t3)" }} title="BIST gerçek zamanlı fiyat/hacim için lisanslı veri sağlayıcı gereklidir.">
                     BIST: Lisans gerekli
                   </span>
                 )}
@@ -473,7 +486,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               setChartUpdatedAt(updatedAt);
               setChartProvider(source || "ohlcv");
             }}
-            height={420}
+            height={isMobile ? 360 : 480}
           />
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -610,12 +623,12 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
 
 function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div style={{ border: "1px solid var(--b1)", borderRadius: "var(--r-md)", background: "var(--bg)", padding: "9px 10px" }}>
+    <div style={{ border: "1px solid var(--b1)", borderRadius: "var(--r-md)", background: "var(--bg)", padding: "10px 11px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
         {icon}
-        <span style={{ fontSize: 10, color: "var(--t4)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+        <span style={{ fontSize: 11, color: "var(--t3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 700 }}>{value}</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--t1)", fontWeight: 700 }}>{value}</div>
     </div>
   );
 }
@@ -623,8 +636,8 @@ function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; va
 function TextBox({ title, text }: { title: string; text: string }) {
   return (
     <div style={{ border: "1px solid var(--b1)", borderRadius: "var(--r-md)", background: "var(--bg)", padding: "10px 11px" }}>
-      <div style={{ fontSize: 10, color: "var(--t4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 12, color: "var(--t2)", lineHeight: 1.55 }}>{text}</div>
+      <div style={{ fontSize: 11, color: "var(--t3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.6 }}>{text}</div>
     </div>
   );
 }
@@ -641,9 +654,9 @@ function TinyBadge({ label, value }: { label: string; value: string }) {
         background: "var(--bg)",
         padding: "4px 8px",
       }}
-    >
-      <span style={{ fontSize: 10, color: "var(--t4)", textTransform: "uppercase" }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--t2)", fontWeight: 700 }}>{value}</span>
+      >
+      <span style={{ fontSize: 10, color: "var(--t3)", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--t2)", fontWeight: 700 }}>{value}</span>
     </span>
   );
 }

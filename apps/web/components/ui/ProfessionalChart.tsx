@@ -399,6 +399,7 @@ export default function ProfessionalChart({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewportH, setViewportH] = useState(0);
   const [portalReady, setPortalReady] = useState(false);
+  const [showRotateHint, setShowRotateHint] = useState(false);
   const [dataSource, setDataSource] = useState<string>("ohlcv");
   const fullscreenStatePushedRef = useRef(false);
 
@@ -485,6 +486,22 @@ export default function ProfessionalChart({
       fullscreenStatePushedRef.current = false;
     };
   }, [isFullscreen, closeFullscreen]);
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      setShowRotateHint(false);
+      return undefined;
+    }
+    const isMobileViewport = window.innerWidth <= 900;
+    const isPortrait = window.innerHeight > window.innerWidth;
+    if (!isMobileViewport || !isPortrait) {
+      setShowRotateHint(false);
+      return undefined;
+    }
+    setShowRotateHint(true);
+    const timeout = window.setTimeout(() => setShowRotateHint(false), 2800);
+    return () => window.clearTimeout(timeout);
+  }, [isFullscreen, viewportH]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
@@ -1430,7 +1447,7 @@ export default function ProfessionalChart({
           }}
         />
 
-        {isFullscreen && (
+        {isFullscreen && showRotateHint && (
           <div
             style={{
               position: 'absolute',
@@ -1445,6 +1462,8 @@ export default function ProfessionalChart({
               fontSize: 10,
               fontFamily: THEME.fontSans,
               pointerEvents: 'none',
+              opacity: showRotateHint ? 1 : 0,
+              transition: "opacity 220ms ease",
             }}
           >
             Daha geniş görünüm için telefonu yatay çevirin

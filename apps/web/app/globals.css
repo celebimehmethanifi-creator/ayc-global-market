@@ -47,8 +47,8 @@ img.interactive { pointer-events: auto; }
 
   /* Text */
   --t1:          #F0F2F8;
-  --t2:          #9BA3BA;
-  --t3:          #5C6480;
+  --t2:          #B8C0D8;
+  --t3:          #8690AD;
   --t4:          #3A4060;
 
   /* Gold - AYC brand */
@@ -102,7 +102,7 @@ body {
   background: var(--bg);
   color: var(--t1);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   overflow-x: hidden;
   overflow-y: auto;
@@ -179,9 +179,9 @@ h1, h2, h3, h4, h5, h6 {
   transition: border-color 0.15s, transform 0.15s;
 }
 .stat-card:hover { border-color: var(--b2); transform: translateY(-1px); }
-.stat-label  { font-size: 11px; color: var(--t3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-label  { font-size: 12px; color: var(--t2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-value  { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--t1); line-height: 1; }
-.stat-delta  { font-size: 11px; color: var(--t3); }
+.stat-delta  { font-size: 12px; color: var(--t2); }
 .stat-icon   { position: absolute; top: 14px; right: 14px; opacity: 0.15; }
 
 /* ”€”€ Signal rows ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
@@ -232,8 +232,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 .market-table th {
   padding: 8px 12px;
-  font-size: 10px; font-weight: 600;
-  color: var(--t3); text-transform: uppercase;
+  font-size: 11px; font-weight: 700;
+  color: var(--t2); text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: left;
   white-space: nowrap;
@@ -247,7 +247,7 @@ h1, h2, h3, h4, h5, h6 {
 .market-table tbody tr:hover { background: var(--bg-hover); }
 .market-table td {
   padding: 9px 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--t2);
   white-space: nowrap;
 }
@@ -274,7 +274,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 5px 12px;
   border-radius: 20px;
   border: 1px solid var(--b1);
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 700;
   color: var(--t3);
   background: transparent;
   cursor: pointer;
@@ -488,7 +488,7 @@ h1, h2, h3, h4, h5, h6 {
 .inp {
   background: var(--bg); border: 1px solid var(--b1);
   border-radius: var(--r-sm); color: var(--t1);
-  font-family: var(--font-body); font-size: 12px;
+  font-family: var(--font-body); font-size: 13px;
   padding: 6px 10px; outline: none;
   transition: border-color 0.15s;
 }

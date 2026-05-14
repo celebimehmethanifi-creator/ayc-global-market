@@ -45,6 +45,9 @@ export function DemoBanner() {
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
             Eğitim hesabı · $10.000 sanal bakiye ile piyasaları inceleyin
           </div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.72)", marginTop: 4 }}>
+            Bu demo bakiyedir, gerçek para değildir. Demo işlemler eğitim amaçlıdır.
+          </div>
         </div>
       </div>
 

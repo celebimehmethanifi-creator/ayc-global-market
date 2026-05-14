@@ -35,6 +35,7 @@ type SimulationReport = {
   price: number;
   direction: Direction;
   recommended: string;
+  dataQuality: DataQuality;
   keyInsight: string;
   generatedAt: string;
   disclaimer: string;
@@ -111,6 +112,9 @@ function normalizeReport(rawInput: unknown, fallbackSymbol: string, fallbackDire
     price: toNum(raw.price) ?? 0,
     direction: String(raw.direction || fallbackDirection).toUpperCase() === "SHORT" ? "SHORT" : "LONG",
     recommended: safeText(raw.recommended, scenarios[0]?.name || "Bekle / Geç"),
+    dataQuality: ["live", "delayed", "fallback", "insufficient"].includes(String(raw.dataQuality))
+      ? (raw.dataQuality as DataQuality)
+      : (scenarios[0]?.dataQuality || "insufficient"),
     keyInsight: safeText(raw.key_insight ?? raw.keyInsight, "Veri sınırlı, analiz güveni düşebilir."),
     generatedAt: safeText(raw.generatedAt, new Date().toISOString()),
     disclaimer: safeText(raw.disclaimer, "Bu içerik yatırım tavsiyesi değildir."),
@@ -152,15 +156,16 @@ function scoreScenario(s: ScenarioResult): number {
   const rr = s.riskReward ?? 0;
   const p = (s.probability ?? 0) / 100;
   const pnl = (s.expectedPnlPct ?? 0) / 100;
+  const qualityPenalty = s.dataQuality === "live" ? 1 : s.dataQuality === "delayed" ? 0.9 : s.dataQuality === "fallback" ? 0.7 : 0.2;
   const penalty = s.warning ? 0.5 : 1;
-  return (rr * 0.5 + p * 0.3 + pnl * 0.2) * penalty;
+  return (rr * 0.5 + p * 0.3 + pnl * 0.2) * penalty * qualityPenalty;
 }
 
 function qualityLabel(q: DataQuality, locale: "tr" | "en"): string {
   const tr: Record<DataQuality, string> = {
     live: "Canlı",
     delayed: "Gecikmeli",
-    fallback: "Fallback",
+    fallback: "Eğitim modu",
     insufficient: "Veri yetersiz",
   };
   const en: Record<DataQuality, string> = {
@@ -172,17 +177,41 @@ function qualityLabel(q: DataQuality, locale: "tr" | "en"): string {
   return locale === "en" ? en[q] : tr[q];
 }
 
+function qualityBannerText(q: DataQuality, locale: "tr" | "en"): string {
+  if (locale === "en") {
+    if (q === "live") return "Live-data scenario";
+    if (q === "delayed") return "Delayed-data estimated scenario";
+    if (q === "fallback") return "Educational estimated scenario";
+    return "Insufficient data";
+  }
+  if (q === "live") return "Canlı veri senaryosu";
+  if (q === "delayed") return "Gecikmeli veriyle tahmini senaryo";
+  if (q === "fallback") return "Eğitim amaçlı tahmini senaryo";
+  return "Veri yetersiz";
+}
+
 function ScenarioCard({
   scenario,
   recommended,
   locale,
+  reportQuality,
 }: {
   scenario: ScenarioResult;
   recommended: boolean;
   locale: "tr" | "en";
+  reportQuality: DataQuality;
 }) {
-  const expectedPnlPct = formatPercent(scenario.expectedPnlPct);
-  const maxLossPct = formatLossPercent(scenario.maxLossPct);
+  const insufficient = scenario.dataQuality === "insufficient" || reportQuality === "insufficient";
+  const fallbackMode = scenario.dataQuality === "fallback" || reportQuality === "fallback";
+  const delayedMode = scenario.dataQuality === "delayed" || reportQuality === "delayed";
+  const noDataText = locale === "en" ? "Insufficient data" : "Veri yetersiz";
+  const estimatedText = locale === "en" ? "Estimated" : "Tahmini";
+  const expectedPnlPct = insufficient ? noDataText : (fallbackMode ? `~${formatPercent(scenario.expectedPnlPct, estimatedText)}` : formatPercent(scenario.expectedPnlPct));
+  const maxLossPct = insufficient ? noDataText : formatLossPercent(scenario.maxLossPct);
+  const recommendationLabel = fallbackMode
+    ? (locale === "en" ? "EDU RECOMMENDED" : "EĞİTİM ÖNERİSİ")
+    : (locale === "en" ? "RECOMMENDED" : "ÖNERİLEN");
+  const resultValue = insufficient ? (locale === "en" ? "Insufficient data" : "Veri yetersiz") : (scenario.resultLabel || "Nötr");
 
   return (
     <div
@@ -201,7 +230,7 @@ function ScenarioCard({
           <div style={{ fontSize: 13, fontWeight: 800, color: "var(--t1)" }}>{scenario.name}</div>
           <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>{scenario.description}</div>
         </div>
-        {recommended && (
+        {recommended && !insufficient && (
           <span
             style={{
               fontSize: 9,
@@ -215,7 +244,7 @@ function ScenarioCard({
               whiteSpace: "nowrap",
             }}
           >
-            {locale === "en" ? "RECOMMENDED" : "ÖNERİLEN"}
+            {recommendationLabel}
           </span>
         )}
       </div>
@@ -223,10 +252,10 @@ function ScenarioCard({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
         <Metric label={locale === "en" ? "Expected PnL" : "Beklenen PnL"} value={expectedPnlPct} />
         <Metric label={locale === "en" ? "Max Loss" : "Maks Kayıp"} value={maxLossPct} />
-        <Metric label={locale === "en" ? "Risk/Reward" : "Risk/Ödül"} value={formatRatio(scenario.riskReward)} />
-        <Metric label={locale === "en" ? "Kelly" : "Kelly"} value={formatKelly(scenario.kellyFraction)} />
-        <Metric label={locale === "en" ? "Probability" : "Olasılık"} value={formatPercent(scenario.probability)} />
-        <Metric label={locale === "en" ? "Result" : "Sonuç"} value={scenario.resultLabel || "Nötr"} />
+        <Metric label={locale === "en" ? "Risk/Reward" : "Risk/Ödül"} value={insufficient ? noDataText : formatRatio(scenario.riskReward)} />
+        <Metric label={locale === "en" ? "Kelly" : "Kelly"} value={insufficient || fallbackMode ? noDataText : formatKelly(scenario.kellyFraction)} />
+        <Metric label={locale === "en" ? "Probability" : "Olasılık"} value={insufficient ? noDataText : (fallbackMode ? estimatedText : formatPercent(scenario.probability))} />
+        <Metric label={locale === "en" ? "Result" : "Sonuç"} value={resultValue} />
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
@@ -234,16 +263,21 @@ function ScenarioCard({
           {locale === "en" ? "Entry" : "Giriş"}: {formatMoney(scenario.entryPrice, "—")}
         </span>
         <span style={{ fontSize: 10, color: "var(--t3)" }}>
-          {locale === "en" ? "Target" : "Hedef"}: {formatMoney(scenario.targetPrice, "Veri yetersiz")}
+          {locale === "en" ? "Target" : "Hedef"}: {formatMoney(scenario.targetPrice, noDataText)}
         </span>
         <span style={{ fontSize: 10, color: "var(--t3)" }}>
-          Stop: {formatMoney(scenario.stopLoss, "Veri yetersiz")}
+          Stop: {formatMoney(scenario.stopLoss, noDataText)}
         </span>
       </div>
 
       <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 9, color: "var(--t4)" }}>{locale === "en" ? "Data quality:" : "Veri kalitesi:"}</span>
         <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t2)" }}>{qualityLabel(scenario.dataQuality, locale)}</span>
+        {(fallbackMode || delayedMode) && (
+          <span style={{ fontSize: 10, color: "var(--warn)" }}>
+            {fallbackMode ? (locale === "en" ? "Educational estimate" : "Eğitim amaçlı tahmin") : (locale === "en" ? "Estimated" : "Tahmini")}
+          </span>
+        )}
       </div>
 
       {scenario.warning && (
@@ -360,6 +394,7 @@ export default function ScenarioPage() {
       price: parseStrictNumberInput(form.entryPrice) || 0,
       direction: form.direction,
       recommended: "Bekle / Geç",
+      dataQuality: "insufficient",
       keyInsight: lang === "en"
         ? "Run simulation to see realistic PnL, drawdown and Kelly outputs."
         : "Gerçekçi PnL, drawdown ve Kelly çıktıları için simülasyonu çalıştırın.",
@@ -378,9 +413,13 @@ export default function ScenarioPage() {
     const valid = scenarios.filter((item) => Number.isFinite(scoreScenario(item)));
     const highest = valid.sort((a, b) => scoreScenario(b) - scoreScenario(a))[0];
     const recommendedName = report.recommended || highest?.name || scenarios[0].name;
+    const allowRecommended = report.dataQuality !== "insufficient";
 
-    return scenarios.map((scenario) => ({ ...scenario, _recommended: scenario.name === recommendedName }));
-  }, [report.recommended, report.scenarios]);
+    return scenarios.map((scenario) => ({
+      ...scenario,
+      _recommended: allowRecommended && scenario.name === recommendedName,
+    }));
+  }, [report.dataQuality, report.recommended, report.scenarios]);
 
   const generatedAtLabel = new Date(report.generatedAt).toLocaleString(lang === "en" ? "en-US" : "tr-TR");
 
@@ -460,6 +499,9 @@ export default function ScenarioPage() {
         padding: "12px 14px",
       }}>
         <div style={{ fontSize: 11, color: "var(--t1)", marginBottom: 4 }}>{report.keyInsight}</div>
+        <div style={{ fontSize: 11, color: "var(--warn)", fontWeight: 700, marginBottom: 4 }}>
+          {qualityBannerText(report.dataQuality, lang)}
+        </div>
         <div style={{ fontSize: 10, color: "var(--t3)" }}>
           {lang === "en" ? "Generated" : "Üretim zamanı"}: {generatedAtLabel}
         </div>
@@ -473,12 +515,15 @@ export default function ScenarioPage() {
               scenario={scenario}
               recommended={Boolean(scenario._recommended)}
               locale={lang}
+              reportQuality={report.dataQuality}
             />
           ))}
         </div>
       ) : (
         <div style={{ padding: 24, textAlign: "center", color: "var(--t3)", border: "1px dashed var(--b1)", borderRadius: "var(--r-lg)" }}>
-          {lang === "en" ? "Run simulation to generate scenarios." : "Senaryoları görmek için simülasyonu çalıştırın."}
+          {report.dataQuality === "insufficient"
+            ? (lang === "en" ? "Reliable scenario could not be generated for this asset." : "Bu varlık için güvenilir senaryo üretilemedi.")
+            : (lang === "en" ? "Run simulation to generate scenarios." : "Senaryoları görmek için simülasyonu çalıştırın.")}
         </div>
       )}
 

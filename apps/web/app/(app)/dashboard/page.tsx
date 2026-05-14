@@ -600,7 +600,7 @@ function SignalCard({sig,onDetail}:{sig:Signal;onDetail:()=>void}) {
 
 
 
-          <div style={{fontSize:8,color:"var(--t4)",textAlign:"center"}}>GUVEN</div>
+          <div style={{fontSize:10,color:"var(--t3)",textAlign:"center"}}>GÜVEN</div>
 
 
 
@@ -616,11 +616,11 @@ function SignalCard({sig,onDetail}:{sig:Signal;onDetail:()=>void}) {
 
 
 
-        <span style={{fontSize:9,color:"var(--t4)"}}>{sig.age} once</span>
+        <span style={{fontSize:10,color:"var(--t3)"}}>{sig.age} önce</span>
 
 
 
-        <span style={{fontSize:9,color:"var(--t3)",display:"flex",alignItems:"center",gap:3}}>
+        <span style={{fontSize:10,color:"var(--t2)",display:"flex",alignItems:"center",gap:3}}>
 
 
 
@@ -673,8 +673,9 @@ function SignalCard({sig,onDetail}:{sig:Signal;onDetail:()=>void}) {
 
 
 function CausalSection({data}:{data:CausalCard}) {
-  const causeLabel = CAUSE_LABELS[data.primary_cause] || "Belirsiz";
+  const mappedCause = CAUSE_LABELS[data.primary_cause] || "Belirsiz";
   const hasMeaningfulMove = data.has_meaningful_move ?? !/%0\.00/.test(data.narrative || "");
+  const causeLabel = hasMeaningfulMove ? mappedCause : "Veri yetersiz";
   const normalizedNarrative = (data.narrative || "")
     .replace(/\*\*/g, "")
     .replace(/ORGANIC_TREND|VOLUME_ANOMALY|VOLUME_SPIKE|MANIPULATION_SIGNAL|MANIPULATION_RISK|NEWS_IMPACT|TECHNICAL_BREAKOUT|LOW_LIQUIDITY/g, (token) => CAUSE_LABELS[token] || token);
@@ -1070,7 +1071,11 @@ export default function DashboardPage() {
   const longCount = signals.filter(s=>s.direction==="LONG").length;
   const priceEntries = Object.values(livePrices);
   const freshPriceCount = priceEntries.filter((entry) => nowTs > 0 && nowTs - entry.ts < 45000).length;
-  const dataStatus = freshPriceCount >= 8 ? "Canlı" : freshPriceCount > 0 ? "Gecikmeli" : "Fallback";
+  const dataStatus = freshPriceCount >= 8
+    ? "Canlı"
+    : freshPriceCount > 0
+      ? "Canlı/Gecikmeli karışık"
+      : "Veri sınırlı";
 
 
 
@@ -1426,14 +1431,14 @@ export default function DashboardPage() {
                 width:10,height:10,borderRadius:"50%",background:"white",border:"2px solid var(--gold)"}}/>
             </div>
 
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"var(--t4)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--t3)"}}>
               <span>Korku</span><span>Nötr</span><span>Açgözlülük</span>
             </div>
-            <div style={{marginTop:8,fontSize:9,color:"var(--t4)",display:"flex",justifyContent:"space-between"}}>
+            <div style={{marginTop:8,fontSize:10,color:"var(--t3)",display:"flex",justifyContent:"space-between"}}>
               <span>Yükselen: {marketPulse.advanceCount}</span>
               <span>Düşen: {marketPulse.declineCount}</span>
             </div>
-            <div style={{marginTop:6,fontSize:9,color:"var(--t4)",display:"flex",justifyContent:"space-between"}}>
+            <div style={{marginTop:6,fontSize:10,color:"var(--t3)",display:"flex",justifyContent:"space-between"}}>
               <span>Veri: {dataStatus}</span>
               <span>Güncellendi: {marketPulseUpdatedAt}</span>
             </div>
