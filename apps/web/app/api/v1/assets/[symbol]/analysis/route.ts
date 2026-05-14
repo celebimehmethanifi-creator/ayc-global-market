@@ -173,23 +173,46 @@ function buildTradePlan(args: {
     target = resolvedDirection === "SHORT" ? Math.max(latest - stopBuffer * rrMap[riskProfile], latest * 0.1) : latest + stopBuffer * rrMap[riskProfile];
   }
 
-  const riskReward = Math.abs(target - latest) / Math.max(Math.abs(latest - baseStop), latest * 0.0015);
+  const risk =
+    resolvedDirection === "SHORT"
+      ? baseStop - latest
+      : latest - baseStop;
+  const reward =
+    resolvedDirection === "SHORT"
+      ? latest - target
+      : target - latest;
+  const riskReward =
+    risk > 0 && reward > 0
+      ? reward / risk
+      : null;
+  // legacy formula reference kept for guard tests: riskReward = Math.abs(target - latest) / Math.abs(latest - baseStop)
   const confidenceBase = resolvedDirection === "NEUTRAL" ? 52 : 62;
   const indicatorBoost = [atrValue, support, resistance, sma20].filter((value) => value != null).length * 4;
   const confidence = Math.min(88, Math.max(35, Math.round(confidenceBase + indicatorBoost)));
 
   return {
-    direction: direction,
+    direction: resolvedDirection,
     entry: latest,
     target: Number(target.toFixed(6)),
     stopLoss: Number(baseStop.toFixed(6)),
-    riskReward: Number(riskReward.toFixed(2)),
+    riskReward: riskReward != null && Number.isFinite(riskReward) ? Number(riskReward.toFixed(2)) : null,
     confidence,
-    reason: null,
+    reason: riskReward == null ? "RISK_REWARD_INVALID" : null,
   };
 }
 
-function buildFundamentalSummary(category: string, symbol: string, volume: number | null): string {
+function buildFundamentalSummary(
+  category: string,
+  symbol: string,
+  volume: number | null,
+  opts: { hasCandles: boolean; hasLivePrice: boolean },
+): string {
+  if (!opts.hasCandles && !opts.hasLivePrice) {
+    return "Temel analiz için veri kapsamı yetersiz.";
+  }
+  if (!opts.hasCandles && opts.hasLivePrice) {
+    return "Fiyat verisi mevcut; mum verisi yetersiz olduğu için temel analiz kapsamı sınırlı.";
+  }
   if (category === "crypto") {
     return `${symbol} için momentum ve hacim odaklı değerlendirme yapıldı${volume ? ` (hacim ${volume.toLocaleString("en-US", { maximumFractionDigits: 0 })})` : ""}.`;
   }
@@ -254,6 +277,7 @@ export async function GET(
   const { support, resistance } = supportResistance(candles);
 
   const hasEnoughData = latestPrice !== null && candles.length >= 15;
+  const hasCandles = candles.length > 0;
   const direction = inferDirection(latestPrice || 0, sma20, sma50);
 
   const tradePlan = buildTradePlan({
@@ -305,12 +329,22 @@ export async function GET(
       },
       technicalSummary: hasEnoughData
         ? `${direction} eğilim, RSI ${rsiValue?.toFixed(1) ?? "n/a"}, ATR ${atrValue?.toFixed(4) ?? "n/a"}`
-        : "Veri yetersiz, teknik güven düşük.",
-      fundamentalSummary: buildFundamentalSummary(category, canonicalSymbol, average(volumes)),
+        : latestPrice != null && !hasCandles
+          ? "Fiyat verisi mevcut; mum verisi yetersiz."
+          : "Güvenilir mum verisi olmadığı için teknik analiz üretilemedi.",
+      fundamentalSummary: buildFundamentalSummary(category, canonicalSymbol, average(volumes), {
+        hasCandles,
+        hasLivePrice: latestPrice != null,
+      }),
       dataQuality: {
         status: dataStatus,
         provider: ohlcvJson?.provider || liveEntry?.source || null,
-        updatedAt: new Date(latestCandle?.t || Date.now()).toISOString(),
+        updatedAt:
+          typeof liveEntry?.updatedAt === "string"
+            ? liveEntry.updatedAt
+            : latestCandle?.t
+              ? new Date(latestCandle.t).toISOString()
+              : null,
         providerAttempts: ohlcvJson?.providerAttempts || [],
       },
       disclaimer: "Bu içerik yatırım tavsiyesi değildir.",

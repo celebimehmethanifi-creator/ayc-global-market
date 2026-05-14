@@ -1,13 +1,15 @@
 ﻿"use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { AssetDetailModal, type AssetInfo } from "@/components/ui/AssetDetailModal";
 import { Zap, Eye, Crosshair, Shield, Activity, TrendingUp, TrendingDown, RefreshCw, Filter, ChevronRight, FlaskConical } from "lucide-react";
 import { usePrices } from "@/lib/prices/PriceContext";
 import { AITradeModal } from "@/components/ui/AITradeModal";
+import { useI18n } from "@/lib/i18n";
+import { hasMeaningfulSignal, normalizeSignalsPayload, type NormalizedSignal, type SignalStage } from "@/lib/signals/normalize";
 
-type Stage = "TRIGGER"|"SETUP"|"WATCH"|"KALKAN"|"NONE";
+type Stage = SignalStage;
 
 const STAGE_META: Record<Stage,{label:string;color:string;dim:string;border:string;Icon:any;desc:string}> = {
   TRIGGER:{ label:"Tetik Alarmı",    color:"var(--up)",    dim:"var(--up-dim)",    border:"var(--up-border)",   Icon:Crosshair, desc:"Hacim destekli kırılım — giris bölgesinde" },
@@ -43,18 +45,7 @@ function safeNum(v: any, fallback = 0): number {
   return isFinite(n) ? n : fallback;
 }
 
-function hasMeaningfulSignal(sig: any): boolean {
-  if (!sig) return false;
-  const stage = String(sig.stage || "NONE").toUpperCase();
-  if (stage === "NONE") return false;
-  const confidence = safeNum(sig?.scores?.confidence, 0);
-  const opportunity = safeNum(sig?.scores?.opportunity, 0);
-  const risk = safeNum(sig?.scores?.risk, 0);
-  const hasReason = typeof sig.ai_hint === "string" && sig.ai_hint.trim().length > 0;
-  return hasReason || confidence > 0 || opportunity > 0 || risk > 0;
-}
-
-function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:number; onDetail:()=>void; onDemo:()=>void}) {
+function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:NormalizedSignal; livePrice?:number; onDetail:()=>void; onDemo:()=>void}) {
   const displayPrice = livePrice ?? safeNum(sig.price, 0);
   const chg24 = safeNum(sig.change_24h, 0);
   const m = STAGE_META[sig.stage as Stage] || STAGE_META.NONE;
@@ -118,17 +109,24 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
       <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.5,marginBottom:12,minHeight:32}}>
         {isNoSignal
           ? "Bu varlık için aktif sinyal yok. Son fiyat hareketi izleniyor."
-          : `${sig.ai_hint?.substring(0,100) || ""}${sig.ai_hint?.length>100?"...":""}`}
+          : `${sig.reason?.substring(0,100) || ""}${sig.reason?.length>100?"...":""}`}
       </div>
 
       {/* 6 score bars */}
       {!isNoSignal && (
         <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
-          {Object.entries(SCORE_LABELS).map(([key,meta])=>(
-            <ScoreBar key={key} label={meta.label}
-              value={sig.scores?.[key]||0}
-              color={meta.color(sig.scores?.[key]||0)}/>
-          ))}
+          {Object.entries(SCORE_LABELS).map(([key, meta]) => {
+            const scoreKey = key as keyof typeof sig.scores;
+            const scoreValue = sig.scores?.[scoreKey] || 0;
+            return (
+              <ScoreBar
+                key={key}
+                label={meta.label}
+                value={scoreValue}
+                color={meta.color(scoreValue)}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -173,7 +171,7 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
       {/* Bottom */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10}}>
         <div style={{display:"flex",gap:3}}>
-          {Object.entries(sig.motor_votes||{}).map(([motor,vote])=>(
+          {Object.entries(sig.motor_votes || {}).map(([motor,vote])=>(
             <div key={motor} title={motor} style={{
               width:6,height:6,borderRadius:"50%",
               background:vote==="LONG"?"var(--up)":vote==="SHORT"?"var(--down)":"var(--t4)",
@@ -229,6 +227,8 @@ export default function SignalsPage() {
   const [filter, setFilter] = useState<"all"|"TRIGGER"|"SETUP"|"WATCH"|"KALKAN">("all");
   const [selectedAsset, setSelectedAsset] = useState<AssetInfo|null>(null);
   const prices = usePrices();
+  const { locale } = useI18n();
+  const lang = locale === "en" ? "en" : "tr";
   const [demoTrade, setDemoTrade] = useState<{symbol:string;name:string}|null>(null);
   const getLive = (sym:string): number|undefined => {
     const p = prices[sym] ?? prices[sym+"USDT"] ?? prices[sym.replace("/","").toUpperCase()];
@@ -241,10 +241,13 @@ export default function SignalsPage() {
     refetchInterval:60000,
   });
 
-  const allSigs = data?.signals || MOCK_SIGNALS;
-  const counts  = data?.stage_counts || {TRIGGER:1,SETUP:1,WATCH:1,KALKAN:1,NONE:0};
-  const filtered = filter==="all" ? allSigs : allSigs.filter((s:any)=>s.stage===filter);
-  const isLiveFeed = Boolean(data?.prices_live);
+  const normalized = useMemo(() => normalizeSignalsPayload(data, MOCK_SIGNALS), [data]);
+  const allSigs = normalized.signals;
+  const activeSignals = useMemo(() => allSigs.filter((signal) => signal.stage !== "NONE"), [allSigs]);
+  const counts = normalized.stageCounts;
+  const filtered = filter==="all" ? activeSignals : allSigs.filter((s)=>s.stage===filter);
+  const isLiveFeed = normalized.isLiveFeed;
+  const updatedAtLabel = new Date(normalized.updatedAt).toLocaleString(lang === "en" ? "en-US" : "tr-TR");
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
@@ -255,7 +258,7 @@ export default function SignalsPage() {
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <Zap size={18} color="var(--gold)"/>
             <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>
-              Signal Intelligence
+              {lang === "en" ? "Signal Intelligence" : "Sinyal İstihbaratı"}
             </h1>
             <span
               style={{
@@ -269,15 +272,20 @@ export default function SignalsPage() {
                 border: `1px solid ${isLiveFeed ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.35)"}`,
               }}
             >
-              {isLiveFeed ? "LIVE FEED" : "DEMO FEED"}
+              {isLiveFeed ? (lang === "en" ? "LIVE FEED" : "CANLI AKIŞ") : (lang === "en" ? "DEMO FEED" : "DEMO AKIŞ")}
             </span>
           </div>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>
-            4 asamali erken uyari + 7 skor + KALKAN risk filtreleme
+            {lang === "en"
+              ? "4-stage early warning + 7 scores + KALKAN risk filter"
+              : "4 aşamalı erken uyarı + 7 skor + KALKAN risk filtreleme"}
+          </p>
+          <p style={{fontSize:11,color:"var(--t4)",margin:"3px 0 0",paddingLeft:28}}>
+            {lang === "en" ? "Updated:" : "Güncellendi:"} {updatedAtLabel} · {normalized.source}
           </p>
         </div>
         <button onClick={()=>refetch()} className="btn-ghost" style={{gap:6,display:"flex",alignItems:"center"}}>
-          <RefreshCw size={12} style={{animation:isFetching?"spin 1s linear infinite":"none"}}/> Güncelle
+          <RefreshCw size={12} style={{animation:isFetching?"spin 1s linear infinite":"none"}}/> {lang === "en" ? "Refresh" : "Güncelle"}
         </button>
       </div>
 
@@ -287,7 +295,7 @@ export default function SignalsPage() {
           padding:"6px 14px",borderRadius:"var(--r-md)",border:"1px solid var(--b1)",
           background:filter==="all"?"var(--bg-hover)":"transparent",
           color:filter==="all"?"var(--t1)":"var(--t3)",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"
-        }}>Tümü ({allSigs.length})</button>
+        }}>{lang === "en" ? "All" : "Tümü"} ({activeSignals.length})</button>
         {(["TRIGGER","SETUP","WATCH","KALKAN"] as const).map(s=>{
           const m = STAGE_META[s];
           const cnt = counts[s]||0;
@@ -300,7 +308,7 @@ export default function SignalsPage() {
               fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
               display:"flex",alignItems:"center",gap:5,transition:"all 0.15s"
             }}>
-              <m.Icon size={11}/>{m.label} {cnt>0 && <span style={{
+                <m.Icon size={11}/>{lang === "en" ? m.label.replace("Alarmi", "Alert").replace("Kurulum Oluşuyor", "Setup").replace("İzleme Alarmi", "Watch").replace("Kalkan Bloke", "Kalkan Blocked").replace("Tetik Alarmı", "Trigger Alert") : m.label} {cnt>0 && <span style={{
                 background:m.color,color:"var(--bg)",borderRadius:"50%",
                 width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",
                 fontSize:8,fontWeight:800
@@ -341,7 +349,7 @@ export default function SignalsPage() {
         display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,
       }}>
         <div style={{gridColumn:"1/-1",fontFamily:"var(--font-head)",fontSize:12,fontWeight:700,color:"var(--t2)",marginBottom:4}}>
-          Signal Intelligence Mimarisi
+          {lang === "en" ? "Signal Intelligence Architecture" : "Sinyal İstihbaratı Mimarisi"}
         </div>
         {[
           {stage:"TRIGGER",desc:"4+ motor LONG, hacim destekli kapanisteyidi, KALKAN onayi"},

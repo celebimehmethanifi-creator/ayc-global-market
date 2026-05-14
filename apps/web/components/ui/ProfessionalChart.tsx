@@ -420,7 +420,7 @@ export default function ProfessionalChart({
   const zoomRef = useRef(zoomLevel);
   viewEndRef.current = viewEnd;
   zoomRef.current = zoomLevel;
-  const chartHeight = isFullscreen ? Math.max(320, (viewportH || height) - 178) : height;
+  const chartHeight = isFullscreen ? Math.max(320, (viewportH || height) - 170) : height;
 
   useEffect(() => {
     setPortalReady(true);
@@ -459,11 +459,15 @@ export default function ProfessionalChart({
     };
     const t1 = window.setTimeout(syncCanvasSize, 40);
     const t2 = window.setTimeout(syncCanvasSize, 180);
+    const t3 = window.setTimeout(syncCanvasSize, 360);
+    window.addEventListener("resize", syncCanvasSize);
     window.addEventListener("orientationchange", syncCanvasSize);
     window.visualViewport?.addEventListener("resize", syncCanvasSize);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      window.removeEventListener("resize", syncCanvasSize);
       window.removeEventListener("orientationchange", syncCanvasSize);
       window.visualViewport?.removeEventListener("resize", syncCanvasSize);
     };
@@ -542,13 +546,18 @@ export default function ProfessionalChart({
       })
       .then((data) => {
         if (!data?.ok && data?.reason === "NO_DATA") {
+          const debugTrailEnabled = process.env.NEXT_PUBLIC_DEBUG_PROVIDER_ATTEMPTS === "1";
           const providerTrail = Array.isArray(data.providerAttempts) && data.providerAttempts.length
-            ? ` (${data.providerAttempts.map((item) => `${item.provider}:${item.status}`).join(", ")})`
+            ? data.providerAttempts.map((item) => `${item.provider}:${item.status}`).join(", ")
             : "";
-          throw new Error(`Mum verisi alınamadı${providerTrail}`);
+          throw new Error(
+            debugTrailEnabled && providerTrail
+              ? `Mum verisi alınamadı (${providerTrail})`
+              : "Bu varlık için güvenilir mum verisi alınamadı. Sağlayıcı kapsaması yetersiz veya lisanslı veri gerekli.",
+          );
         }
         if (!Array.isArray(data.candles) || data.candles.length === 0) {
-          throw new Error("Mum verisi alınamadı");
+          throw new Error("Bu varlık için güvenilir mum verisi alınamadı. Sağlayıcı kapsaması yetersiz veya lisanslı veri gerekli.");
         }
         const cleaned = cleanCandles(data.candles);
         if (cleaned.candles.length === 0) {
@@ -1335,7 +1344,7 @@ export default function ProfessionalChart({
               setZoomLevel(1);
               setViewEnd(candles.length || 1);
             }}
-            title="Zoom sÄ±fÄ±rla"
+            title="Zoom sıfırla"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1455,7 +1464,7 @@ export default function ProfessionalChart({
       >
         <canvas
           ref={mainCanvasRef}
-          style={{ position: 'absolute', top: 0, left: 0, display: 'block' }}
+          style={{ position: 'absolute', top: 0, left: 0, width: "100%", height: "100%", display: 'block' }}
         />
         <canvas
           ref={overlayCanvasRef}
@@ -1465,6 +1474,8 @@ export default function ProfessionalChart({
             position: 'absolute',
             top: 0,
             left: 0,
+            width: "100%",
+            height: "100%",
             display: 'block',
             cursor: 'crosshair',
             touchAction: 'none',

@@ -296,6 +296,16 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
   const showDriftWarning = priceDiffPct > 1;
   const isBistAsset = asset.symbol.endsWith(".IS") || asset.market === "bist";
+  const isNoDataAsset =
+    displayPrice <= 0 ||
+    analysisStatus === "no_data" ||
+    analysisStatus === "api_error" ||
+    analysisStatus === "license_required";
+  const demoTradeBlockReason = isNoDataAsset ? "Fiyat verisi olmadığı için demo işlem açılamaz." : null;
+  const riskRewardText =
+    hasSufficientData && riskReward != null && Number.isFinite(riskReward) && riskReward > 0
+      ? `${riskReward.toFixed(2)}x`
+      : "Risk/ödül hesaplanamadı";
 
   const headerTitle = asset.display || asset.symbol;
 
@@ -420,7 +430,11 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
-              onClick={() => setShowDemoTrade(true)}
+              onClick={() => {
+                if (!demoTradeBlockReason) setShowDemoTrade(true);
+              }}
+              disabled={Boolean(demoTradeBlockReason)}
+              title={demoTradeBlockReason || "Demo işlem aç"}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -432,7 +446,8 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
                 padding: "7px 12px",
                 fontSize: 12,
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: demoTradeBlockReason ? "not-allowed" : "pointer",
+                opacity: demoTradeBlockReason ? 0.6 : 1,
               }}
             >
               <FlaskConical size={13} /> Demo İşlem
@@ -521,6 +536,12 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             </button>
           </div>
 
+          {demoTradeBlockReason && (
+            <div style={{ fontSize: 11, color: "var(--warn)" }}>
+              {demoTradeBlockReason}
+            </div>
+          )}
+
           <div
             style={{
               background: "var(--bg-card)",
@@ -549,13 +570,20 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, color: "var(--t4)" }}>
-              <span>Fiyat kaynağı: {headerStatus === "live" ? "canlı" : "anlık değil"}</span>
+              <span>Fiyat kaynağı: {livePrice ? "canlı" : "anlık değil"}</span>
               <span>Mum sağlayıcı: {analysisProvider || "bilinmiyor"}</span>
+              <span>Grafik son kapanış: {chartLatestClose != null && Number.isFinite(chartLatestClose) ? fmtPrice(chartLatestClose) : "Veri yok"}</span>
+              <span>Grafik TF: {timeframe}</span>
               <span>Analiz TF: {timeframe}</span>
             </div>
             {delayedVsLive && (
               <div style={{ fontSize: 10, color: "var(--warn)" }}>
                 Fiyat canlı, analiz gecikmeli mum verisiyle hesaplandı.
+              </div>
+            )}
+            {showDriftWarning && (
+              <div style={{ fontSize: 10, color: "var(--warn)" }}>
+                Üst fiyat canlı veridir; grafik son mum kapanışını gösterir.
               </div>
             )}
 
@@ -582,7 +610,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               <MetricCard
                 icon={<BarChart3 size={12} color="var(--gold)" />}
                 label="Risk/Ödül"
-                value={hasSufficientData && riskReward != null && Number.isFinite(riskReward) ? `${riskReward.toFixed(2)}x` : "Veri yetersiz"}
+                value={riskRewardText}
               />
             </div>
             <div style={{ fontSize: 10, color: "var(--t4)" }}>

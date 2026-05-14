@@ -6,10 +6,10 @@ import { Bell, Plus, Trash2, Shield, Lock, Zap, TrendingDown, Activity, X, Chevr
 import { usePrices } from "@/lib/prices/PriceContext";
 
 const ALARM_TYPES = [
-  {value:"price",     label:"Fiyat Alarmi",     icon:TrendingDown, color:"var(--info)",    dim:"rgba(96,165,250,0.08)",  border:"rgba(96,165,250,0.2)"},
-  {value:"signal",    label:"Sinyal Alarmi",    icon:Zap,          color:"var(--purple)",  dim:"var(--purple-dim)",       border:"rgba(129,140,248,0.25)"},
+  {value:"price",     label:"Fiyat Alarmı",     icon:TrendingDown, color:"var(--info)",    dim:"rgba(96,165,250,0.08)",  border:"rgba(96,165,250,0.2)"},
+  {value:"signal",    label:"Sinyal Alarmı",    icon:Zap,          color:"var(--purple)",  dim:"var(--purple-dim)",       border:"rgba(129,140,248,0.25)"},
   {value:"drawdown",  label:"Drawdown Kilidi",  icon:Lock,         color:"var(--down)",    dim:"var(--down-dim)",         border:"var(--down-border)"},
-  {value:"contrarian",label:"Contrarian Uyari", icon:Activity,     color:"var(--warn)",    dim:"var(--warn-dim)",         border:"rgba(245,158,11,0.25)"},
+  {value:"contrarian",label:"Contrarian Uyarı", icon:Activity,     color:"var(--warn)",    dim:"var(--warn-dim)",         border:"rgba(245,158,11,0.25)"},
 ];
 
 const MOCK_ALARMS = [
@@ -20,10 +20,15 @@ const MOCK_ALARMS = [
 
 function condSummary(alarm:any) {
   const c = alarm.condition||{};
-  if(alarm.alarm_type==="price") return `${c.symbol||""} ${c.direction==="above"?">=":"<="} $${c.threshold||""}`;
-  if(alarm.alarm_type==="signal") return `${c.symbol||""} — min guven ${c.min_confidence||80}%`;
-  if(alarm.alarm_type==="drawdown") return `Maksimum %${c.max_drawdown_pct||10} kayip kilidi`;
-  return JSON.stringify(c);
+  const symbol = String(c.symbol || alarm.symbol || "PORTFÖY").toUpperCase();
+  if(alarm.alarm_type==="price") return `${symbol} ${c.direction==="above"?">=":"<="} $${c.threshold||""}`;
+  if(alarm.alarm_type==="signal") return `${symbol} — min güven ${c.min_confidence||80}%`;
+  if(alarm.alarm_type==="drawdown") return `Maksimum %${c.max_drawdown_pct||10} kayıp kilidi`;
+  if(alarm.alarm_type==="contrarian") {
+    const crowded = String(c.crowd_side || c.direction || "long").toUpperCase();
+    return `${symbol} için contrarian uyarı aktif · Koşul: Kalabalık yönü aşırı ${crowded}.`;
+  }
+  return "Alarm koşulları güncelleniyor.";
 }
 
 export default function AlarmsPage() {
@@ -92,7 +97,7 @@ export default function AlarmsPage() {
             <Bell size={18} color="var(--gold)"/>
             <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>Alarm Merkezi</h1>
           </div>
-          <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>Fiyat uyarilari, sinyal alarmlari ve KALKAN koruma sistemi</p>
+          <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>Fiyat uyarıları, sinyal alarmları ve KALKAN koruma sistemi</p>
         </div>
         <button onClick={()=>setShowAdd(true)} className="btn-gold" style={{display:"flex",alignItems:"center",gap:6}}>
           <Plus size={14}/> Alarm Ekle
@@ -105,7 +110,7 @@ export default function AlarmsPage() {
           {label:"Toplam Alarm",  value:alarms.length, color:"var(--t1)",  icon:Bell,    dim:"var(--bg-hover)"},
           {label:"Aktif",         value:active,         color:"var(--up)", icon:Activity, dim:"var(--up-dim)"},
           {label:"Pasif",         value:alarms.length-active, color:"var(--t3)",icon:Bell,dim:"var(--bg-hover)"},
-          {label:"Kalkan Blogu",  value:kblocks.length, color:"var(--down)",icon:Shield,  dim:"var(--down-dim)"},
+          {label:"Kalkan Bloke",  value:kblocks.length, color:"var(--down)",icon:Shield,  dim:"var(--down-dim)"},
         ].map(s=>(
           <div key={s.label} className="stat-card" style={{background:`linear-gradient(135deg,${s.dim},var(--bg-card))`,border:`1px solid var(--b1)`}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -191,8 +196,8 @@ export default function AlarmsPage() {
           {!isLoading && alarms.length===0 && (
             <div style={{padding:48,textAlign:"center",background:"var(--bg-card)",border:"1px dashed var(--b1)",borderRadius:"var(--r-xl)"}}>
               <Bell size={28} color="var(--t4)" style={{marginBottom:12}}/>
-              <div style={{fontSize:14,fontWeight:600,color:"var(--t3)"}}>Henuz alarm yok</div>
-              <div style={{fontSize:12,color:"var(--t4)",marginTop:4}}>Yukardaki butona tiklayarak ilk alarminizi olusturun</div>
+              <div style={{fontSize:14,fontWeight:600,color:"var(--t3)"}}>Henüz alarm yok</div>
+              <div style={{fontSize:12,color:"var(--t4)",marginTop:4}}>Yukarıdaki butona tıklayarak ilk alarmınızı oluşturun</div>
             </div>
           )}
         </div>
@@ -214,7 +219,7 @@ export default function AlarmsPage() {
               </div>
               <div>
                 <div style={{fontFamily:"var(--font-head)",fontSize:15,fontWeight:700,color:"var(--t1)"}}>Drawdown Kilidi</div>
-                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Portföy kaybi esiginde tum sinyaller kilitlenir</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Portföy kaybı eşiğinde tüm sinyaller kilitlenir</div>
               </div>
             </div>
 
@@ -286,7 +291,7 @@ export default function AlarmsPage() {
 
             <div style={{marginTop:16,padding:"12px 14px",background:"var(--bg-hover)",borderRadius:"var(--r-md)"}}>
               <div style={{fontSize:11,color:"var(--t3)",lineHeight:1.6}}>
-                KALKAN sistemi anlik portfoy hareketi izler. Belirlenen esige ulasildiginda tum sinyal bildirimler ve giris onaylari otomatik kilitlenir, duygusal kararlar engellenir.
+                KALKAN sistemi anlık portföy hareketini izler. Belirlenen eşiğe ulaşıldığında tüm sinyal bildirimleri ve giriş onayları otomatik kilitlenir, duygusal kararlar engellenir.
               </div>
             </div>
           </div>

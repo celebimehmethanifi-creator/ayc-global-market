@@ -25,6 +25,8 @@ import { AssetDetailModal, type AssetInfo } from "@/components/ui/AssetDetailMod
 import { usePrices } from "@/lib/prices/PriceContext";
 
 import { DemoBanner } from "@/components/ui/DemoBanner";
+import { useI18n } from "@/lib/i18n";
+import { hasMeaningfulSignal, normalizeSignalsPayload, type NormalizedSignal } from "@/lib/signals/normalize";
 
 
 
@@ -284,6 +286,9 @@ function pulseLabel(score: number): string {
 }
 
 function computeMarketPulse(signals: Signal[], movers: Mover[]) {
+  const activeSignals = signals.filter(
+    (signal) => signal.stage !== "NONE" && hasMeaningfulSignal(signal as unknown as NormalizedSignal),
+  );
   const validMovers = movers.filter((m) => Number.isFinite(m.chg));
   const avgChange = validMovers.length
     ? validMovers.reduce((sum, m) => sum + m.chg, 0) / validMovers.length
@@ -291,8 +296,8 @@ function computeMarketPulse(signals: Signal[], movers: Mover[]) {
   const volatility = validMovers.length
     ? validMovers.reduce((sum, m) => sum + Math.abs(m.chg), 0) / validMovers.length
     : 0;
-  const longRatio = signals.length
-    ? signals.filter((s) => s.direction === "LONG").length / signals.length
+  const longRatio = activeSignals.length
+    ? activeSignals.filter((s) => s.direction === "LONG").length / activeSignals.length
     : 0.5;
   const advanceCount = validMovers.filter((m) => m.chg > 0).length;
   const declineCount = validMovers.filter((m) => m.chg < 0).length;
@@ -751,6 +756,8 @@ export default function DashboardPage() {
   const [marketPulseUpdatedAt, setMarketPulseUpdatedAt] = useState("—");
 
   const [showWelcome, setShowWelcome] = useState(false);
+  const { locale } = useI18n();
+  const lang = locale === "en" ? "en" : "tr";
 
 
 
@@ -845,7 +852,7 @@ export default function DashboardPage() {
 
 
 
-    queryFn:()=>api.get("/signals/live?market=all&limit=12").then(r=>r.data).catch(()=>null),
+    queryFn:()=>api.get("/signals/live?market=all&limit=15").then(r=>r.data).catch(()=>null),
 
 
 
@@ -919,7 +926,8 @@ export default function DashboardPage() {
 
 
 
-  const signals: Signal[] = (signalData?.signals as Signal[] || MOCK_SIGNALS).map(s => {
+  const normalizedSignals = normalizeSignalsPayload(signalData, MOCK_SIGNALS);
+  const signals: Signal[] = normalizedSignals.signals.map((s: NormalizedSignal) => {
 
 
 
@@ -959,13 +967,11 @@ export default function DashboardPage() {
 
 
 
-    return s;
-
-
+    return s as unknown as Signal;
 
   });
 
-
+  const activeSignals = signals.filter((signal) => signal.stage !== "NONE" && hasMeaningfulSignal(signal as unknown as NormalizedSignal));
 
   const causal: CausalCard = causalData || MOCK_CAUSAL;
 
@@ -988,7 +994,7 @@ export default function DashboardPage() {
       return { ...m, price: 0, chg: 0 };
     }).filter((m) => m.price > 0);
 
-    const fromSignals = signals
+    const fromSignals = activeSignals
       .filter((s) => Number.isFinite(s.price) && s.price > 0)
       .map((s) => ({
         sym: s.symbol.toUpperCase(),
@@ -1009,7 +1015,7 @@ export default function DashboardPage() {
     return Array.from(unique.values())
       .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
       .slice(0, 8);
-  }, [livePrices, signals]);
+  }, [activeSignals, livePrices]);
 
   const alarms: AlarmItem[] = useMemo(() => {
     const raw = Array.isArray(alarmData?.alarms) ? alarmData.alarms : [];
@@ -1068,7 +1074,8 @@ export default function DashboardPage() {
 
 
 
-  const longCount = signals.filter(s=>s.direction==="LONG").length;
+  const longCount = activeSignals.filter((s) => s.direction === "LONG").length;
+  const shortOrNeutralCount = Math.max(0, activeSignals.length - longCount);
   const priceEntries = Object.values(livePrices);
   const freshPriceCount = priceEntries.filter((entry) => nowTs > 0 && nowTs - entry.ts < 45000).length;
   const dataStatus = freshPriceCount >= 8
@@ -1119,7 +1126,7 @@ export default function DashboardPage() {
 
 
 
-              AI Market Command Center
+              {lang === "en" ? "AI Market Command Center" : "AI Piyasa Komuta Merkezi"}
 
 
 
@@ -1237,11 +1244,11 @@ export default function DashboardPage() {
 
 
 
-        <StatBadge icon={Zap}      label="Aktif Sinyaller" value={`${signals.length}`}
+        <StatBadge icon={Zap}      label="Aktif Sinyaller" value={`${activeSignals.length}`}
 
 
 
-          sub={`${longCount} LONG \u00b7 ${signals.length-longCount} SHORT/NÖTR`}
+          sub={`${longCount} LONG \u00b7 ${shortOrNeutralCount} SHORT/NÖTR`}
 
 
 
@@ -1341,7 +1348,7 @@ export default function DashboardPage() {
 
 
 
-          ) : (
+          ) : activeSignals.length > 0 ? (
 
 
 
@@ -1349,7 +1356,7 @@ export default function DashboardPage() {
 
 
 
-              {signals.slice(0,9).map(sig=>(
+              {activeSignals.slice(0,9).map(sig=>(
 
 
 
@@ -1377,6 +1384,19 @@ export default function DashboardPage() {
 
 
 
+          ) : (
+            <div
+              style={{
+                border: "1px dashed var(--b1)",
+                borderRadius: "var(--r-xl)",
+                background: "var(--bg-card)",
+                padding: "22px 18px",
+                color: "var(--t3)",
+                fontSize: 12,
+              }}
+            >
+              Bu varlıklar için aktif sinyal yok. Son fiyat hareketleri izleniyor.
+            </div>
           )}
 
 
@@ -1967,6 +1987,7 @@ export default function DashboardPage() {
 
 
 }
+
 
 
 
