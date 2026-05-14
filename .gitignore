@@ -33,7 +33,11 @@ ios/
 docker-compose.override.yml
 
 # DB
+*.db
 *.sqlite
+*.sqlite3
+prisma/dev.db
+data/*.db
 
 # IDE
 .vscode/
