@@ -4,6 +4,8 @@ import { lookupUser, saveUser, USERS_BY_ID } from "../../_lib/auth";
 
 const WEBHOOK_SECRET = (process.env.LEMON_WEBHOOK_SECRET || "").trim();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const ALLOW_INSECURE_WEBHOOKS_FOR_TESTS =
+  process.env.ALLOW_INSECURE_WEBHOOKS_FOR_TESTS === "true";
 const BILLING_ACTIVATION_EVENTS = new Set([
   "order_created",
   "order_paid",
@@ -57,21 +59,29 @@ async function activatePlanFromWebhook(customData: Record<string, string>): Prom
 }
 
 export async function POST(req: NextRequest) {
-  if (IS_PRODUCTION && !WEBHOOK_SECRET) {
-    return NextResponse.json(
-      { error: "Webhook secret zorunlu." },
-      { status: 503 },
-    );
+  if (!WEBHOOK_SECRET) {
+    if (IS_PRODUCTION) {
+      return NextResponse.json(
+        { error: "Webhook secret zorunlu." },
+        { status: 503 },
+      );
+    }
+    if (!ALLOW_INSECURE_WEBHOOKS_FOR_TESTS) {
+      return NextResponse.json(
+        { error: "Webhook secret yok. Test bypass icin ALLOW_INSECURE_WEBHOOKS_FOR_TESTS=true gerekli." },
+        { status: 401 },
+      );
+    }
   }
 
   const body = await req.text();
   const signature = req.headers.get("x-signature") || "";
 
+  if (WEBHOOK_SECRET && !signature) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+  }
   if (WEBHOOK_SECRET && !verifySignature(body, signature)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-  if (IS_PRODUCTION && !WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Webhook dogrulamasi kapali olamaz." }, { status: 503 });
   }
 
   try {
@@ -87,7 +97,11 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[LS Webhook]", eventName, "plan:", plan || "n/a");
-    return NextResponse.json({ received: true, processed: BILLING_ACTIVATION_EVENTS.has(eventName) });
+    return NextResponse.json({
+      received: true,
+      processed: BILLING_ACTIVATION_EVENTS.has(eventName),
+      verification: WEBHOOK_SECRET ? "hmac" : "bypass_test_only",
+    });
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }

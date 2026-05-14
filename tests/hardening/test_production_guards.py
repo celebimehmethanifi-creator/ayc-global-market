@@ -2,6 +2,7 @@
 
 import importlib.util
 import re
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -20,6 +21,17 @@ WEB_PRICE_CONTEXT = ROOT / "apps" / "web" / "lib" / "prices" / "PriceContext.tsx
 WEB_BILLING_VERIFY = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "verify" / "route.ts"
 WEB_BILLING_CHECKOUT = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "checkout" / "route.ts"
 WEB_BILLING_WEBHOOK = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "webhook" / "route.ts"
+WEB_BILLING_CANCEL = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "cancel" / "route.ts"
+WEB_ALARMS_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "alarms" / "route.ts"
+WEB_ALARM_ID_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "alarms" / "[id]" / "route.ts"
+WEB_PORTFOLIO_POSITIONS = ROOT / "apps" / "web" / "app" / "api" / "v1" / "portfolio" / "positions" / "route.ts"
+WEB_SOCIAL_VOTE_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "social" / "[id]" / "vote" / "route.ts"
+WEB_SIGNALS_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "route.ts"
+WEB_SIGNALS_FEATURED_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "featured" / "route.ts"
+WEB_SIGNALS_DETAIL_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "[id]" / "route.ts"
+WEB_SIGNALS_STRATEGY_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "[id]" / "strategy" / "route.ts"
+WEB_SIGNALS_LIVE_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "live" / "route.ts"
+WEB_NEWS_GLOBAL_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "news" / "global" / "route.ts"
 WEB_SUBSCRIBE_SUCCESS = ROOT / "apps" / "web" / "app" / "(app)" / "subscribe" / "success" / "page.tsx"
 WEB_AUTH_ME = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "me" / "route.ts"
 WEB_AUTH_LOGIN = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "login" / "route.ts"
@@ -60,9 +72,13 @@ AI_SERVICE_MAIN = ROOT / "services" / "ai-service" / "main.py"
 DATA_SERVICE_MAIN = ROOT / "services" / "data-service" / "main.py"
 SIGNAL_SERVICE_MAIN = ROOT / "services" / "signal-service" / "main.py"
 DATA_MARKET_PROXY = ROOT / "services" / "data-service" / "market_proxy.py"
+DATA_COINGECKO_FETCHER = ROOT / "services" / "data-service" / "fetchers" / "coingecko.py"
 
 GATEWAY_AUTH = GATEWAY_DIR / "auth_service.py"
 GATEWAY_BILLING = GATEWAY_DIR / "billing_router.py"
+GATEWAY_MAIN = GATEWAY_DIR / "main.py"
+GATEWAY_MOCK_ROUTER = GATEWAY_DIR / "mock_router.py"
+ROOT_GITIGNORE = ROOT / ".gitignore"
 
 
 def read_text(path: Path) -> str:
@@ -95,7 +111,12 @@ def test_web_login_has_no_hardcoded_master_or_test_accounts():
 
 def test_web_dev_seed_is_explicitly_non_production_only():
     text = read_text(WEB_DEV_AUTH)
-    assert 'if (process.env.NODE_ENV === "production") return null;' in text
+    assert "function isDevSeedEnabled(): boolean" in text
+    assert 'if (process.env.DEMO_SEED_ENABLED === "true") return true;' in text
+    assert 'return process.env.NODE_ENV !== "production";' in text
+    assert "DevOnlyElitePass" not in text
+    assert "DevOnlyProPass" not in text
+    assert "DevOnlyFreePass" not in text
 
 
 def test_web_jwt_secret_has_no_fallback_and_has_min_length_check():
@@ -145,6 +166,67 @@ def test_billing_webhook_signature_checks_are_enforced():
     gateway_text = read_text(GATEWAY_BILLING)
     assert "hmac.compare_digest" in gateway_text
     assert "webhook imzasi" in gateway_text
+
+
+def test_webhook_requires_secret_or_explicit_test_bypass():
+    web_text = read_text(WEB_BILLING_WEBHOOK)
+    assert "ALLOW_INSECURE_WEBHOOKS_FOR_TESTS" in web_text
+    assert "Webhook secret yok. Test bypass" in web_text
+
+    gateway_text = read_text(GATEWAY_BILLING)
+    assert "ALLOW_INSECURE_WEBHOOKS_FOR_TESTS" in gateway_text
+    assert "Test bypass icin ALLOW_INSECURE_WEBHOOKS_FOR_TESTS=true gerekli." in gateway_text
+
+
+def test_web_auth_rejects_unsigned_and_malformed_jwt_tokens():
+    text = read_text(WEB_AUTH_LIB)
+    assert 'const parts = token.split(".");' in text
+    assert "parts.length !== 3" in text
+    assert 'String(header.alg).toLowerCase() === "none"' in text
+
+
+def test_billing_cancel_has_no_fake_production_success_path():
+    text = read_text(WEB_BILLING_CANCEL)
+    assert 'const IS_PRODUCTION = process.env.NODE_ENV === "production";' in text
+    assert "ALLOW_CANCEL_INSECURE_FOR_TESTS" in text
+    assert "Canli abonelik iptali bu endpointte desteklenmiyor" in text
+    assert "Test iptal endpointi kapali" in text
+    assert "Test ortaminda abonelik iptal simule edildi" in text
+
+
+def test_market_proxy_uses_env_keys_and_has_no_hardcoded_provider_secret_assignments():
+    text = read_text(DATA_MARKET_PROXY)
+    assert "COINGECKO_KEY    =" not in text
+    assert "FINNHUB_KEY      =" not in text
+    assert "TWELVEDATA_KEY   =" not in text
+    assert "FMP_KEY          =" not in text
+    assert "CMC_KEY          =" not in text
+    assert "ALPHAVANTAGE_KEY =" not in text
+    assert '_env_api_key("COINGECKO_API_KEY")' in text
+    assert '_env_api_key("TWELVEDATA_API_KEY")' in text
+    assert '_env_api_key("FMP_API_KEY")' in text
+    assert '_env_api_key("FINNHUB_API_KEY")' in text
+
+
+def test_db_files_are_gitignored_and_not_tracked():
+    text = read_text(ROOT_GITIGNORE)
+    for marker in ["*.db", "*.sqlite", "*.sqlite3", "prisma/dev.db", "data/*.db"]:
+        assert marker in text
+
+    result = subprocess.run(
+        ["git", "ls-files", "*.db"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == ""
+
+
+def test_production_paths_do_not_depend_on_legacy_fake_payment_router():
+    main_text = read_text(GATEWAY_MAIN)
+    assert "include_router(billing_router" in main_text
+    assert "payment_router" not in main_text
 
 
 def test_billing_checkout_sends_custom_user_identity_data():
