@@ -283,6 +283,9 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
                   letterSpacing: "0.05em",
                 }}>{aiDirLabel}</div>
               </div>
+              <div style={{ fontSize: 10, color: "var(--t4)", marginBottom: 10 }}>
+                24s hızlı analiz • Kural tabanlı demo senaryo (detay analiz timeframe ve hesap temeli farklı olabilir)
+              </div>
 
               {/* Confidence bar */}
               <div style={{ marginBottom: 10 }}>
@@ -321,7 +324,7 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
               {[
                 { label: "RSI(14)", val: ai.rsi.toString(), color: ai.rsi > 65 ? "var(--down)" : ai.rsi < 35 ? "var(--up)" : "var(--gold)" },
                 { label: "Risk",    val: ai.risk + "/100",  color: ai.risk > 65 ? "var(--down)" : ai.risk > 45 ? "var(--gold)" : "var(--up)" },
-                { label: "R/R",     val: "1:" + ai.rr,      color: "var(--t1)" },
+                { label: "Model R/R", val: "1:" + ai.rr,    color: "var(--t1)" },
               ].map(({ label, val, color }) => (
                 <div key={label} style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 9, color: "var(--t4)", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
@@ -332,40 +335,45 @@ export function AITradeModal({ symbol, name, seedChg = 0, seedPrice, onClose }: 
 
             {/* TP / SL */}
             {livePrice > 0 && (
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
-              }}>
+              <>
                 <div style={{
-                  background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
-                  borderRadius: 10, padding: "10px 12px",
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-                    <Target size={12} color="var(--up)" />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)" }}>HEDEF FİYAT</span>
+                  <div style={{
+                    background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
+                    borderRadius: 10, padding: "10px 12px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                      <Target size={12} color="var(--up)" />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)" }}>HEDEF FİYAT</span>
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 800, color: "var(--up)" }}>
+                      ${fmt(ai.tp)}
+                    </div>
+                    <div style={{ fontSize: 9, color: "var(--up)", marginTop: 1 }}>
+                      +{((Math.abs(ai.tp - livePrice) / livePrice) * 100).toFixed(1)}%
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 800, color: "var(--up)" }}>
-                    ${fmt(ai.tp)}
-                  </div>
-                  <div style={{ fontSize: 9, color: "var(--up)", marginTop: 1 }}>
-                    +{((Math.abs(ai.tp - livePrice) / livePrice) * 100).toFixed(1)}%
+                  <div style={{
+                    background: "rgba(246,70,93,0.08)", border: "1px solid rgba(246,70,93,0.2)",
+                    borderRadius: 10, padding: "10px 12px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                      <Shield size={12} color="var(--down)" />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)" }}>STOP LOSS</span>
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 800, color: "var(--down)" }}>
+                      ${fmt(ai.sl)}
+                    </div>
+                    <div style={{ fontSize: 9, color: "var(--down)", marginTop: 1 }}>
+                      -{((Math.abs(ai.sl - livePrice) / livePrice) * 100).toFixed(1)}%
+                    </div>
                   </div>
                 </div>
-                <div style={{
-                  background: "rgba(246,70,93,0.08)", border: "1px solid rgba(246,70,93,0.2)",
-                  borderRadius: 10, padding: "10px 12px",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-                    <Shield size={12} color="var(--down)" />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)" }}>STOP LOSS</span>
-                  </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 800, color: "var(--down)" }}>
-                    ${fmt(ai.sl)}
-                  </div>
-                  <div style={{ fontSize: 9, color: "var(--down)", marginTop: 1 }}>
-                    -{((Math.abs(ai.sl - livePrice) / livePrice) * 100).toFixed(1)}%
-                  </div>
+                <div style={{ fontSize: 10, color: "var(--t4)", marginTop: 6 }}>
+                  Hedef/stop seviyeleri kısa vadeli demo modelinden türetilir; yatırım tavsiyesi değildir.
                 </div>
-              </div>
+              </>
             )}
 
             {/* Motor votes */}

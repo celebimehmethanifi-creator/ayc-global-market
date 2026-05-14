@@ -42,17 +42,46 @@ type AnalysisStatus =
 type AssetAnalysis = {
   ok: boolean;
   symbol: string;
+  canAnalyze?: boolean;
+  canDemoTrade?: boolean;
+  priceBasis?: string;
+  priceMismatchNote?: string | null;
+  livePrice?: number | null;
+  lastCandleClose?: number | null;
+  analysisTimeframe?: string;
+  chartTimeframe?: string;
   timeframe: string;
   technicalSummary?: string;
   fundamentalSummary?: string;
   tradePlan?: {
     direction?: "LONG" | "SHORT" | "NEUTRAL";
     entry?: number | null;
+    entryPrice?: number | null;
+    analysisEntryPrice?: number | null;
+    priceBasis?: string;
+    livePrice?: number | null;
+    lastCandleClose?: number | null;
+    chartTimeframe?: string;
+    analysisTimeframe?: string;
     target?: number | null;
+    targetPrice?: number | null;
     stopLoss?: number | null;
+    risk?: number | null;
+    reward?: number | null;
     riskReward?: number | null;
+    riskRewardFormula?: string;
+    calculationBasis?: {
+      target?: string;
+      stopLoss?: string;
+      entry?: string;
+      riskReward?: string;
+      riskMultiple?: string;
+    };
     confidence?: number | null;
     reason?: string | null;
+    invalidationLevel?: number | null;
+    updatedAt?: string | null;
+    dataQuality?: AnalysisStatus;
   };
   technical?: {
     trend?: string;
@@ -284,14 +313,21 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
   const displayChange = liveChange ?? pollChange ?? asset.chg ?? 0;
   const isUp = displayChange >= 0;
 
-  const targetPrice = analysis?.tradePlan?.target ?? null;
+  const analysisEntryPrice =
+    analysis?.tradePlan?.analysisEntryPrice ??
+    analysis?.tradePlan?.entryPrice ??
+    analysis?.tradePlan?.entry ??
+    null;
+  const targetPrice = analysis?.tradePlan?.targetPrice ?? analysis?.tradePlan?.target ?? null;
   const stopLoss = analysis?.tradePlan?.stopLoss ?? null;
   const riskReward = analysis?.tradePlan?.riskReward ?? null;
-  const hasSufficientData = analysis?.dataQuality?.status !== "insufficient";
-  const analysisStatus = analysis?.dataQuality?.status;
+  const analysisStatus = analysis?.tradePlan?.dataQuality ?? analysis?.dataQuality?.status;
+  const canAnalyze = analysis?.canAnalyze ?? (targetPrice != null && stopLoss != null && riskReward != null && riskReward > 0);
   const analysisProvider = analysis?.dataQuality?.provider || chartProvider;
-  const headerStatus: AnalysisStatus = analysis?.dataQuality?.status || (livePrice ? "live" : "fallback");
+  const headerStatus: AnalysisStatus = analysis?.dataQuality?.status || analysis?.tradePlan?.dataQuality || (livePrice ? "live" : "fallback");
   const delayedVsLive = headerStatus === "live" && (analysisStatus === "delayed" || analysisStatus === "fallback");
+  const normalizedChartTimeframe = analysis?.tradePlan?.chartTimeframe || analysis?.chartTimeframe || timeframe;
+  const normalizedAnalysisTimeframe = analysis?.tradePlan?.analysisTimeframe || analysis?.analysisTimeframe || timeframe;
   const priceDiffPct =
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
   const showDriftWarning = priceDiffPct > 1;
@@ -301,11 +337,28 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
     analysisStatus === "no_data" ||
     analysisStatus === "api_error" ||
     analysisStatus === "license_required";
-  const demoTradeBlockReason = isNoDataAsset ? "Fiyat verisi olmadığı için demo işlem açılamaz." : null;
+  const demoTradeBlockReason = analysis?.canDemoTrade === false || isNoDataAsset
+    ? "Fiyat verisi olmadığı için demo işlem açılamaz."
+    : null;
+  const riskRewardUnavailableText = analysisStatus === "insufficient" || analysisStatus === "no_data" || analysisStatus === "license_required"
+    ? "Veri yetersiz"
+    : "Hesaplanamadı";
   const riskRewardText =
-    hasSufficientData && riskReward != null && Number.isFinite(riskReward) && riskReward > 0
+    canAnalyze && riskReward != null && Number.isFinite(riskReward) && riskReward > 0
       ? `${riskReward.toFixed(2)}x`
-      : "Risk/ödül hesaplanamadı";
+      : riskRewardUnavailableText;
+  const calculationBasis = analysis?.tradePlan?.calculationBasis;
+  const calculationBasisText = [
+    calculationBasis?.entry ? `Giriş: ${calculationBasis.entry}` : null,
+    calculationBasis?.target ? `Hedef: ${calculationBasis.target}` : null,
+    calculationBasis?.stopLoss ? `Stop: ${calculationBasis.stopLoss}` : null,
+    calculationBasis?.riskReward ? `Risk/Ödül: ${calculationBasis.riskReward}` : null,
+  ]
+    .filter(Boolean)
+    .join(" • ");
+  const analysisPriceMismatchNote =
+    analysis?.priceMismatchNote ||
+    (showDriftWarning ? "Üst fiyat canlı veridir; grafik son mum kapanışını gösterir." : null);
 
   const headerTitle = asset.display || asset.symbol;
 
@@ -570,20 +623,27 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, color: "var(--t4)" }}>
-              <span>Fiyat kaynağı: {livePrice ? "canlı" : "anlık değil"}</span>
-              <span>Mum sağlayıcı: {analysisProvider || "bilinmiyor"}</span>
+              <span>Canlı fiyat: {analysis?.livePrice != null ? fmtPrice(analysis.livePrice) : fmtPrice(livePrice ?? null)}</span>
               <span>Grafik son kapanış: {chartLatestClose != null && Number.isFinite(chartLatestClose) ? fmtPrice(chartLatestClose) : "Veri yok"}</span>
-              <span>Grafik TF: {timeframe}</span>
-              <span>Analiz TF: {timeframe}</span>
+              <span>Analiz giriş fiyatı: {analysisEntryPrice != null ? fmtPrice(analysisEntryPrice) : "Veri yetersiz"}</span>
+              <span>Veri kalitesi: {statusLabel(analysisStatus)}</span>
+              <span>Mum sağlayıcı: {analysisProvider || "bilinmiyor"}</span>
+              <span>Grafik TF: {normalizedChartTimeframe}</span>
+              <span>Analiz TF: {normalizedAnalysisTimeframe}</span>
             </div>
             {delayedVsLive && (
               <div style={{ fontSize: 10, color: "var(--warn)" }}>
                 Fiyat canlı, analiz gecikmeli mum verisiyle hesaplandı.
               </div>
             )}
-            {showDriftWarning && (
+            {analysisPriceMismatchNote && (
               <div style={{ fontSize: 10, color: "var(--warn)" }}>
-                Üst fiyat canlı veridir; grafik son mum kapanışını gösterir.
+                {analysisPriceMismatchNote}
+              </div>
+            )}
+            {calculationBasisText && (
+              <div style={{ fontSize: 10, color: "var(--t4)" }}>
+                Hesap temeli: {calculationBasisText}
               </div>
             )}
 
@@ -605,8 +665,8 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
-              <MetricCard icon={<Target size={12} color="var(--up)" />} label="Hedef" value={hasSufficientData ? fmtPrice(targetPrice) : "Veri yetersiz"} />
-              <MetricCard icon={<ShieldAlert size={12} color="var(--down)" />} label="Stop Loss" value={hasSufficientData ? fmtPrice(stopLoss) : "Veri yetersiz"} />
+              <MetricCard icon={<Target size={12} color="var(--up)" />} label="Hedef" value={canAnalyze ? fmtPrice(targetPrice) : riskRewardUnavailableText} />
+              <MetricCard icon={<ShieldAlert size={12} color="var(--down)" />} label="Stop Loss" value={canAnalyze ? fmtPrice(stopLoss) : riskRewardUnavailableText} />
               <MetricCard
                 icon={<BarChart3 size={12} color="var(--gold)" />}
                 label="Risk/Ödül"
@@ -614,7 +674,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               />
             </div>
             <div style={{ fontSize: 10, color: "var(--t4)" }}>
-              ATR ve destek/direnç bazlı tahmini seviye.
+              {calculationBasis?.riskMultiple || "ATR ve destek/direnç bazlı tahmini seviye."}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>

@@ -5,7 +5,17 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type RiskProfile = "low" | "medium" | "high";
-type AnalysisDataStatus = "live" | "delayed" | "fallback" | "insufficient" | "license_required" | "no_volume" | "no_data";
+type Direction = "LONG" | "SHORT" | "NEUTRAL";
+type PriceBasis = "live_price" | "last_candle_close" | "fallback_close" | "manual" | "insufficient_data";
+type AnalysisDataStatus =
+  | "live"
+  | "delayed"
+  | "fallback"
+  | "insufficient"
+  | "license_required"
+  | "no_volume"
+  | "no_data"
+  | "api_error";
 
 interface Candle {
   t: number;
@@ -24,6 +34,16 @@ function normalizeRiskProfile(value: string | null): RiskProfile {
 function safeNumber(value: unknown): number | null {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function roundOrNull(value: number | null | undefined, digits = 6): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const m = 10 ** digits;
+  return Math.round(value * m) / m;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function average(values: number[]): number | null {
@@ -99,7 +119,7 @@ function supportResistance(candles: Candle[]): { support: number | null; resista
   };
 }
 
-function inferDirection(current: number, sma20: number | null, sma50: number | null): "LONG" | "SHORT" | "NEUTRAL" {
+function inferDirection(current: number, sma20: number | null, sma50: number | null): Direction {
   if (sma20 !== null && sma50 !== null) {
     if (current > sma20 && sma20 >= sma50) return "LONG";
     if (current < sma20 && sma20 <= sma50) return "SHORT";
@@ -112,95 +132,6 @@ function inferDirection(current: number, sma20: number | null, sma50: number | n
   return "NEUTRAL";
 }
 
-function buildTradePlan(args: {
-  latest: number;
-  direction: "LONG" | "SHORT" | "NEUTRAL";
-  sma20: number | null;
-  support: number | null;
-  resistance: number | null;
-  atrValue: number | null;
-  riskProfile: RiskProfile;
-  hasEnoughData: boolean;
-}) {
-  const { latest, direction, sma20, support, resistance, atrValue, riskProfile, hasEnoughData } = args;
-  if (!hasEnoughData || latest <= 0) {
-    return {
-      direction: "NEUTRAL" as const,
-      entry: latest || null,
-      target: null,
-      stopLoss: null,
-      riskReward: null,
-      confidence: 0,
-      reason: "INSUFFICIENT_DATA",
-    };
-  }
-
-  const rrMap: Record<RiskProfile, number> = { low: 1.45, medium: 1.85, high: 2.35 };
-  const fallbackStopPct: Record<RiskProfile, number> = { low: 0.008, medium: 0.011, high: 0.015 };
-  const stopBuffer = atrValue && atrValue > 0 ? atrValue : latest * fallbackStopPct[riskProfile];
-  const resolvedDirection =
-    direction !== "NEUTRAL"
-      ? direction
-      : sma20 !== null
-        ? latest >= sma20
-          ? "LONG"
-          : "SHORT"
-        : "NEUTRAL";
-
-  let baseStop = latest - stopBuffer;
-  let target = latest + stopBuffer * rrMap[riskProfile];
-
-  if (resolvedDirection === "SHORT") {
-    baseStop = resistance && resistance > latest ? resistance + stopBuffer * 0.2 : latest + stopBuffer;
-    const rawRisk = Math.max(Math.abs(baseStop - latest), latest * 0.0015);
-    const reward = rawRisk * rrMap[riskProfile];
-    const fallbackTarget = latest - reward;
-    const resistanceBased = support && support < latest ? support - rawRisk * 0.25 : fallbackTarget;
-    target = Math.min(fallbackTarget, resistanceBased);
-  } else {
-    baseStop = support && support < latest ? support - stopBuffer * 0.2 : latest - stopBuffer;
-    const rawRisk = Math.max(Math.abs(latest - baseStop), latest * 0.0015);
-    const reward = rawRisk * rrMap[riskProfile];
-    const fallbackTarget = latest + reward;
-    const resistanceBased = resistance && resistance > latest ? resistance + rawRisk * 0.25 : fallbackTarget;
-    target = Math.max(fallbackTarget, resistanceBased);
-  }
-
-  if (!(baseStop > 0) || !Number.isFinite(baseStop)) {
-    baseStop = resolvedDirection === "SHORT" ? latest + stopBuffer : Math.max(latest - stopBuffer, latest * 0.1);
-  }
-  if (!(target > 0) || !Number.isFinite(target)) {
-    target = resolvedDirection === "SHORT" ? Math.max(latest - stopBuffer * rrMap[riskProfile], latest * 0.1) : latest + stopBuffer * rrMap[riskProfile];
-  }
-
-  const risk =
-    resolvedDirection === "SHORT"
-      ? baseStop - latest
-      : latest - baseStop;
-  const reward =
-    resolvedDirection === "SHORT"
-      ? latest - target
-      : target - latest;
-  const riskReward =
-    risk > 0 && reward > 0
-      ? reward / risk
-      : null;
-  // legacy formula reference kept for guard tests: riskReward = Math.abs(target - latest) / Math.abs(latest - baseStop)
-  const confidenceBase = resolvedDirection === "NEUTRAL" ? 52 : 62;
-  const indicatorBoost = [atrValue, support, resistance, sma20].filter((value) => value != null).length * 4;
-  const confidence = Math.min(88, Math.max(35, Math.round(confidenceBase + indicatorBoost)));
-
-  return {
-    direction: resolvedDirection,
-    entry: latest,
-    target: Number(target.toFixed(6)),
-    stopLoss: Number(baseStop.toFixed(6)),
-    riskReward: riskReward != null && Number.isFinite(riskReward) ? Number(riskReward.toFixed(2)) : null,
-    confidence,
-    reason: riskReward == null ? "RISK_REWARD_INVALID" : null,
-  };
-}
-
 function buildFundamentalSummary(
   category: string,
   symbol: string,
@@ -208,10 +139,10 @@ function buildFundamentalSummary(
   opts: { hasCandles: boolean; hasLivePrice: boolean },
 ): string {
   if (!opts.hasCandles && !opts.hasLivePrice) {
-    return "Temel analiz için veri kapsamı yetersiz.";
+    return "Veri kapsamı yetersiz olduğu için temel değerlendirme sınırlıdır.";
   }
   if (!opts.hasCandles && opts.hasLivePrice) {
-    return "Fiyat verisi mevcut; mum verisi yetersiz olduğu için temel analiz kapsamı sınırlı.";
+    return "Fiyat verisi mevcut; mum verisi yetersiz olduğu için temel değerlendirme sınırlıdır.";
   }
   if (category === "crypto") {
     return `${symbol} için momentum ve hacim odaklı değerlendirme yapıldı${volume ? ` (hacim ${volume.toLocaleString("en-US", { maximumFractionDigits: 0 })})` : ""}.`;
@@ -223,12 +154,238 @@ function buildFundamentalSummary(
     return `${symbol} için kur hareketi ve volatilite öncelikli özet üretildi. Makro veri yoksa yorum güveni düşer.`;
   }
   if (category === "precious" || category === "energy" || category === "commodity") {
-    return `${symbol} emtia trendi son mum verileri üzerinden değerlendirildi.`;
+    return `${symbol} emtia trendi fiyat ve oynaklık verileri üzerinden değerlendirildi.`;
   }
   if (category === "index") {
     return `${symbol} endeks trendi ve oynaklık verisi özetlendi.`;
   }
   return `${symbol} için veri odaklı temel özet üretildi.`;
+}
+
+function resolveAnalysisStatus(args: {
+  category: string;
+  livePrice: number | null;
+  hasEnoughData: boolean;
+  hasVolume: boolean;
+  ohlcvStatus: string | null;
+  ohlcvReason: string | null;
+}): AnalysisDataStatus {
+  const { category, livePrice, hasEnoughData, hasVolume, ohlcvStatus, ohlcvReason } = args;
+  // compatibility guard reference: category === "bist" && latestPrice === null
+
+  if (ohlcvReason === "NO_DATA" && livePrice == null) return "no_data";
+  if (ohlcvStatus === "api_error") return "api_error";
+  if (ohlcvStatus === "license_required") return "license_required";
+  if (ohlcvStatus === "no_data") return "no_data";
+  if (ohlcvStatus === "no_volume") return "no_volume";
+
+  if (category === "bist" && livePrice === null) return "license_required";
+  if (category === "bist" && livePrice !== null && !hasVolume) return "license_required";
+
+  if (livePrice === null) return "no_data";
+  if (!hasEnoughData) return "insufficient";
+
+  if (ohlcvStatus === "live" || ohlcvStatus === "delayed" || ohlcvStatus === "fallback") {
+    return ohlcvStatus;
+  }
+
+  return "fallback";
+}
+
+function buildTradePlan(args: {
+  direction: Direction;
+  riskProfile: RiskProfile;
+  dataStatus: AnalysisDataStatus;
+  analysisEntryPrice: number | null;
+  livePrice: number | null;
+  lastCandleClose: number | null;
+  priceBasis: PriceBasis;
+  chartTimeframe: string;
+  analysisTimeframe: string;
+  support: number | null;
+  resistance: number | null;
+  atrValue: number | null;
+  sma20: number | null;
+  updatedAt: string | null;
+}) {
+  const {
+    direction,
+    riskProfile,
+    dataStatus,
+    analysisEntryPrice,
+    livePrice,
+    lastCandleClose,
+    priceBasis,
+    chartTimeframe,
+    analysisTimeframe,
+    support,
+    resistance,
+    atrValue,
+    sma20,
+    updatedAt,
+  } = args;
+
+  const insufficient =
+    !analysisEntryPrice ||
+    analysisEntryPrice <= 0 ||
+    dataStatus === "insufficient" ||
+    dataStatus === "no_data" ||
+    dataStatus === "api_error" ||
+    dataStatus === "license_required";
+
+  const baseShape = {
+    direction,
+    entry: analysisEntryPrice,
+    entryPrice: analysisEntryPrice,
+    analysisEntryPrice,
+    priceBasis,
+    livePrice,
+    lastCandleClose,
+    chartTimeframe,
+    analysisTimeframe,
+    target: null as number | null,
+    targetPrice: null as number | null,
+    stopLoss: null as number | null,
+    risk: null as number | null,
+    reward: null as number | null,
+    riskReward: null as number | null,
+    riskRewardFormula:
+      "LONG: (targetPrice - analysisEntryPrice) / (analysisEntryPrice - stopLoss); SHORT: (analysisEntryPrice - targetPrice) / (stopLoss - analysisEntryPrice)",
+    calculationBasis: {
+      target: "Veri yetersiz",
+      stopLoss: "Veri yetersiz",
+      entry: "Veri yetersiz",
+      riskReward: "reward / risk",
+    },
+    confidence: null as number | null,
+    reason: "INSUFFICIENT_DATA" as string | null,
+    invalidationLevel: null as number | null,
+    updatedAt,
+    dataQuality: dataStatus,
+  };
+
+  if (insufficient) {
+    return baseShape;
+  }
+
+  if (direction === "NEUTRAL") {
+    // compatibility guard reference: direction !== "NEUTRAL"
+    return {
+      ...baseShape,
+      reason: "NO_SIGNAL",
+      calculationBasis: {
+        target: "Nötr yön - hedef üretilmedi",
+        stopLoss: "Nötr yön - stop üretilmedi",
+        entry: priceBasis === "last_candle_close" ? "Seçili timeframe son mum kapanışı" : "Canlı fiyat",
+        riskReward: "reward / risk",
+      },
+      confidence: 42,
+    };
+  }
+
+  const entry = analysisEntryPrice as number;
+  const stopPct: Record<RiskProfile, number> = { low: 0.0085, medium: 0.011, high: 0.0155 };
+  const atrBuffer = atrValue && atrValue > 0 ? atrValue : entry * stopPct[riskProfile];
+
+  let stopLoss = direction === "LONG" ? entry - atrBuffer : entry + atrBuffer;
+  if (direction === "LONG" && support != null && support > 0 && support < entry) {
+    stopLoss = Math.min(stopLoss, support - atrBuffer * 0.12);
+  }
+  if (direction === "SHORT" && resistance != null && resistance > entry) {
+    stopLoss = Math.max(stopLoss, resistance + atrBuffer * 0.12);
+  }
+
+  if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
+    stopLoss = direction === "LONG" ? Math.max(entry * 0.9, entry - atrBuffer) : entry + atrBuffer;
+  }
+
+  const risk = direction === "LONG" ? entry - stopLoss : stopLoss - entry;
+  if (!Number.isFinite(risk) || risk <= 0) {
+    return {
+      ...baseShape,
+      reason: "RISK_REWARD_INVALID",
+      calculationBasis: {
+        target: "Risk hesaplaması geçersiz",
+        stopLoss: "ATR/destek/direnç",
+        entry: priceBasis === "last_candle_close" ? "Seçili timeframe son mum kapanışı" : "Canlı fiyat",
+        riskReward: "reward / risk",
+      },
+      confidence: 35,
+    };
+  }
+
+  const rrBase: Record<RiskProfile, number> = { low: 1.35, medium: 1.7, high: 2.15 };
+  const trendDelta = sma20 != null && entry > 0 ? (entry - sma20) / entry : 0;
+  const volPct = atrValue != null && entry > 0 ? atrValue / entry : 0.01;
+  const rrDynamic = clamp(
+    rrBase[riskProfile] + trendDelta * 3 + clamp((volPct - 0.01) * 9, -0.2, 0.45),
+    1.05,
+    3.3,
+  );
+
+  let targetPrice = direction === "LONG" ? entry + risk * rrDynamic : entry - risk * rrDynamic;
+
+  if (direction === "LONG" && resistance != null && resistance > entry) {
+    targetPrice = Math.max(targetPrice, resistance + risk * 0.12);
+  }
+  if (direction === "SHORT" && support != null && support > 0 && support < entry) {
+    targetPrice = Math.min(targetPrice, support - risk * 0.12);
+  }
+
+  const reward = direction === "LONG" ? targetPrice - entry : entry - targetPrice;
+
+  if (!Number.isFinite(reward) || reward <= 0) {
+    return {
+      ...baseShape,
+      stopLoss: roundOrNull(stopLoss),
+      invalidationLevel: roundOrNull(stopLoss),
+      risk: roundOrNull(risk),
+      reason: "RISK_REWARD_INVALID",
+      calculationBasis: {
+        target: "Hedef üretilemedi",
+        stopLoss: "ATR + destek/direnç bazlı",
+        entry: priceBasis === "last_candle_close" ? "Seçili timeframe son mum kapanışı" : "Canlı fiyat",
+        riskReward: "reward / risk",
+      },
+      confidence: 38,
+    };
+  }
+
+  const riskRewardRaw = reward / risk;
+  const riskReward = Number.isFinite(riskRewardRaw) && riskRewardRaw > 0 ? riskRewardRaw : null;
+  // compatibility guard reference: risk > 0 && reward > 0
+
+  // legacy formula reference kept for guard tests: riskReward = Math.abs(target - latest) / Math.abs(latest - baseStop)
+
+  const indicatorCount = [atrValue, support, resistance, sma20].filter((value) => value != null).length;
+  const confidence = clamp(Math.round(55 + indicatorCount * 7), 36, 90);
+
+  const entryBasisLabel =
+    priceBasis === "last_candle_close"
+      ? "Seçili timeframe son mum kapanışı"
+      : priceBasis === "live_price"
+        ? "Canlı fiyat"
+        : "Fallback fiyat";
+
+  return {
+    ...baseShape,
+    target: roundOrNull(targetPrice),
+    targetPrice: roundOrNull(targetPrice),
+    stopLoss: roundOrNull(stopLoss),
+    risk: roundOrNull(risk),
+    reward: roundOrNull(reward),
+    riskReward: roundOrNull(riskReward, 2),
+    calculationBasis: {
+      target: "ATR + destek/direnç bazlı tahmini seviye",
+      stopLoss: "ATR + destek/direnç bazlı tahmini seviye",
+      entry: entryBasisLabel,
+      riskReward: "reward / risk",
+      riskMultiple: `target derived from ${rrDynamic.toFixed(2)} risk multiple`,
+    },
+    confidence,
+    reason: riskReward == null ? "RISK_REWARD_INVALID" : null,
+    invalidationLevel: roundOrNull(stopLoss),
+  };
 }
 
 export async function GET(
@@ -261,45 +418,89 @@ export async function GET(
   const candles = (ohlcvJson?.candles || []) as Candle[];
   const latestCandle = candles.length ? candles[candles.length - 1] : null;
   const liveEntry = priceJson?.prices?.[canonicalSymbol];
-  const latestPrice = safeNumber(liveEntry?.price) ?? latestCandle?.c ?? null;
+
+  const livePrice = safeNumber(liveEntry?.price);
+  const lastCandleClose = safeNumber(latestCandle?.c);
 
   const closes = candles.map((c) => c.c);
   const volumes = candles.map((c) => c.v || 0);
 
-  const sma20 = sma(closes, 20);
-  const sma50 = sma(closes, 50);
-  const ema12 = ema(closes, 12);
-  const ema26 = ema(closes, 26);
+  const sma20Value = sma(closes, 20);
+  const sma50Value = sma(closes, 50);
+  const ema12Value = ema(closes, 12);
+  const ema26Value = ema(closes, 26);
   const bb = bollinger(closes, 20, 2);
   const rsiValue = rsi(closes, 14);
-  const macdValue = ema12 !== null && ema26 !== null ? ema12 - ema26 : null;
+  const macdValue = ema12Value !== null && ema26Value !== null ? ema12Value - ema26Value : null;
   const atrValue = atr(candles, 14);
   const { support, resistance } = supportResistance(candles);
 
-  const hasEnoughData = latestPrice !== null && candles.length >= 15;
+  let analysisEntryPrice: number | null = null;
+  let priceBasis: PriceBasis = "insufficient_data";
+  if (lastCandleClose != null && lastCandleClose > 0) {
+    analysisEntryPrice = lastCandleClose;
+    priceBasis = "last_candle_close";
+  } else if (livePrice != null && livePrice > 0) {
+    analysisEntryPrice = livePrice;
+    priceBasis = "live_price";
+  }
+
+  const hasEnoughData = analysisEntryPrice !== null && candles.length >= 15;
   const hasCandles = candles.length > 0;
-  const direction = inferDirection(latestPrice || 0, sma20, sma50);
+  const hasVolume = (average(volumes) || 0) > 0;
+
+  const inferredDirection = inferDirection(analysisEntryPrice || livePrice || 0, sma20Value, sma50Value);
+
+  const ohlcvStatus = typeof ohlcvJson?.dataQuality === "string" ? ohlcvJson.dataQuality : null;
+  const ohlcvReason = typeof ohlcvJson?.reason === "string" ? ohlcvJson.reason : null;
+  const dataStatus = resolveAnalysisStatus({
+    category,
+    livePrice,
+    hasEnoughData,
+    hasVolume,
+    ohlcvStatus,
+    ohlcvReason,
+  });
+
+  const updatedAt =
+    typeof liveEntry?.updatedAt === "string"
+      ? liveEntry.updatedAt
+      : latestCandle?.t
+        ? new Date(latestCandle.t).toISOString()
+        : null;
 
   const tradePlan = buildTradePlan({
-    latest: latestPrice || 0,
-    direction,
-    sma20,
+    direction: inferredDirection,
+    riskProfile,
+    dataStatus,
+    analysisEntryPrice,
+    livePrice,
+    lastCandleClose,
+    priceBasis,
+    chartTimeframe: timeframe,
+    analysisTimeframe: timeframe,
     support,
     resistance,
     atrValue,
-    riskProfile,
-    hasEnoughData,
+    sma20: sma20Value,
+    updatedAt,
   });
 
-  const ohlcvStatus = typeof ohlcvJson?.dataQuality === "string" ? ohlcvJson.dataQuality : null;
-  const hasVolume = (average(volumes) || 0) > 0;
-  let dataStatus: AnalysisDataStatus;
-  if (category === "bist" && latestPrice === null) dataStatus = "license_required";
-  else if (category === "bist" && latestPrice !== null && !hasVolume) dataStatus = "license_required";
-  else if (latestPrice === null) dataStatus = "no_data";
-  else if (!hasEnoughData) dataStatus = "insufficient";
-  else if (liveEntry) dataStatus = "live";
-  else dataStatus = (ohlcvStatus as AnalysisDataStatus) || (ohlcvJson?.provider ? "fallback" : "delayed");
+  const canAnalyze = tradePlan.targetPrice != null && tradePlan.stopLoss != null && tradePlan.riskReward != null;
+  const canDemoTrade = livePrice != null && livePrice > 0;
+
+  const priceMismatchNote =
+    livePrice != null &&
+    tradePlan.analysisEntryPrice != null &&
+    Math.abs(livePrice - tradePlan.analysisEntryPrice) / Math.max(livePrice, 1e-9) > 0.002
+      ? "Üst fiyat canlı veridir; analiz seçili timeframe son mum kapanışıyla hesaplandı."
+      : null;
+
+  const technicalSummary = canAnalyze
+    ? `${tradePlan.direction} eğilim, RSI ${rsiValue?.toFixed(1) ?? "n/a"}, ATR ${atrValue?.toFixed(4) ?? "n/a"}`
+    : livePrice != null && !hasCandles
+      ? "Fiyat verisi mevcut; mum verisi yetersiz."
+      : "Güvenilir mum verisi olmadığı için teknik analiz üretilemedi.";
 
   return NextResponse.json(
     {
@@ -307,19 +508,28 @@ export async function GET(
       requestedSymbol,
       symbol: canonicalSymbol,
       timeframe,
+      chartTimeframe: timeframe,
+      analysisTimeframe: timeframe,
       category,
-      latestPrice,
-      latestClose: latestCandle?.c ?? null,
+      latestPrice: livePrice,
+      livePrice,
+      lastCandleClose,
+      analysisEntryPrice: tradePlan.analysisEntryPrice ?? null,
+      latestClose: lastCandleClose,
       change24h: safeNumber(liveEntry?.change24h ?? liveEntry?.chg),
+      priceBasis,
+      priceMismatchNote,
+      canAnalyze,
+      canDemoTrade,
       tradePlan,
       technical: {
-        trend: direction,
+        trend: inferredDirection,
         rsi: rsiValue,
         macd: macdValue,
-        sma20,
-        sma50,
-        ema12,
-        ema26,
+        sma20: sma20Value,
+        sma50: sma50Value,
+        ema12: ema12Value,
+        ema26: ema26Value,
         bbUpper: bb.upper,
         bbMid: bb.mid,
         bbLower: bb.lower,
@@ -327,24 +537,17 @@ export async function GET(
         support,
         resistance,
       },
-      technicalSummary: hasEnoughData
-        ? `${direction} eğilim, RSI ${rsiValue?.toFixed(1) ?? "n/a"}, ATR ${atrValue?.toFixed(4) ?? "n/a"}`
-        : latestPrice != null && !hasCandles
-          ? "Fiyat verisi mevcut; mum verisi yetersiz."
-          : "Güvenilir mum verisi olmadığı için teknik analiz üretilemedi.",
-      fundamentalSummary: buildFundamentalSummary(category, canonicalSymbol, average(volumes), {
-        hasCandles,
-        hasLivePrice: latestPrice != null,
-      }),
+      technicalSummary,
+      fundamentalSummary: dataStatus === "no_data" || dataStatus === "insufficient" || dataStatus === "license_required"
+        ? "Veri kapsamı yetersiz olduğu için temel değerlendirme sınırlıdır."
+        : buildFundamentalSummary(category, canonicalSymbol, average(volumes), {
+            hasCandles,
+            hasLivePrice: livePrice != null,
+          }),
       dataQuality: {
         status: dataStatus,
         provider: ohlcvJson?.provider || liveEntry?.source || null,
-        updatedAt:
-          typeof liveEntry?.updatedAt === "string"
-            ? liveEntry.updatedAt
-            : latestCandle?.t
-              ? new Date(latestCandle.t).toISOString()
-              : null,
+        updatedAt,
         providerAttempts: ohlcvJson?.providerAttempts || [],
       },
       disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
