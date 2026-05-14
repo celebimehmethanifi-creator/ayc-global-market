@@ -1,0 +1,526 @@
+================================================================================
+    AYC GLOBAL MARKET — PRODUCTION READINESS AUDIT RAPORU
+    Tarih: 14 Mayıs 2026
+    Yöntem: Static code analysis — NO code changes, NO commits, NO pushes
+    Kapsam: main, hardening-production-readiness, feature/demo-trading-engine, deploy
+================================================================================
+
+SECRET DEĞERLERİ BU RAPORDA [REDACTED] OLARAK GÖSTERİLMİŞTİR.
+
+================================================================================
+1. BRANCH / REPO MAP
+================================================================================
+
+Branch                          HEAD Commit   Date            Tag / Note
+────────────────────────────────────────────────────────────────────────────────
+main                            18f4699       2026-05-14      CMS integration
+hardening-production-readiness  51b675c       2026-05-14      v0.3.0-rc1 (RC tag)
+feature/demo-trading-engine     2cc09a7       2026-05-14      Analysis price fix
+deploy                          1961e77       2026-05-11      Initial clean release
+security/production-containment ——            ——              BRANCH DOES NOT EXIST
+feature/ayc-chart-pro           (exists)      ——              Not audited
+
+Live Commit (deploy branch):   1961e77  →  "AYC Global Market - initial clean release"
+Hardening HEAD:                51b675c  →  "fix(web): enforce market table integrity..."
+Feature HEAD:                  2cc09a7  →  "fix(analysis): compute trade plan risk reward..."
+
+live == hardening?   → NO   (deploy is 1961e77, hardening is 51b675c — 3 days apart)
+live == feature?     → NO
+live == main?        → NO
+
+NOTE: security/production-containment branch DOES NOT EXIST in remote or local.
+This branch was referenced in the task but has not been created.
+
+Version endpoint: /api/v1/version is available in hardening via version-info.ts lib.
+Production live commit confirmation requires curl against deployed URL (not done here).
+
+================================================================================
+2. SECURITY FINDINGS VERIFICATION
+================================================================================
+
+Each finding from ANALIZ_RAPORU.txt verified against both main AND
+hardening-production-readiness (current RC candidate).
+
+────────────────────────────────────────────────────────────────────────────────
+A) market_proxy.py — HARDCODED API KEYS
+────────────────────────────────────────────────────────────────────────────────
+Finding:       6 real API keys hardcoded in source
+Exists?        YES — in BOTH main AND hardening
+Branch:        main (lines 18-23), hardening (lines 36-41)
+File:          services/data-service/market_proxy.py
+Risk Level:    CRITICAL / P0 RELEASE BLOCKER
+Evidence:      Lines 36-41 in hardening show [REDACTED] values for:
+               COINGECKO_KEY, FINNHUB_KEY, TWELVEDATA_KEY, FMP_KEY,
+               CMC_KEY, ALPHAVANTAGE_KEY
+Status:        TRUE POSITIVE — NOT FIXED in hardening branch
+Action:        Immediate key rotation + move to env vars + remove from git history
+
+────────────────────────────────────────────────────────────────────────────────
+B) auth.ts — JWT SECRET FALLBACK
+────────────────────────────────────────────────────────────────────────────────
+Finding:       Hardcoded fallback secret "ayc-market-secret-2026-[REDACTED]"
+Exists?        FIXED in hardening / YES in main
+Branch:        main (lines 4-5), hardening (lines 6-32)
+File:          apps/web/app/api/v1/_lib/auth.ts
+Risk Level:    RESOLVED in hardening
+Evidence (hardening):
+               const MIN_SECRET_LENGTH = 32;
+               const raw = process.env.JWT_SECRET?.trim() || "";
+               if (!raw) throw new Error("JWT_SECRET environment variable is required.");
+               if (raw.length < MIN_SECRET_LENGTH) throw new Error(...);
+Status:        FALSE POSITIVE for hardening — hardening FIXED this correctly
+               Test coverage: test_web_jwt_secret_has_no_fallback_and_has_min_length_check() PASSES
+Action:        None for hardening — ensure JWT_SECRET is set in deployment env
+
+────────────────────────────────────────────────────────────────────────────────
+C) Test Accounts — PLAIN-TEXT PASSWORDS IN LOGIN ROUTE
+────────────────────────────────────────────────────────────────────────────────
+Finding:       admin@, elite@, pro@, free@, demo@aycmarket.com with plaintext
+               passwords; admin tier="elite" balance=$500,000
+Exists?        FIXED in hardening / YES in main
+Branch:        main (lines 16-33), hardening uses getDevSeedUser()
+File:          apps/web/app/api/v1/auth/login/route.ts
+Risk Level:    RESOLVED in hardening
+Evidence (hardening):
+               Production-guarded via dev-auth.ts:
+               if (process.env.NODE_ENV === "production") return null;
+               Dev emails use non-production domain: dev-elite@local.ayc
+               Passwords are bcrypt-hashed in dev-auth.ts (not plaintext)
+Status:        FALSE POSITIVE for hardening — correctly isolated to dev env
+               Test: test_web_login_has_no_hardcoded_master_or_test_accounts() PASSES
+               Test: test_web_dev_seed_is_explicitly_non_production_only() PASSES
+NOTE:          dev-auth.ts still contains plaintext seed passwords in source
+               for reference — acceptable as they're dev-only @local.ayc domain
+Action:        None blocking — verify NODE_ENV=production in deployment
+
+────────────────────────────────────────────────────────────────────────────────
+D) Unsigned Base64 Token for Test Accounts
+────────────────────────────────────────────────────────────────────────────────
+Finding:       Buffer.from(JSON.stringify(payload)).toString("base64url") —
+               not a signed JWT
+Exists?        FIXED in hardening / YES in main
+Branch:        main (line 33), hardening: removed entirely
+File:          apps/web/app/api/v1/auth/login/route.ts
+Risk Level:    RESOLVED in hardening
+Status:        FALSE POSITIVE for hardening — test accounts route removed
+Action:        None
+
+────────────────────────────────────────────────────────────────────────────────
+E) Webhook Endpoint — Accepts Fake Webhooks When Secret Missing
+────────────────────────────────────────────────────────────────────────────────
+Finding:       if (!WEBHOOK_SECRET) return true; // skip verification
+Exists?        FIXED in hardening / YES in main
+Branch:        main (line 7), hardening (line 16)
+File:          apps/web/app/api/v1/billing/webhook/route.ts
+Risk Level:    RESOLVED in hardening
+Evidence (hardening):
+               function verifySignature(...): boolean {
+                 if (!WEBHOOK_SECRET || !signature) return false;  ← now rejects
+               if (IS_PRODUCTION && !WEBHOOK_SECRET) {
+                 return NextResponse.json({ error: "..." }, { status: 500 });
+Status:        FALSE POSITIVE for hardening — correctly fixed
+Action:        Ensure LEMON_WEBHOOK_SECRET is set in deployment — add to env guard check
+
+────────────────────────────────────────────────────────────────────────────────
+F) SQLite .db Files — Git Tracked
+────────────────────────────────────────────────────────────────────────────────
+Finding:       6 SQLite database files committed to git
+Exists?        YES — in BOTH main AND hardening
+Branch:        Both
+Files tracked:
+               services/ai-service/neura.db
+               services/data-service/neura.db
+               services/gateway/ayc_market.db
+               services/gateway/neura.db
+               services/signal-service/neura.db
+               services/signal-service/neura_signal.db
+Risk Level:    HIGH / P0 RELEASE BLOCKER
+Evidence:
+               git ls-tree -r origin/hardening → all 6 .db files present
+               .gitignore has "*.sqlite" but NOT "*.db" — wrong extension pattern
+Status:        TRUE POSITIVE — NOT FIXED in hardening
+Action:        Add "*.db" to .gitignore; run git filter-branch or BFG Repo Cleaner
+               to remove from git history. Files may contain user data.
+
+────────────────────────────────────────────────────────────────────────────────
+G) Unimplemented Services (Empty __init__.py)
+────────────────────────────────────────────────────────────────────────────────
+Finding:       4 services in docker-compose are stubs
+Exists?        YES — in BOTH main AND hardening
+Files:         services/alarm-service/__init__.py  (0 bytes)
+               services/portfolio-service/__init__.py (0 bytes)
+               services/social-service/__init__.py (0 bytes)
+               services/user-service/__init__.py (0 bytes)
+Risk Level:    HIGH — docker-compose will fail to start these services
+Status:        TRUE POSITIVE — NOT FIXED in hardening
+Action:        Either implement services or remove from docker-compose.yml
+
+────────────────────────────────────────────────────────────────────────────────
+H) Signal API — Hardcoded Static Signals
+────────────────────────────────────────────────────────────────────────────────
+Finding:       /api/v1/signals returns hardcoded array
+Exists?        PARTIALLY fixed in hardening
+Branch:        hardening
+Files:
+  apps/web/app/api/v1/signals/route.ts       → STILL hardcoded const SIGNALS = [...]
+  apps/web/app/api/v1/signals/live/route.ts  → REAL data from CoinGecko/Yahoo
+                                               (uses SIGNALS_BASE templates + live price)
+Risk Level:    MEDIUM — /signals/live works, /signals endpoint is still fake
+Status:        PARTIAL — /signals/live is real; /signals route is still static
+Action:        Update /signals route to proxy to gateway or use live route data
+
+────────────────────────────────────────────────────────────────────────────────
+I) Subscription Cancel — Fake No-op Success
+────────────────────────────────────────────────────────────────────────────────
+Finding:       billing/cancel returns success without real cancellation
+Exists?        YES — IDENTICAL in both main AND hardening
+Branch:        Both
+File:          apps/web/app/api/v1/billing/cancel/route.ts
+Risk Level:    HIGH / P0 (Financial impact — users think they cancelled but are charged)
+Status:        TRUE POSITIVE — NOT FIXED in hardening
+Evidence:      Hardening code identical to main:
+               return NextResponse.json({
+                 success: true,
+                 message: "Abonelik iptal edildi",
+                 cancelled_at: new Date().toISOString(),
+               });
+Action:        Implement real LemonSqueezy/Stripe cancellation API call
+
+────────────────────────────────────────────────────────────────────────────────
+J) In-Memory State — Plan/Alarms/Positions Lost on Cold Start
+────────────────────────────────────────────────────────────────────────────────
+Finding:       globalThis.__AYC_ALARMS, __AYC_POSITIONS, user plan lost on restart
+Exists?        PARTIALLY fixed in hardening
+Branch:        hardening
+Status:        MIXED:
+  billing/verify:     FIXED — now calls saveUser() which persists to Edge Config
+  user plan update:   FIXED — user.plan = resolvedPlan; await saveUser(user);
+  alarms:             STILL in-memory — globalThis.__AYC_ALARMS not persisted
+  positions:          STILL in-memory — globalThis.__AYC_POSITIONS not persisted
+Risk Level:    MEDIUM — alarm/position data lost on Vercel cold start
+Action:        Persist alarms and positions to Edge Config or external DB
+
+================================================================================
+SECURITY FINDINGS SUMMARY TABLE
+================================================================================
+
+ID   Finding                          main    hardening   Status              P-Level
+──────────────────────────────────────────────────────────────────────────────────────
+A    market_proxy hardcoded keys      YES     YES         ⛔ NOT FIXED        P0
+B    JWT secret fallback              YES     NO          ✅ FIXED            —
+C    Test accounts plaintext pwd      YES     NO          ✅ FIXED            —
+D    Unsigned base64 token            YES     NO          ✅ FIXED            —
+E    Webhook secret bypass            YES     NO          ✅ FIXED            —
+F    SQLite .db files tracked         YES     YES         ⛔ NOT FIXED        P0
+G    Empty stub services              YES     YES         ⛔ NOT FIXED        P1
+H    Hardcoded signal API             YES     PARTIAL     ⚠ PARTIAL          P1
+I    Fake billing cancel              YES     YES         ⛔ NOT FIXED        P0
+J    In-memory alarms/positions       YES     PARTIAL     ⚠ PARTIAL          P1
+
+================================================================================
+3. HARDENING BRANCH — RELEASE BLOCKERS
+================================================================================
+
+P0 — RELEASE BLOCKERS (Must fix before any production deploy)
+────────────────────────────────────────────────────────────────────────────────
+
+[P0-1] HARDCODED API KEYS IN SOURCE CODE
+File: services/data-service/market_proxy.py (lines 36-41)
+6 real API keys exposed — CoinGecko, Finnhub, TwelveData, FMP, CMC, AlphaVantage
+→ Keys must be rotated immediately and loaded from env vars
+
+[P0-2] SQLITE .DB FILES TRACKED IN GIT
+.gitignore uses "*.sqlite" but actual files use ".db" extension — all 6 ignored
+→ Add "*.db" to .gitignore; clean git history with BFG
+
+[P0-3] BILLING CANCEL IS A NO-OP
+Paying users who cancel still get charged — legal/financial risk
+→ Implement real LemonSqueezy/Stripe subscription cancellation
+
+[P0-4] PRODUCTION ENV GUARD MISSING FOR JWT_SECRET (deploy side)
+auth.ts hardening correctly rejects missing JWT_SECRET at runtime
+But if deployment env doesn't have JWT_SECRET set, app will throw on first
+request — this needs a startup health check, not just a runtime guard
+→ Add JWT_SECRET to required env vars list in VERCEL_ENV_SETUP.txt
+→ Confirm Vercel has JWT_SECRET configured
+
+────────────────────────────────────────────────────────────────────────────────
+P1 — IMPORTANT ISSUES (Fix before public user acquisition)
+────────────────────────────────────────────────────────────────────────────────
+
+[P1-1] 4 EMPTY STUB SERVICES IN DOCKER-COMPOSE
+alarm-service, portfolio-service, social-service, user-service
+docker-compose.yml references these — compose up will fail or warn
+→ Remove from docker-compose or add minimal placeholder responses
+
+[P1-2] /api/v1/signals ROUTE RETURNS STATIC 5-SIGNAL LIST
+signals/route.ts still has const SIGNALS = [...] hardcoded
+Users always see same 5 signals (BTC, XAU, NVDA, ETH, TSLA)
+/signals/live works with real prices but /signals is still fake
+→ Route /signals to /signals/live or gateway proxy
+
+[P1-3] ALARMS AND POSITIONS STILL IN-MEMORY
+globalThis.__AYC_ALARMS and __AYC_POSITIONS reset on Vercel cold start
+User alarms disappear silently — no user-facing warning
+→ Either persist to Edge Config or display "demo mode, ephemeral" warning
+
+[P1-4] MARKET_PROXY CORS WILDCARD
+market_proxy.py: allow_origins=["*"]
+→ Restrict to known frontend origins
+
+[P1-5] MARKET_PROXY HTTPX CLIENT PER-REQUEST
+No connection pooling — performance bottleneck at scale
+→ Create singleton AsyncClient at startup
+
+[P1-6] LEMON_WEBHOOK_SECRET NOT IN ROOT .env.example
+Checkout uses LEMON_API_KEY, LEMON_STORE_ID, LEMON_PRO_VARIANT_ID,
+LEMON_ELITE_VARIANT_ID, LEMON_WEBHOOK_SECRET — none in root .env.example
+→ Add to .env.example with placeholder values
+
+────────────────────────────────────────────────────────────────────────────────
+P2 — POLISH (Nice to have before launch)
+────────────────────────────────────────────────────────────────────────────────
+
+[P2-1] COMING-SOON MIDDLEWARE STILL ACTIVE FOR PRODUCTION DOMAIN
+middleware.ts rewrites aycmarket.com/* to /coming-soon (intentional for soft launch)
+→ Document timeline for removing; add env flag to disable without code change
+
+[P2-2] TRANSACTIONS ENDPOINT RETURNS EMPTY ARRAY
+billing/transactions → { transactions: [], count: 0 }
+→ At minimum display "payment history coming soon"
+
+[P2-3] DEV-AUTH.TS HAS PLAINTEXT PASSWORDS IN SOURCE
+dev-elite@local.ayc passwords visible in source
+production-guarded but still in git history
+→ Move seed passwords to dev-only .env.local, not source
+
+[P2-4] DUPLICATE TAILWIND CONFIGS
+tailwind.config.js AND tailwind.config.ts both exist
+→ Remove one
+
+================================================================================
+4. FEATURE/DEMO-TRADING-ENGINE BRANCH — RISKS
+================================================================================
+
+Branch adds: Full demo trading engine (7 new API endpoints + library)
+Base: 3 commits ahead of hardening-production-readiness as of audit date
+
+────────────────────────────────────────────────────────────────────────────────
+FEATURE BRANCH ASSESSMENT
+────────────────────────────────────────────────────────────────────────────────
+
+[FEAT-1] DEMO STATE IS IN-MEMORY — DISCLOSED CORRECTLY ✅
+demo-trading.ts line 352:
+  warning: "Demo state is stored in-memory and can reset after redeploy/cold start."
+demo/order route line 468:
+  warning: "Demo işlem gerçek exchange emri göndermez."
+DemoContext source field shows "api" | "local-fallback" — UI can display this
+→ ACCEPTABLE for demo trading — disclosure is present
+
+[FEAT-2] ANALYSIS ROUTE — DUAL FIELD NAMES — BACKWARD COMPAT ✅
+Feature branch emits both entry/entryPrice and target/targetPrice fields
+test_analysis_contract_has_entry_and_target_back_compat_fields() explicitly tests this
+AssetDetailModal reads: analysis?.tradePlan?.targetPrice ?? analysis?.tradePlan?.target
+→ BACKWARD COMPATIBLE — safe to merge without breaking existing consumers
+
+[FEAT-3] ANALYSIS MATH CONTRACT — FORMULA-BASED R/R ✅
+Risk/reward now computed from actual prices, not hardcoded 1.85 literal
+test_risk_reward_is_formula_based_not_fixed_literal() passes
+→ Correct implementation — tests enforce contract
+
+[FEAT-4] NO-DATA GUARD — HONEST MESSAGING ✅
+analysis route handles INSUFFICIENT_DATA, no_data states
+Returns null for target/targetPrice/stopLoss when data is insufficient
+User-facing message: "Güvenilir mum verisi olmadığı için teknik analiz üretilemedi."
+Provider error strings (yahoo:error, stooq:error) are NOT leaked to users
+→ Correct implementation
+
+[FEAT-5] DEMOCONTEXT REFACTORED SYNC→ASYNC — BREAKING CHANGE ⚠
+openTrade() changed from: (symbol, name, dir, price, amt) => boolean
+                      to:  async (..., options?) => Promise<boolean>
+closeTrade() changed from: (id, price) => void
+                      to:  async (id, price?) => Promise<boolean>
+reset() changed to: async () => Promise<void>
+
+Any component in hardening that calls openTrade synchronously will break.
+→ Verify no other components call openTrade synchronously in hardening
+
+[FEAT-6] NORMALIZE.TS NEW DEPENDENCY IN SIGNALS + DASHBOARD ⚠
+signals/page.tsx and dashboard/page.tsx now import from @/lib/signals/normalize
+This file does NOT exist in hardening branch
+→ Will cause build failure if feature changes to these pages are merged
+   without also merging normalize.ts
+→ Must merge normalize.ts along with any page that imports it
+
+[FEAT-7] PORTFOLIO PAGE FULLY REWRITTEN — MOCK DATA REMOVED ✅
+Hardening has MOCK positions array in portfolio/page.tsx
+Feature removes MOCK positions, uses DemoContext instead
+→ Good improvement — removes deceptive mock data
+→ Merge risk: complete file replacement, medium conflict probability
+
+[FEAT-8] DEMO ORDER VALIDATION GUARDS ✅
+demo-trading.ts validates:
+  - side must be LONG or SHORT
+  - notional must be valid number > 0
+  - leverage between 1 and maxAllowedLeverage
+  - balance check before order placement
+  - price must be fetchable
+→ Correct guards — test_demo_lib_contains_default_balance_and_validation_guards() passes
+
+[FEAT-9] EXCHANGE ORDER ROUTE — REAL ORDER GUARD ⚠
+Need to verify exchange/order/route.ts in hardening correctly blocks
+real orders for demo users and doesn't accidentally call exchange API
+→ Check: exchange/order should check plan tier and demo flag before executing
+
+[FEAT-10] SIGNALS/PAGE — NORMALIZE INTEGRATION CHANGES RENDERING ⚠
+signals/page.tsx now uses NormalizedSignal type and hasMeaningfulSignal()
+Signals with no data show "Sinyal yok" label instead of empty card
+→ Behavior change — better UX but needs QA verification
+
+================================================================================
+5. MERGE RISK MATRIX — feature/demo-trading-engine → hardening-production-readiness
+================================================================================
+
+File                                          Change           Risk    Conflict%  Test?  Merge?
+─────────────────────────────────────────────────────────────────────────────────────────────────
+apps/web/app/(app)/alarms/page.tsx            Turkish typo fix LOW     LOW        No     YES
+apps/web/app/(app)/copilot/page.tsx           Minor changes    LOW     LOW        No     YES
+apps/web/app/(app)/dashboard/page.tsx         normalize import HIGH    MEDIUM     YES*   CAUTION
+apps/web/app/(app)/layout.tsx                 Unknown changes  MEDIUM  MEDIUM     No     Review
+apps/web/app/(app)/portfolio/page.tsx         Full rewrite     HIGH    HIGH       YES*   CAUTION
+apps/web/app/(app)/signals/page.tsx           normalize import HIGH    MEDIUM     YES*   CAUTION
+apps/web/app/(app)/trades/page.tsx            Demo trade UX    MEDIUM  LOW        No     YES
+apps/web/app/api/v1/_lib/demo-trading.ts      NEW FILE         HIGH    NONE       YES    YES
+apps/web/app/api/v1/assets/[sym]/analysis/   Price basis fix  HIGH    HIGH       YES    CAUTION
+apps/web/app/api/v1/demo/account/route.ts     NEW FILE         LOW     NONE       YES    YES
+apps/web/app/api/v1/demo/balance/route.ts     NEW FILE         LOW     NONE       YES    YES
+apps/web/app/api/v1/demo/close/route.ts       NEW FILE         LOW     NONE       YES    YES
+apps/web/app/api/v1/demo/history/route.ts     NEW FILE         LOW     NONE       YES    YES
+apps/web/app/api/v1/demo/order/route.ts       NEW FILE         LOW     NONE       YES    YES
+apps/web/app/api/v1/demo/positions/route.ts   NEW FILE         LOW     NONE       YES    YES
+apps/web/app/api/v1/demo/reset/route.ts       NEW FILE         LOW     NONE       YES    YES
+apps/web/app/globals.css                      Style updates    LOW     LOW        No     YES
+apps/web/components/ui/AITradeModal.tsx       Leverage/async   HIGH    HIGH       YES    CAUTION
+apps/web/components/ui/AssetDetailModal.tsx   Target field fix HIGH    HIGH       YES    CAUTION
+apps/web/components/ui/CommandPalette.tsx     Minor changes    LOW     LOW        No     YES
+apps/web/components/ui/DemoTradeModal.tsx     NEW FILE         LOW     NONE       No     YES
+apps/web/components/ui/ProfessionalChart.tsx  Chart changes    MEDIUM  MEDIUM     No     Review
+apps/web/lib/demo/DemoContext.tsx             Sync→async rewrite HIGH  HIGH      YES    CAUTION
+apps/web/lib/signals/normalize.ts             NEW FILE         MEDIUM  NONE       YES    YES
+tests/demo/test_analysis_math_contract.py     NEW FILE         LOW     NONE       YES    YES
+tests/demo/test_demo_product_flow_ui.py       NEW FILE         LOW     NONE       YES    YES
+tests/demo/test_demo_trading_api.py           NEW FILE         LOW     NONE       YES    YES
+
+* Requires normalize.ts to be merged first
+
+CRITICAL DEPENDENCY: normalize.ts MUST be merged before or alongside:
+  - dashboard/page.tsx
+  - signals/page.tsx
+  - (any file that imports from @/lib/signals/normalize)
+
+HIGH CONFLICT FILES (require manual review before merge):
+1. analysis/route.ts  — Both branches modified this file independently
+2. AITradeModal.tsx   — Async refactor conflicts with hardening changes
+3. AssetDetailModal.tsx — Both branches touch target/entry fields
+4. DemoContext.tsx    — Major sync→async refactor
+5. portfolio/page.tsx — Complete rewrite vs hardening additions
+
+================================================================================
+6. REQUIRED SECRET ROTATIONS (Before Any Production Deploy)
+================================================================================
+
+Service                    Key Type           Action
+────────────────────────────────────────────────────────────────────────────────
+services/data-service      COINGECKO_KEY      [REDACTED] → ROTATE IMMEDIATELY
+services/data-service      FINNHUB_KEY        [REDACTED] → ROTATE IMMEDIATELY
+services/data-service      TWELVEDATA_KEY     [REDACTED] → ROTATE IMMEDIATELY
+services/data-service      FMP_KEY            [REDACTED] → ROTATE IMMEDIATELY
+services/data-service      CMC_KEY            [REDACTED] → ROTATE IMMEDIATELY
+services/data-service      ALPHAVANTAGE_KEY   [REDACTED] → ROTATE IMMEDIATELY
+
+These keys are in git history. Even after removing from code, old commits
+still contain them. Provider dashboards should show usage logs — check for
+unauthorized use immediately.
+
+Additional env vars that must exist in deployment (not in current .env):
+  LEMON_API_KEY
+  LEMON_STORE_ID
+  LEMON_PRO_VARIANT_ID
+  LEMON_ELITE_VARIANT_ID
+  LEMON_WEBHOOK_SECRET
+  JWT_SECRET (min 32 chars, no fallback in hardening)
+  NEXT_PUBLIC_SITE_URL
+
+================================================================================
+7. REQUIRED TESTS BEFORE MERGE
+================================================================================
+
+Test                                    Priority  Covers
+────────────────────────────────────────────────────────────────────────────────
+Run hardening test suite (existing)     P0        Guards, JWT, webhook, login
+  pytest tests/hardening/ -v
+
+Run feature demo tests                  P0        Demo engine, analysis math
+  pytest tests/demo/ -v
+
+Manual: billing/cancel actually cancels P0        Financial correctness
+Manual: LemonSqueezy webhook with real  P0        Payment security
+  signature verified
+Manual: AITradeModal async behavior     P1        DemoContext sync→async
+  (openTrade returns Promise)
+Manual: signals/page with no-data assets P1       normalize.ts guard
+Manual: portfolio/page after rewrite    P1        Demo positions visible
+Manual: cold start alarm persistence    P2        globalThis reset behavior
+E2E: sign up → subscribe → cancel flow P0        Full billing UX
+
+================================================================================
+8. FINAL VERDICT
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ HARDENING BRANCH (v0.3.0-rc1) VERDICT: NEEDS PATCH                     │
+│                                                                         │
+│ Significant security improvements made (JWT, auth, webhook) ✅          │
+│ But 3 P0 blockers remain unresolved:                                    │
+│   ⛔ Hardcoded API keys in market_proxy.py                              │
+│   ⛔ SQLite .db files tracked in git                                    │
+│   ⛔ Billing cancel is a no-op (financial risk)                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ FEATURE BRANCH MERGE VERDICT: SAFE TO MERGE (with preconditions)        │
+│                                                                         │
+│ Quality improvements: demo engine, analysis math, normalize, no-data    │
+│ guards, backward compat fields — all tested.                            │
+│                                                                         │
+│ PRECONDITIONS before merge:                                             │
+│   1. Resolve conflicts in: analysis/route, AITradeModal,                │
+│      AssetDetailModal, DemoContext, portfolio/page                       │
+│   2. Merge normalize.ts before pages that depend on it                  │
+│   3. Verify DemoContext sync→async doesn't break other callers          │
+│   4. Run full test suite post-merge                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+────────────────────────────────────────────────────────────────────────────
+PRODUCTION READY?   NO
+────────────────────────────────────────────────────────────────────────────
+
+Reason: 3 P0 blockers in hardening must be resolved first.
+
+Recommended sequence:
+  1. Rotate all 6 exposed API keys NOW (regardless of deploy plans)
+  2. Fix market_proxy.py to use env vars
+  3. Add *.db to .gitignore; clean git history
+  4. Implement real billing/cancel with LemonSqueezy API
+  5. Merge feature/demo-trading-engine → hardening (after conflict resolution)
+  6. Run full test suite: pytest tests/hardening/ tests/demo/ -v
+  7. Deploy hardening to staging, test billing flow end-to-end
+  8. Remove coming-soon middleware gate
+  9. Deploy to production
+
+ETA estimate (if team executes in order): ~2-3 days for P0 fixes + merge.
+
+================================================================================
+END OF AUDIT REPORT
+Prepared by: Static analysis only — no code changes were made
+================================================================================
