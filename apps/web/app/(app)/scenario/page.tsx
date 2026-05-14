@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Calculator, AlertTriangle, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -44,6 +43,13 @@ type SimulationReport = {
 
 function toNum(value: unknown): number | null {
   const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseStrictNumberInput(value: string): number | null {
+  const normalized = String(value || "").trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -283,46 +289,31 @@ export default function ScenarioPage() {
     amount: "0.1",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const { data, isFetching, refetch } = useQuery({
-    queryKey: ["scenario-report", form],
-    enabled: false,
-    queryFn: async () => {
-      const response = await api.post("/intelligence/scenario", {
-        symbol: form.symbol,
-        price: Number(form.entryPrice),
-        direction: form.direction,
-        confidence_score: Number(form.confidence),
-        volatility_daily: Number(form.volatility),
-        leverage: Number(form.leverage),
-        amount: Number(form.amount),
-      });
-      return normalizeReport(response.data, form.symbol, form.direction);
-    },
-  });
+  const [isFetching, setIsFetching] = useState(false);
+  const [reportData, setReportData] = useState<SimulationReport | null>(null);
 
   const validateForm = (): Record<string, string> => {
     const next: Record<string, string> = {};
-    const entryPrice = Number(form.entryPrice);
-    const amount = Number(form.amount);
-    const leverage = Number(form.leverage);
-    const confidence = Number(form.confidence);
-    const volatility = Number(form.volatility);
+    const entryPrice = parseStrictNumberInput(form.entryPrice);
+    const amount = parseStrictNumberInput(form.amount);
+    const leverage = parseStrictNumberInput(form.leverage);
+    const confidence = parseStrictNumberInput(form.confidence);
+    const volatility = parseStrictNumberInput(form.volatility);
 
-    if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
-      next.entryPrice = lang === "en" ? "Enter a valid price" : "Geçerli fiyat girin";
+    if (entryPrice == null || entryPrice <= 0) {
+      next.entryPrice = lang === "en" ? "Enter a valid entry price." : "Geçerli giriş fiyatı girin.";
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (amount == null || amount <= 0) {
       next.amount = lang === "en" ? "Enter a valid amount" : "Geçerli miktar girin";
     }
-    if (!Number.isFinite(leverage) || leverage <= 0) {
-      next.leverage = lang === "en" ? "Enter valid leverage" : "Geçerli kaldıraç girin";
+    if (leverage == null || leverage <= 0) {
+      next.leverage = lang === "en" ? "Leverage must be a valid number." : "Kaldıraç geçerli sayı olmalıdır.";
     }
-    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 100) {
-      next.confidence = lang === "en" ? "Confidence must be 0-100" : "Güven 0-100 aralığında olmalı";
+    if (confidence == null || confidence < 0 || confidence > 100) {
+      next.confidence = lang === "en" ? "Confidence must be between 0 and 100." : "Güven yüzdesi 0-100 arasında olmalıdır.";
     }
-    if (!Number.isFinite(volatility) || volatility < 0) {
-      next.volatility = lang === "en" ? "Enter valid volatility" : "Geçerli volatilite girin";
+    if (volatility == null || volatility < 0) {
+      next.volatility = lang === "en" ? "Volatility must be a valid number." : "Volatilite geçerli sayı olmalıdır.";
     }
     return next;
   };
@@ -330,15 +321,43 @@ export default function ScenarioPage() {
   const runSimulation = async () => {
     const nextErrors = validateForm();
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-    await refetch();
+    if (Object.keys(nextErrors).length > 0) {
+      setReportData(null);
+      return;
+    }
+    const entry = parseStrictNumberInput(form.entryPrice);
+    const amount = parseStrictNumberInput(form.amount);
+    const leverage = parseStrictNumberInput(form.leverage);
+    const confidence = parseStrictNumberInput(form.confidence);
+    const volatility = parseStrictNumberInput(form.volatility);
+    if (entry == null || amount == null || leverage == null || confidence == null || volatility == null) {
+      setReportData(null);
+      return;
+    }
+    setIsFetching(true);
+    try {
+      const response = await api.post("/intelligence/scenario", {
+        symbol: form.symbol,
+        price: entry,
+        direction: form.direction,
+        confidence_score: confidence,
+        volatility_daily: volatility,
+        leverage,
+        amount,
+      });
+      setReportData(normalizeReport(response.data, form.symbol, form.direction));
+    } catch {
+      setReportData(null);
+    } finally {
+      setIsFetching(false);
+    }
   };
 
   const report = useMemo<SimulationReport>(() => {
-    if (data) return data;
+    if (reportData) return reportData;
     return {
       symbol: form.symbol,
-      price: Number(form.entryPrice) || 0,
+      price: parseStrictNumberInput(form.entryPrice) || 0,
       direction: form.direction,
       recommended: "Bekle / Geç",
       keyInsight: lang === "en"
@@ -350,7 +369,7 @@ export default function ScenarioPage() {
         : "Bu içerik yatırım tavsiyesi değildir.",
       scenarios: [],
     };
-  }, [data, form.direction, form.entryPrice, form.symbol, lang]);
+  }, [form.direction, form.entryPrice, form.symbol, lang, reportData]);
 
   const normalizedScenarios = useMemo<Array<ScenarioResult & { _recommended: boolean }>>(() => {
     const scenarios = [...report.scenarios];

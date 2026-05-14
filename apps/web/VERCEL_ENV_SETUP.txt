@@ -29,5 +29,10 @@ Not:
 - `app.aycmarket.com` alias olarak calisabilir (APP_ALIAS_REDIRECT=0) veya canonical domaine yonlenebilir (APP_ALIAS_REDIRECT=1).
 - `blog.aycmarket.com` WordPress/Natro trafigi icin ayridir; app route'lariyla karismamalidir.
 - Refresh session rotation state su an in-memory tutulur; cold-start/redeploy sonrasi aktif refresh oturumlari dusebilir.
+- Version metadata'nin `unknown` olmamasi icin CLI deploy oncesi su env degerlerini set edin:
+  - `NEXT_PUBLIC_COMMIT_SHA=$(git rev-parse --short HEAD)`
+  - `NEXT_PUBLIC_BRANCH=hardening-production-readiness`
+  - `BUILD_TIME=<ISO-8601 timestamp>`
+  - `DEPLOYMENT_URL=<vercel deployment url>`
 
 

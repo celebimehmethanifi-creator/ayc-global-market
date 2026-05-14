@@ -44,6 +44,14 @@ function round(value: number, digits = 2): number {
   return Math.round(value * m) / m;
 }
 
+function parseStrictNumericInput(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const normalized = String(value ?? "").trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function computePnlPct(direction: Direction, entry: number, target: number): number | null {
   if (!(entry > 0) || !(target > 0)) return null;
   const raw = direction === "SHORT" ? (entry - target) / entry : (target - entry) / entry;
@@ -148,26 +156,26 @@ export async function POST(req: NextRequest) {
   const symbol = String(body?.symbol || "BTCUSDT").toUpperCase();
   const direction = String(body?.direction || "LONG").toUpperCase() === "SHORT" ? "SHORT" : "LONG";
 
-  const rawEntryPrice = Number(body?.price ?? body?.entryPrice);
-  const rawAmount = Number(body?.amount);
-  const rawLeverage = Number(body?.leverage);
-  const rawConfidence = Number(body?.confidence_score ?? body?.confidence);
-  const rawVolatility = Number(body?.volatility_daily ?? body?.volatility);
+  const rawEntryPrice = parseStrictNumericInput(body?.price ?? body?.entryPrice);
+  const rawAmount = parseStrictNumericInput(body?.amount);
+  const rawLeverage = parseStrictNumericInput(body?.leverage);
+  const rawConfidence = parseStrictNumericInput(body?.confidence_score ?? body?.confidence);
+  const rawVolatility = parseStrictNumericInput(body?.volatility_daily ?? body?.volatility);
 
-  if (!Number.isFinite(rawEntryPrice) || rawEntryPrice <= 0) {
-    return NextResponse.json({ ok: false, error: "INVALID_ENTRY_PRICE", message: "Geçerli fiyat girin." }, { status: 400 });
+  if (rawEntryPrice == null || rawEntryPrice <= 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_ENTRY_PRICE", message: "Geçerli giriş fiyatı girin." }, { status: 400 });
   }
-  if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+  if (rawAmount == null || rawAmount <= 0) {
     return NextResponse.json({ ok: false, error: "INVALID_AMOUNT", message: "Geçerli miktar girin." }, { status: 400 });
   }
-  if (!Number.isFinite(rawLeverage) || rawLeverage <= 0) {
-    return NextResponse.json({ ok: false, error: "INVALID_LEVERAGE", message: "Geçerli kaldıraç girin." }, { status: 400 });
+  if (rawLeverage == null || rawLeverage <= 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_LEVERAGE", message: "Kaldıraç geçerli sayı olmalıdır." }, { status: 400 });
   }
-  if (!Number.isFinite(rawConfidence) || rawConfidence < 0 || rawConfidence > 100) {
-    return NextResponse.json({ ok: false, error: "INVALID_CONFIDENCE", message: "Güven 0-100 aralığında olmalı." }, { status: 400 });
+  if (rawConfidence == null || rawConfidence < 0 || rawConfidence > 100) {
+    return NextResponse.json({ ok: false, error: "INVALID_CONFIDENCE", message: "Güven yüzdesi 0-100 arasında olmalıdır." }, { status: 400 });
   }
-  if (!Number.isFinite(rawVolatility) || rawVolatility < 0) {
-    return NextResponse.json({ ok: false, error: "INVALID_VOLATILITY", message: "Geçerli volatilite girin." }, { status: 400 });
+  if (rawVolatility == null || rawVolatility < 0) {
+    return NextResponse.json({ ok: false, error: "INVALID_VOLATILITY", message: "Volatilite geçerli sayı olmalıdır." }, { status: 400 });
   }
 
   const entryPrice = Math.max(0.00000001, rawEntryPrice);

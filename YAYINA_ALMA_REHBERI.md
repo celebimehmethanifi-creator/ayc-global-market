@@ -8,6 +8,11 @@
 5. apps/web/vercel.json kullanilmiyor; bu dosya deployment sorunlari nedeniyle bilincli olarak kaldirildi.
 6. Production deploy, Vercel project-level ayarlar + Vercel CLI akisi ile yapilmalidir.
 7. Git-triggered deploy su an guvenilir degilse production yayininda Verdent/Vercel CLI akisini kullan.
+8. Version metadata dogru gorunsun diye CLI deploy oncesi env set et:
+   - NEXT_PUBLIC_COMMIT_SHA=`git rev-parse --short HEAD`
+   - NEXT_PUBLIC_BRANCH=hardening-production-readiness
+   - BUILD_TIME=<ISO timestamp>
+   - DEPLOYMENT_URL=<deployment url>
 
 ```env
 NEXT_PUBLIC_API_URL=<optional-public-api-url-or-empty>

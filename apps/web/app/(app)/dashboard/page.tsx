@@ -677,7 +677,7 @@ function CausalSection({data}:{data:CausalCard}) {
   const hasMeaningfulMove = data.has_meaningful_move ?? !/%0\.00/.test(data.narrative || "");
   const normalizedNarrative = (data.narrative || "")
     .replace(/\*\*/g, "")
-    .replace(/ORGANIC_TREND|VOLUME_ANOMALY|VOLUME_SPIKE|MANIPULATION_SIGNAL|MANIPULATION_RISK/g, (token) => CAUSE_LABELS[token] || token);
+    .replace(/ORGANIC_TREND|VOLUME_ANOMALY|VOLUME_SPIKE|MANIPULATION_SIGNAL|MANIPULATION_RISK|NEWS_IMPACT|TECHNICAL_BREAKOUT|LOW_LIQUIDITY/g, (token) => CAUSE_LABELS[token] || token);
   const narrative = hasMeaningfulMove
     ? normalizedNarrative
     : "Bu varlık için anlamlı hareket verisi henüz oluşmadı.";

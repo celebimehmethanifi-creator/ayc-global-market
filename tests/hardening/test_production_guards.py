@@ -513,12 +513,16 @@ def test_scenario_api_returns_trade_fields_and_disclaimer():
 
 def test_market_page_has_mobile_card_view_and_source_label_mapping():
     text = read_text(WEB_MARKET_PAGE)
+    status_text = read_text(ROOT / "apps" / "web" / "lib" / "markets" / "data-status.ts")
     assert "market-mobile-list" in text
     assert "market-mobile-card" in text
     assert "sourceLabel" in text
+    assert "buildDataStatusMeta" in text
     assert "Veri yok" in text
-    assert "Kaynak yok" in text
+    assert "Veri Durumu" in text or "Data Status" in text
     assert "fmtChange" in text
+    assert '"BINANCE-WS": "Binance Canlı"' in status_text
+    assert 'BACKEND: "AYC Veri"' in status_text
 
 
 def test_social_page_covers_all_market_categories_and_tr_en_labels():
@@ -589,3 +593,52 @@ def test_mojibake_patterns_absent_in_mobile_sources():
         if any(token in text for token in bad_tokens):
             offenders.append(str(path))
     assert offenders == []
+
+
+def test_version_metadata_has_cli_fallback_and_expected_env_order():
+    text = read_text(WEB_VERSION_LIB)
+    assert 'const CLI_FALLBACK = "not_provided_by_cli_deploy";' in text
+    assert "VERCEL_GIT_COMMIT_SHA" in text
+    assert "NEXT_PUBLIC_COMMIT_SHA" in text
+    assert "VERCEL_GIT_COMMIT_REF" in text
+    assert "NEXT_PUBLIC_BRANCH" in text
+    assert "BUILD_TIME" in text
+    assert "DEPLOYMENT_URL" in text
+
+
+def test_analysis_route_can_generate_trade_plan_with_partial_indicators():
+    text = read_text(WEB_ASSET_ANALYSIS_ROUTE)
+    assert "candles.length >= 15" in text
+    assert "sma20: number | null;" in text
+    assert "riskReward = Math.abs(target - latest)" in text
+    assert "direction !== \"NEUTRAL\"" in text
+
+
+def test_dashboard_causal_mapping_hides_raw_enum_and_zero_move_text():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert "CAUSE_LABELS" in text
+    assert "ORGANIC_TREND:\"Organik trend\"" in text
+    assert "Bu varlık için anlamlı hareket verisi henüz oluşmadı." in text
+    assert "replace(/ORGANIC_TREND" in text
+
+
+def test_scenario_validation_blocks_non_numeric_inputs_and_clears_cards():
+    page_text = read_text(WEB_SCENARIO_PAGE)
+    api_text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    assert "parseStrictNumberInput" in page_text
+    assert "setReportData(null)" in page_text
+    assert "Geçerli giriş fiyatı girin." in page_text
+    assert "Geçerli miktar girin" in page_text
+    assert "Kaldıraç geçerli sayı olmalıdır." in page_text
+    assert "Güven yüzdesi 0-100 arasında olmalıdır." in page_text
+    assert "Volatilite geçerli sayı olmalıdır." in page_text
+    assert "parseStrictNumericInput" in api_text
+
+
+def test_bist_data_status_is_not_live_without_licensed_feed():
+    status_text = read_text(ROOT / "apps" / "web" / "lib" / "markets" / "data-status.ts")
+    analysis_text = read_text(WEB_ASSET_ANALYSIS_ROUTE)
+    assert "category === \"bist\" && !bistRealtimeLicensed" in status_text
+    assert "license_required" in status_text
+    assert "category === \"bist\" && latestPrice === null" in analysis_text
+    assert "status: dataStatus" in analysis_text

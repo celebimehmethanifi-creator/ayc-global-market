@@ -29,7 +29,15 @@ export type AssetInfo = {
   direction?: string;
 };
 
-type AnalysisStatus = "live" | "delayed" | "fallback" | "insufficient";
+type AnalysisStatus =
+  | "live"
+  | "delayed"
+  | "fallback"
+  | "insufficient"
+  | "license_required"
+  | "no_volume"
+  | "no_data"
+  | "api_error";
 
 type AssetAnalysis = {
   ok: boolean;
@@ -96,12 +104,18 @@ function statusLabel(status: AnalysisStatus | undefined): string {
   if (status === "live") return "Canlı";
   if (status === "delayed") return "Gecikmeli";
   if (status === "fallback") return "Fallback";
+  if (status === "license_required") return "Lisans gerekli";
+  if (status === "no_volume") return "Hacim yok";
+  if (status === "no_data") return "Veri yok";
+  if (status === "api_error") return "API bağlantısı yok";
   return "Veri yetersiz";
 }
 
 function statusColor(status: AnalysisStatus | undefined): string {
   if (status === "live") return "var(--up)";
   if (status === "delayed") return "var(--warn)";
+  if (status === "license_required") return "var(--warn)";
+  if (status === "no_volume" || status === "no_data" || status === "api_error") return "var(--down)";
   if (status === "fallback") return "var(--gold)";
   return "var(--down)";
 }
@@ -278,6 +292,8 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
   const priceDiffPct =
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
   const showDriftWarning = priceDiffPct > 1;
+  const headerStatus: AnalysisStatus = analysis?.dataQuality?.status || (livePrice ? "live" : "fallback");
+  const isBistAsset = asset.symbol.endsWith(".IS") || asset.market === "bist";
 
   const headerTitle = asset.display || asset.symbol;
 
@@ -334,10 +350,23 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 800, color: "var(--t1)" }}>{fmtPrice(displayPrice)}</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: isUp ? "var(--up)" : "var(--down)" }}>{fmtPercent(displayChange)}</span>
-                <span style={{ fontSize: 10, color: "var(--up)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--up)", boxShadow: "0 0 8px var(--up)" }} />
-                  Canlı
+                <span style={{ fontSize: 10, color: statusColor(headerStatus), fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: statusColor(headerStatus),
+                      boxShadow: `0 0 8px ${statusColor(headerStatus)}`,
+                    }}
+                  />
+                  {statusLabel(headerStatus)}
                 </span>
+                {isBistAsset && headerStatus !== "live" && (
+                  <span style={{ fontSize: 10, color: "var(--t4)" }} title="BIST gerçek zamanlı fiyat/hacim için lisanslı veri sağlayıcı gereklidir.">
+                    BIST: Lisans gerekli
+                  </span>
+                )}
                 {showDriftWarning && (
                   <span
                     style={{

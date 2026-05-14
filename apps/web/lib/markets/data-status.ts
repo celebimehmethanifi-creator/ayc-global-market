@@ -82,10 +82,9 @@ function normalizeSource(source: string): string {
   const normalized = String(source || "")
     .trim()
     .toUpperCase()
-    .replace("_", "-");
-  if (normalized === "NONE" || normalized === "NULL" || normalized === "") return "UNAVAILABLE";
+    .replace(/_/g, "-");
+  if (!normalized || normalized === "NONE" || normalized === "NULL") return "UNAVAILABLE";
   if (normalized === "NO-PROVIDER" || normalized === "MISSING") return "ER-API";
-  if (normalized === "FRANKFURTERAPP") return "FRANKFURTER";
   return normalized;
 }
 
@@ -106,18 +105,13 @@ function resolveDelayMinutes(updatedAt?: string | null): number | null {
   return Math.max(0, Math.round((Date.now() - ts) / 60000));
 }
 
-function inferBaseStatus(
-  source: string,
-  hasPrice: boolean,
-  delayMinutes: number | null,
-): DataStatus {
+function inferBaseStatus(source: string, hasPrice: boolean, delayMinutes: number | null): DataStatus {
   if (!hasPrice) return "no_data";
   if (source === "UNAVAILABLE" || source === "NO_DATA") return "no_data";
   if (source === "ER-API" || source === "ER-APİ") return "api_error";
   if (source === "BINANCE-WS") return "live";
   if (source === "BINANCE") return delayMinutes != null && delayMinutes > 2 ? "delayed" : "live";
-  if (source === "FINNHUB" || source === "YAHOO") return "delayed";
-  if (source === "BACKEND") return "delayed";
+  if (source === "FINNHUB" || source === "YAHOO" || source === "BACKEND") return "delayed";
   return "fallback";
 }
 
@@ -138,13 +132,11 @@ export function buildDataStatusMeta(args: {
   const bistRealtimeLicensed = Boolean(args.bistRealtimeLicensed);
 
   let dataStatus = inferBaseStatus(source, args.hasPrice, delayMinutes);
-
   if (category === "bist" && !bistRealtimeLicensed) {
     if (!args.hasPrice) dataStatus = "no_data";
     else if (!args.hasVolume) dataStatus = "license_required";
     else dataStatus = "delayed";
   }
-
   if (dataStatus === "live" && delayMinutes != null && delayMinutes >= 5) {
     dataStatus = "delayed";
   }

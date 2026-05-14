@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type RiskProfile = "low" | "medium" | "high";
+type AnalysisDataStatus = "live" | "delayed" | "fallback" | "insufficient" | "license_required" | "no_volume" | "no_data";
 
 interface Candle {
   t: number;
@@ -99,22 +100,29 @@ function supportResistance(candles: Candle[]): { support: number | null; resista
 }
 
 function inferDirection(current: number, sma20: number | null, sma50: number | null): "LONG" | "SHORT" | "NEUTRAL" {
-  if (sma20 === null || sma50 === null) return "NEUTRAL";
-  if (current > sma20 && sma20 >= sma50) return "LONG";
-  if (current < sma20 && sma20 <= sma50) return "SHORT";
+  if (sma20 !== null && sma50 !== null) {
+    if (current > sma20 && sma20 >= sma50) return "LONG";
+    if (current < sma20 && sma20 <= sma50) return "SHORT";
+  }
+  if (sma20 !== null) {
+    const diffPct = ((current - sma20) / sma20) * 100;
+    if (diffPct > 0.6) return "LONG";
+    if (diffPct < -0.6) return "SHORT";
+  }
   return "NEUTRAL";
 }
 
 function buildTradePlan(args: {
   latest: number;
   direction: "LONG" | "SHORT" | "NEUTRAL";
+  sma20: number | null;
   support: number | null;
   resistance: number | null;
   atrValue: number | null;
   riskProfile: RiskProfile;
   hasEnoughData: boolean;
 }) {
-  const { latest, direction, support, resistance, atrValue, riskProfile, hasEnoughData } = args;
+  const { latest, direction, sma20, support, resistance, atrValue, riskProfile, hasEnoughData } = args;
   if (!hasEnoughData || latest <= 0) {
     return {
       direction: "NEUTRAL" as const,
@@ -127,29 +135,55 @@ function buildTradePlan(args: {
     };
   }
 
-  const rrMap: Record<RiskProfile, number> = { low: 1.5, medium: 2, high: 3 };
-  const stopBuffer = atrValue && atrValue > 0 ? atrValue : latest * 0.01;
-  const baseStop = direction === "SHORT"
-    ? (resistance || latest) + stopBuffer
-    : (support || latest) - stopBuffer;
-  const risk = Math.max(Math.abs(latest - baseStop), latest * 0.0025);
-  const reward = risk * rrMap[riskProfile];
-  const target = direction === "SHORT" ? latest - reward : latest + reward;
+  const rrMap: Record<RiskProfile, number> = { low: 1.45, medium: 1.85, high: 2.35 };
+  const fallbackStopPct: Record<RiskProfile, number> = { low: 0.008, medium: 0.011, high: 0.015 };
+  const stopBuffer = atrValue && atrValue > 0 ? atrValue : latest * fallbackStopPct[riskProfile];
+  const resolvedDirection =
+    direction !== "NEUTRAL"
+      ? direction
+      : sma20 !== null
+        ? latest >= sma20
+          ? "LONG"
+          : "SHORT"
+        : "NEUTRAL";
 
-  const confidence = direction === "NEUTRAL"
-    ? 45
-    : riskProfile === "low"
-      ? 65
-      : riskProfile === "high"
-        ? 72
-        : 68;
+  let baseStop = latest - stopBuffer;
+  let target = latest + stopBuffer * rrMap[riskProfile];
+
+  if (resolvedDirection === "SHORT") {
+    baseStop = resistance && resistance > latest ? resistance + stopBuffer * 0.2 : latest + stopBuffer;
+    const rawRisk = Math.max(Math.abs(baseStop - latest), latest * 0.0015);
+    const reward = rawRisk * rrMap[riskProfile];
+    const fallbackTarget = latest - reward;
+    const resistanceBased = support && support < latest ? support - rawRisk * 0.25 : fallbackTarget;
+    target = Math.min(fallbackTarget, resistanceBased);
+  } else {
+    baseStop = support && support < latest ? support - stopBuffer * 0.2 : latest - stopBuffer;
+    const rawRisk = Math.max(Math.abs(latest - baseStop), latest * 0.0015);
+    const reward = rawRisk * rrMap[riskProfile];
+    const fallbackTarget = latest + reward;
+    const resistanceBased = resistance && resistance > latest ? resistance + rawRisk * 0.25 : fallbackTarget;
+    target = Math.max(fallbackTarget, resistanceBased);
+  }
+
+  if (!(baseStop > 0) || !Number.isFinite(baseStop)) {
+    baseStop = resolvedDirection === "SHORT" ? latest + stopBuffer : Math.max(latest - stopBuffer, latest * 0.1);
+  }
+  if (!(target > 0) || !Number.isFinite(target)) {
+    target = resolvedDirection === "SHORT" ? Math.max(latest - stopBuffer * rrMap[riskProfile], latest * 0.1) : latest + stopBuffer * rrMap[riskProfile];
+  }
+
+  const riskReward = Math.abs(target - latest) / Math.max(Math.abs(latest - baseStop), latest * 0.0015);
+  const confidenceBase = resolvedDirection === "NEUTRAL" ? 52 : 62;
+  const indicatorBoost = [atrValue, support, resistance, sma20].filter((value) => value != null).length * 4;
+  const confidence = Math.min(88, Math.max(35, Math.round(confidenceBase + indicatorBoost)));
 
   return {
-    direction,
+    direction: direction,
     entry: latest,
     target: Number(target.toFixed(6)),
     stopLoss: Number(baseStop.toFixed(6)),
-    riskReward: Number(rrMap[riskProfile].toFixed(2)),
+    riskReward: Number(riskReward.toFixed(2)),
     confidence,
     reason: null,
   };
@@ -219,12 +253,13 @@ export async function GET(
   const atrValue = atr(candles, 14);
   const { support, resistance } = supportResistance(candles);
 
-  const hasEnoughData = candles.length >= 24 && latestPrice !== null;
+  const hasEnoughData = latestPrice !== null && candles.length >= 15;
   const direction = inferDirection(latestPrice || 0, sma20, sma50);
 
   const tradePlan = buildTradePlan({
     latest: latestPrice || 0,
     direction,
+    sma20,
     support,
     resistance,
     atrValue,
@@ -233,12 +268,14 @@ export async function GET(
   });
 
   const ohlcvStatus = typeof ohlcvJson?.dataQuality === "string" ? ohlcvJson.dataQuality : null;
-  const dataStatus =
-    !hasEnoughData
-      ? "insufficient"
-      : liveEntry
-        ? "live"
-        : ohlcvStatus || (ohlcvJson?.provider ? "fallback" : "delayed");
+  const hasVolume = (average(volumes) || 0) > 0;
+  let dataStatus: AnalysisDataStatus;
+  if (category === "bist" && latestPrice === null) dataStatus = "license_required";
+  else if (category === "bist" && latestPrice !== null && !hasVolume) dataStatus = "license_required";
+  else if (latestPrice === null) dataStatus = "no_data";
+  else if (!hasEnoughData) dataStatus = "insufficient";
+  else if (liveEntry) dataStatus = "live";
+  else dataStatus = (ohlcvStatus as AnalysisDataStatus) || (ohlcvJson?.provider ? "fallback" : "delayed");
 
   return NextResponse.json(
     {
