@@ -12,7 +12,7 @@ import {
   normalizeSearchText,
   type AssetCategory,
 } from "@/lib/markets/asset-universe";
-import { buildDataStatusMeta } from "@/lib/markets/data-status";
+import { buildDataStatusMeta, type DataStatus } from "@/lib/markets/data-status";
 import { useI18n } from "@/lib/i18n";
 import { useBreakpoint } from "@/lib/responsive/useBreakpoint";
 
@@ -20,25 +20,32 @@ const API = "/api/v1";
 
 type SortKey = "symbol" | "price" | "chg" | "chg7d" | "name";
 
-type MarketRow = {
+type NormalizedMarketAsset = {
   symbol: string;
+  name: string;
+  categoryLabel: string;
+  price: number | null;
+  change24hPct: number | null;
+  change7dPct: number | null;
+  volume24h: number | null;
+  volumeLabel: string;
+  dataStatus: DataStatus;
+  dataStatusLabel: string;
+  sourceLabel: string;
+  updatedAtLabel: string;
   displaySymbol: string;
   name_tr: string;
   name_en: string;
   category: AssetCategory;
   exchange: string;
   precision: number;
-  price: number | null;
-  chg: number;
+  chg: number | null;
   chg7d: number | null;
-  volume: string | null;
+  volume: number | null;
   source: string;
-  sourceLabel: string;
-  dataStatus: string;
-  dataStatusLabel: string;
   delayMinutes: number | null;
   hasVolume: boolean;
-  volumeStatus: string;
+  volumeStatus: DataStatus;
   volumeStatusLabel: string;
   provider: string;
   updatedAt: string | null;
@@ -59,9 +66,16 @@ const CATEGORY_FILTERS: Array<{ key: "all" | AssetCategory; labelTr: string; lab
   { key: "precious", labelTr: "Değerli Metaller", labelEn: "Precious" },
 ];
 
-function toInitialRows(): MarketRow[] {
+function toInitialRows(locale: "tr" | "en"): NormalizedMarketAsset[] {
   return ASSET_UNIVERSE.map((asset) => ({
     symbol: asset.symbol,
+    name: locale === "en" ? asset.name_en : asset.name_tr,
+    categoryLabel: getCategoryLabel(asset.category, locale),
+    change24hPct: null,
+    change7dPct: null,
+    volume24h: null,
+    volumeLabel: locale === "en" ? "No volume" : "Hacim yok",
+    updatedAtLabel: "—",
     displaySymbol: asset.displaySymbol,
     name_tr: asset.name_tr,
     name_en: asset.name_en,
@@ -69,17 +83,17 @@ function toInitialRows(): MarketRow[] {
     exchange: asset.exchange,
     precision: asset.precision,
     price: null,
-    chg: 0,
+    chg: null,
     chg7d: null,
     volume: null,
     source: "unavailable",
-    sourceLabel: "Veri yok",
+    sourceLabel: locale === "en" ? "No data" : "Veri yok",
     dataStatus: "no_data",
-    dataStatusLabel: "Veri yok",
+    dataStatusLabel: locale === "en" ? "No data" : "Veri yok",
     delayMinutes: null,
     hasVolume: false,
     volumeStatus: "no_volume",
-    volumeStatusLabel: "Hacim yok",
+    volumeStatusLabel: locale === "en" ? "No volume" : "Hacim yok",
     provider: "UNAVAILABLE",
     updatedAt: null,
   }));
@@ -115,11 +129,11 @@ function fmtPrice(price: number | null, precision: number): string {
   return price.toFixed(Math.min(Math.max(precision, 2), 6));
 }
 
-function fmtTime(ts: string | null): string {
+function fmtUpdatedAt(ts: string | null, locale: "tr" | "en"): string {
   if (!ts) return "—";
   const date = new Date(ts);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString(locale === "en" ? "en-US" : "tr-TR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function parseNumber(value: unknown): number | null {
@@ -127,9 +141,33 @@ function parseNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function fmtChange(value: number | null, locale: "tr" | "en"): string {
+function fmtChange(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function noDataLabel(locale: "tr" | "en"): string {
+  return locale === "en" ? "No data" : "Veri yok";
+}
+
+function no7dLabel(locale: "tr" | "en"): string {
+  return locale === "en" ? "No 7d data" : "7g veri yok";
+}
+
+function noVolumeLabel(locale: "tr" | "en"): string {
+  return locale === "en" ? "No volume" : "Hacim yok";
+}
+
+function formatVolume24h(value: number | null): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "";
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function volumeLabelFromRow(row: NormalizedMarketAsset, locale: "tr" | "en"): string {
+  if (row.volume24h != null && row.volume24h > 0) return formatVolume24h(row.volume24h);
+  if (row.volumeStatusLabel) return row.volumeStatusLabel;
+  if (row.dataStatus === "no_data") return noDataLabel(locale);
+  return noVolumeLabel(locale);
 }
 
 function statusVisual(status: string) {
@@ -163,9 +201,10 @@ function statusVisual(status: string) {
 
 export default function MarketPage() {
   const { locale, t } = useI18n();
+  const lang = locale === "en" ? "en" : "tr";
   const { isMobile } = useBreakpoint();
   const livePrices = usePrices();
-  const [rows, setRows] = useState<MarketRow[]>(toInitialRows());
+  const [rows, setRows] = useState<NormalizedMarketAsset[]>(() => toInitialRows(lang));
   const [cat, setCat] = useState<"all" | AssetCategory>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("chg");
@@ -227,21 +266,28 @@ export default function MarketPage() {
             updatedAt,
             hasPrice: Boolean(price && price > 0),
             hasVolume,
-            locale: locale === "en" ? "en" : "tr",
+            locale: lang,
             bistRealtimeLicensed: BIST_REALTIME_LICENSED,
           });
-          const volumeLabel =
-            scanEntry?.volume_label ||
-            (parseNumber(scanEntry?.volume) != null
-              ? Number(scanEntry.volume).toLocaleString("en-US")
-              : row.volume);
+          const normalizedPrice = price && price > 0 ? price : null;
+          const normalizedChg = Number.isFinite(chg) ? Number(chg) : null;
+          const normalizedVolume = volumeValue != null && volumeValue > 0 ? volumeValue : null;
+          const volumeLabel = normalizedVolume != null
+            ? formatVolume24h(normalizedVolume)
+            : (statusMeta.volumeStatusLabel || noVolumeLabel(lang));
 
           return {
             ...row,
-            price: price && price > 0 ? price : null,
-            chg: Number.isFinite(chg) ? Number(chg) : 0,
+            name: getAssetDisplayName(row, lang),
+            categoryLabel: getCategoryLabel(row.category, lang),
+            price: normalizedPrice,
+            chg: normalizedChg,
             chg7d,
-            volume: volumeLabel || null,
+            volume: normalizedVolume,
+            change24hPct: normalizedChg,
+            change7dPct: chg7d,
+            volume24h: normalizedVolume,
+            volumeLabel: volumeLabel || noVolumeLabel(lang),
             source: statusMeta.source,
             sourceLabel: statusMeta.sourceLabel,
             dataStatus: statusMeta.dataStatus,
@@ -252,6 +298,7 @@ export default function MarketPage() {
             volumeStatusLabel: statusMeta.volumeStatusLabel,
             provider: statusMeta.provider,
             updatedAt,
+            updatedAtLabel: fmtUpdatedAt(updatedAt, lang),
           };
         }),
       );
@@ -262,7 +309,7 @@ export default function MarketPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     fetchMarketData().catch(() => {});
@@ -288,13 +335,18 @@ export default function MarketPage() {
           updatedAt,
           hasPrice: Number(liveEntry.price) > 0,
           hasVolume: row.hasVolume,
-          locale: locale === "en" ? "en" : "tr",
+          locale: lang,
           bistRealtimeLicensed: BIST_REALTIME_LICENSED,
         });
+        const normalizedPrice = Number(liveEntry.price) > 0 ? Number(liveEntry.price) : null;
+        const normalizedChg = Number.isFinite(liveEntry.chg) ? liveEntry.chg : row.chg;
         return {
           ...row,
-          price: liveEntry.price,
-          chg: Number.isFinite(liveEntry.chg) ? liveEntry.chg : row.chg,
+          name: getAssetDisplayName(row, lang),
+          categoryLabel: getCategoryLabel(row.category, lang),
+          price: normalizedPrice,
+          chg: normalizedChg,
+          change24hPct: normalizedChg,
           source: statusMeta.source,
           sourceLabel: statusMeta.sourceLabel,
           dataStatus: statusMeta.dataStatus,
@@ -304,10 +356,11 @@ export default function MarketPage() {
           volumeStatusLabel: statusMeta.volumeStatusLabel,
           provider: statusMeta.provider,
           updatedAt,
+          updatedAtLabel: fmtUpdatedAt(updatedAt, lang),
         };
       }),
     );
-  }, [livePrices, locale]);
+  }, [lang, livePrices]);
 
   const filteredRows = useMemo(() => {
     const q = normalizeSearchText(search);
@@ -361,13 +414,13 @@ export default function MarketPage() {
     label: locale === "en" ? filter.labelEn : filter.labelTr,
   }));
 
-  const openAssetDetail = (row: MarketRow) => {
+  const openAssetDetail = (row: NormalizedMarketAsset) => {
     setSelected({
       symbol: row.symbol,
       display: row.displaySymbol,
-      name: getAssetDisplayName(row, locale),
+      name: row.name,
       price: row.price || 0,
-      chg: row.chg,
+      chg: row.chg ?? 0,
       market: row.category,
     });
   };
@@ -429,7 +482,7 @@ export default function MarketPage() {
                 <th className="right" onClick={() => toggleSort("chg")} style={{ cursor: "pointer" }}>{t("market.col.change24h")}</th>
                 <th className="right" onClick={() => toggleSort("chg7d")} style={{ cursor: "pointer" }}>{t("market.col.change7d")}</th>
                 <th className="right">{t("market.col.volume")}</th>
-                <th className="right">{locale === "en" ? "Data Status" : "Veri Durumu"}</th>
+                <th className="right">{t("market.col.dataStatus")}</th>
                 <th className="right">{t("market.col.source")}</th>
                 <th className="right">{t("market.col.updated")}</th>
                 <th className="right">{t("market.col.chart")}</th>
@@ -437,10 +490,14 @@ export default function MarketPage() {
             </thead>
             <tbody>
               {filteredRows.map((row) => {
-                const up24 = row.chg >= 0;
-                const up7d = (row.chg7d || 0) >= 0;
+                const up24 = (row.change24hPct ?? 0) >= 0;
+                const up7d = (row.change7dPct ?? 0) >= 0;
                 const hasPrice = row.price != null && row.price > 0;
+                const has7d = row.change7dPct != null && Number.isFinite(row.change7dPct);
                 const statusStyle = statusVisual(row.dataStatus);
+                const change24Label = hasPrice ? fmtChange(row.change24hPct) : noDataLabel(lang);
+                const change7dLabel = has7d ? fmtChange(row.change7dPct) : no7dLabel(lang);
+                const volumeLabel = volumeLabelFromRow(row, lang);
                 return (
                   <tr
                     key={row.symbol}
@@ -449,7 +506,7 @@ export default function MarketPage() {
                     style={{ cursor: "pointer" }}
                   >
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>{row.displaySymbol}</td>
-                    <td>{getAssetDisplayName(row, locale)}</td>
+                    <td>{row.name}</td>
                     <td>
                       <span
                         style={{
@@ -462,7 +519,7 @@ export default function MarketPage() {
                           color: "var(--t3)",
                         }}
                       >
-                        {getCategoryLabel(row.category, locale)}
+                        {row.categoryLabel}
                       </span>
                     </td>
                     <td className="right" style={{ fontFamily: "var(--font-mono)", color: "var(--t1)", fontWeight: 700 }}>
@@ -470,13 +527,13 @@ export default function MarketPage() {
                     </td>
                     <td className={`right ${up24 ? "chg-up" : "chg-down"}`}>
                       {hasPrice ? (up24 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />) : null}
-                      {hasPrice ? fmtChange(row.chg, locale === "en" ? "en" : "tr") : (locale === "en" ? "No data" : "Veri yok")}
+                      {change24Label}
                     </td>
                     <td className={`right ${up7d ? "chg-up" : "chg-down"}`}>
-                      {hasPrice && row.chg7d != null ? `${up7d ? "+" : ""}${row.chg7d.toFixed(2)}%` : (locale === "en" ? "No data" : "Veri yok")}
+                      {change7dLabel}
                     </td>
                     <td className="right" style={{ color: "var(--t3)" }}>
-                      {hasPrice ? (row.volume || row.volumeStatusLabel) : (locale === "en" ? "No volume" : "Hacim yok")}
+                      {volumeLabel}
                     </td>
                     <td className="right">
                       <span
@@ -490,11 +547,11 @@ export default function MarketPage() {
                           padding: "2px 8px",
                         }}
                       >
-                        {hasPrice ? row.dataStatusLabel : (locale === "en" ? "No data" : "Veri yok")}
+                        {hasPrice ? row.dataStatusLabel : noDataLabel(lang)}
                       </span>
                     </td>
                     <td className="right" style={{ color: "var(--t3)" }}>{row.sourceLabel}</td>
-                    <td className="right" style={{ color: "var(--t3)" }}>{fmtTime(row.updatedAt)}</td>
+                    <td className="right" style={{ color: "var(--t3)" }}>{row.updatedAtLabel}</td>
                     <td className="right">
                       <button
                         className="btn-ghost"
@@ -518,11 +575,16 @@ export default function MarketPage() {
         {isMobile && (
         <div className="market-mobile-list">
           {filteredRows.map((row) => {
-            const up24 = row.chg >= 0;
-            const up7d = (row.chg7d || 0) >= 0;
+            const up24 = (row.change24hPct ?? 0) >= 0;
+            const up7d = (row.change7dPct ?? 0) >= 0;
             const hasPrice = row.price != null && row.price > 0;
+            const has7d = row.change7dPct != null && Number.isFinite(row.change7dPct);
             const source = row.sourceLabel;
             const quality = statusVisual(row.dataStatus);
+            const change24Label = hasPrice ? fmtChange(row.change24hPct) : noDataLabel(lang);
+            const change7dLabel = has7d ? fmtChange(row.change7dPct) : no7dLabel(lang);
+            const volumeLabel = volumeLabelFromRow(row, lang);
+            const analysisLabel = locale === "en" ? "Analysis" : "Analiz";
 
             return (
               <div
@@ -537,7 +599,7 @@ export default function MarketPage() {
                       {row.displaySymbol}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%" }}>
-                      {getAssetDisplayName(row, locale)}
+                      {row.name}
                     </div>
                   </div>
                   <span
@@ -552,7 +614,7 @@ export default function MarketPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {getCategoryLabel(row.category, locale)}
+                    {row.categoryLabel}
                   </span>
                 </div>
 
@@ -566,17 +628,23 @@ export default function MarketPage() {
                   <div>
                     <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change24h")}</div>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: hasPrice ? (up24 ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
-                      {hasPrice ? fmtChange(row.chg, locale === "en" ? "en" : "tr") : (locale === "en" ? "No data" : "Veri yok")}
+                      {change24Label}
                     </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change7d")}</div>
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: hasPrice && row.chg7d != null ? (up7d ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
-                      {hasPrice && row.chg7d != null ? fmtChange(row.chg7d, locale === "en" ? "en" : "tr") : (locale === "en" ? "No data" : "Veri yok")}
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: has7d ? (up7d ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
+                      {change7dLabel}
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{locale === "en" ? "Data Status" : "Veri Durumu"}</div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.volume")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t2)", fontWeight: 700 }}>
+                      {volumeLabel}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.dataStatus")}</div>
                     <div
                       style={{
                         marginTop: 1,
@@ -601,17 +669,29 @@ export default function MarketPage() {
                     <span style={{ fontSize: 10, color: "var(--t4)" }}>{t("market.col.source")}:</span>
                     <span style={{ fontSize: 10, color: quality.color, fontWeight: 700 }}>{source}</span>
                   </div>
-                  <span style={{ fontSize: 10, color: "var(--t4)" }}>{fmtTime(row.updatedAt)}</span>
-                  <button
-                    className="btn-ghost"
-                    style={{ padding: "5px 10px", fontSize: 11 }}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openAssetDetail(row);
-                    }}
-                  >
-                    {t("market.chartButton")}
-                  </button>
+                  <span style={{ fontSize: 10, color: "var(--t4)" }}>{row.updatedAtLabel}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button
+                      className="btn-ghost"
+                      style={{ padding: "5px 10px", fontSize: 11 }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openAssetDetail(row);
+                      }}
+                    >
+                      {t("market.chartButton")}
+                    </button>
+                    <button
+                      className="btn-ghost"
+                      style={{ padding: "5px 10px", fontSize: 11 }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openAssetDetail(row);
+                      }}
+                    >
+                      {analysisLabel}
+                    </button>
+                  </div>
                 </div>
               </div>
             );

@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import uuid
 from pathlib import Path
@@ -520,7 +521,7 @@ def test_market_page_has_mobile_card_view_and_source_label_mapping():
     assert "sourceLabel" in text
     assert "buildDataStatusMeta" in text
     assert "Veri yok" in text
-    assert "Veri Durumu" in text or "Data Status" in text
+    assert 't("market.col.dataStatus")' in text
     assert "fmtChange" in text
     assert '"BINANCE-WS": "Binance Canlı"' in status_text
     assert 'BACKEND: "AYC Veri"' in status_text
@@ -667,6 +668,71 @@ def test_market_page_uses_clear_status_copy_and_badges():
     assert "Veri durumu varlığa göre değişir" in text
     assert "statusVisual" in text
     assert "row.volumeStatusLabel" in text
+
+
+def test_market_desktop_table_has_fixed_11_column_order():
+    text = read_text(WEB_MARKET_PAGE)
+    ordered_headers = [
+        't("market.col.symbol")',
+        't("market.col.name")',
+        't("market.col.category")',
+        't("market.col.price")',
+        't("market.col.change24h")',
+        't("market.col.change7d")',
+        't("market.col.volume")',
+        't("market.col.dataStatus")',
+        't("market.col.source")',
+        't("market.col.updated")',
+        't("market.col.chart")',
+    ]
+    positions = [text.find(token) for token in ordered_headers]
+    assert all(position != -1 for position in positions)
+    assert positions == sorted(positions)
+
+    table_head_match = re.search(r"<thead>(.*?)</thead>", text, re.DOTALL)
+    assert table_head_match is not None
+    assert table_head_match.group(1).count("<th") == 11
+
+
+def test_market_desktop_row_cells_cover_all_columns_without_misalignment():
+    text = read_text(WEB_MARKET_PAGE)
+    required_cell_contract = [
+        "{row.displaySymbol}</td>",
+        "{row.name}</td>",
+        "{row.categoryLabel}",
+        "fmtPrice(row.price, row.precision)",
+        "change24Label",
+        "change7dLabel",
+        "volumeLabel",
+        "row.dataStatusLabel",
+        "row.sourceLabel",
+        "row.updatedAtLabel",
+        '{t("market.chartButton")}',
+    ]
+    for marker in required_cell_contract:
+        assert marker in text
+
+    assert "row.dataStatusLabel" not in text.split("volumeLabel")[0][-180:]
+    assert "row.sourceLabel" not in text.split("row.dataStatusLabel")[0][-140:]
+
+
+def test_market_mobile_card_uses_same_contract_fields():
+    text = read_text(WEB_MARKET_PAGE)
+    for marker in [
+        "row.displaySymbol",
+        "row.name",
+        "row.categoryLabel",
+        "fmtPrice(row.price, row.precision)",
+        "change24Label",
+        "change7dLabel",
+        "volumeLabel",
+        "row.dataStatusLabel",
+        "row.sourceLabel",
+        "row.updatedAtLabel",
+        '{t("market.chartButton")}',
+        "analysisLabel",
+    ]:
+        assert marker in text
 
 
 def test_demo_banner_explains_virtual_money_and_training_purpose():
