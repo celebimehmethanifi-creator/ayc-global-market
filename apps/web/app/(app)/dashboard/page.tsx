@@ -85,6 +85,10 @@ type Signal = {
 
 
   stage?:string; scores?:any; motor_votes?:any;
+  hasSignal?: boolean;
+  signalStatus?: "active" | "pending" | "blocked" | "no_signal" | "insufficient_data";
+  dataQuality?: string;
+  updatedAt?: string;
 
 
 
@@ -919,53 +923,42 @@ export default function DashboardPage() {
 
 
 
-  const signals: Signal[] = (signalData?.signals as Signal[] || MOCK_SIGNALS).map(s => {
+  const fallbackSignals: Signal[] = process.env.NODE_ENV === "development" ? MOCK_SIGNALS : [];
 
+  const rawSignals: Signal[] = Array.isArray(signalData?.signals)
+    ? (signalData.signals as Signal[])
+    : fallbackSignals;
 
+  const signals: Signal[] = rawSignals
+    .map((s) => {
+      const candidates = [
+        s.symbol,
+        s.symbol + "USDT",
+        s.symbol.replace("USDT", ""),
+      ];
 
-    const candidates = [
+      for (const key of candidates) {
+        const lp = livePrices[key.toUpperCase()];
+        if (lp && lp.price > 0) {
+          return {
+            ...s,
+            price: lp.price,
+            change_24h: lp.chg,
+          };
+        }
+      }
 
-
-
-      s.symbol,
-
-
-
-      s.symbol + "USDT",
-
-
-
-      s.symbol.replace("USDT",""),
-
-
-
-    ];
-
-
-
-    for (const key of candidates) {
-
-
-
-      const lp = livePrices[key.toUpperCase()];
-
-
-
-      if (lp && lp.price > 0) return { ...s, price: lp.price, change_24h: lp.chg };
-
-
-
-    }
-
-
-
-    return s;
-
-
-
-  });
-
-
+      return s;
+    })
+    .filter((s) => {
+      if (s.hasSignal === false) return false;
+      if (s.signalStatus === "no_signal" || s.signalStatus === "insufficient_data") return false;
+      return (
+        (s.direction === "LONG" || s.direction === "SHORT") &&
+        Number.isFinite(Number(s.confidence)) &&
+        Number(s.confidence) > 0
+      );
+    });
 
   const causal: CausalCard = causalData || MOCK_CAUSAL;
 
@@ -1241,7 +1234,7 @@ export default function DashboardPage() {
 
 
 
-          sub={`${longCount} LONG \u00b7 ${signals.length-longCount} SHORT/NÖTR`}
+          sub={signals.length > 0 ? `${longCount} LONG \u00b7 ${signals.length-longCount} SHORT/NÖTR` : "Aktif sinyal yok, piyasa izleniyor"}
 
 
 
@@ -1346,32 +1339,28 @@ export default function DashboardPage() {
 
 
             <div className="signal-grid">
+              {signals.length === 0 ? (
+                <div style={{ gridColumn: "1 / -1", border: "1px solid var(--b1)", borderRadius: "var(--r-xl)", padding: 16, background: "var(--bg-card)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--t1)", marginBottom: 6 }}>
+                    Aktif sinyal yok
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--t3)", lineHeight: 1.5 }}>
+                    Bu anda nitelikli bir sinyal bulunamadı. Canlı fiyat verisi izlenmeye devam ediyor.
+                  </div>
+                </div>
+              ) : (
+                signals.slice(0,9).map(sig=>(
 
+                  <SignalCard key={sig.id||sig.symbol} sig={sig} onDetail={()=>setSelectedAsset({
 
+                    symbol:sig.symbol, name:sig.name, display:sig.symbol,
 
-              {signals.slice(0,9).map(sig=>(
+                    price:livePrices[sig.symbol]?.price||livePrices[sig.symbol+"USDT"]?.price||sig.price||0, chg:livePrices[sig.symbol]?.chg||livePrices[sig.symbol+"USDT"]?.chg||sig.change_24h||0, market:sig.market||"",
 
+                  })}/>
 
-
-                <SignalCard key={sig.id||sig.symbol} sig={sig} onDetail={()=>setSelectedAsset({
-
-
-
-                  symbol:sig.symbol, name:sig.name, display:sig.symbol,
-
-
-
-                  price:livePrices[sig.symbol]?.price||livePrices[sig.symbol+"USDT"]?.price||sig.price||0, chg:livePrices[sig.symbol]?.chg||livePrices[sig.symbol+"USDT"]?.chg||sig.change_24h||0, market:sig.market||"",
-
-
-
-                })}/>
-
-
-
-              ))}
-
-
+                ))
+              )}
 
             </div>
 
@@ -1967,6 +1956,8 @@ export default function DashboardPage() {
 
 
 }
+
+
 
 
 

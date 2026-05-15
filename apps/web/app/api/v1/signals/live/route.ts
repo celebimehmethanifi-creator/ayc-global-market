@@ -3,6 +3,7 @@
 const CG_KEY = process.env.COINGECKO_API_KEY || "";
 
 interface PriceData { price: number; chg: number; }
+type SignalStatus = "active" | "pending" | "blocked" | "no_signal" | "insufficient_data";
 
 async function safeFetch(url: string, options: RequestInit = {}): Promise<Response | null> {
   try {
@@ -120,7 +121,7 @@ export async function GET(req: NextRequest) {
   const now = new Date().toISOString();
   let pricesFound = 0;
 
-  const signals = slice.map(s => {
+  const signals = slice.map((s) => {
     let priceData: PriceData = { price: 0, chg: 0 };
 
     if (s.cgId && cgData[s.cgId]) {
@@ -136,16 +137,102 @@ export async function GET(req: NextRequest) {
     const price = priceData.price;
     const stop_loss = price > 0 ? +(s.direction === "LONG" ? price * (1 - stopPct) : price * (1 + stopPct)).toFixed(4) : 0;
     const take_profit = price > 0 ? +(s.direction === "LONG" ? price * (1 + tpPct) : price * (1 - tpPct)).toFixed(4) : 0;
+    const hasPrice = Number.isFinite(price) && price > 0;
+    const confidence = Number.isFinite(s.confidence) ? s.confidence : null;
+    const strength = Number.isFinite(s.strength) ? s.strength : null;
+    const riskScore = Number.isFinite(s.risk_score) ? s.risk_score : null;
+
+    let signalStatus: SignalStatus = "no_signal";
+    let stage: "TRIGGER" | "SETUP" | "WATCH" | "KALKAN" | "NONE" = "NONE";
+
+    if (!hasPrice) {
+      signalStatus = "insufficient_data";
+      stage = "NONE";
+    } else if ((riskScore ?? 0) >= 70) {
+      signalStatus = "blocked";
+      stage = "KALKAN";
+    } else if ((strength ?? 0) >= 85 && (confidence ?? 0) >= 75) {
+      signalStatus = "active";
+      stage = "TRIGGER";
+    } else if ((strength ?? 0) >= 70) {
+      signalStatus = "pending";
+      stage = "SETUP";
+    } else if ((strength ?? 0) >= 55) {
+      signalStatus = "pending";
+      stage = "WATCH";
+    }
+
+    const hasSignal = signalStatus === "active" || signalStatus === "pending";
+    const boundedChange = Number.isFinite(priceData.chg) ? priceData.chg : 0;
+    const opportunityScore = hasSignal ? Math.max(0, Math.min(100, Number(strength ?? confidence ?? 0))) : null;
+    const trendScore = hasSignal ? Math.max(0, Math.min(100, Number((strength ?? 0) * 0.75 + boundedChange * 4))) : null;
+    const liquidityScore = hasSignal ? (hasPrice ? 62 : null) : null;
+    const volatilityScore = hasSignal ? Math.max(0, Math.min(100, Number(Math.abs(boundedChange) * 8 + 18))) : null;
+    const confidenceScore = hasSignal ? confidence : null;
+    const riskScoreOut = hasSignal ? riskScore : null;
+
+    const dataQuality =
+      signalStatus === "insufficient_data"
+        ? "insufficient_data"
+        : pricesFound > 0
+          ? "live"
+          : "fallback";
+
+    const statusReason =
+      signalStatus === "insufficient_data"
+        ? "Bu varlık için yeterli teknik veri yok."
+        : signalStatus === "blocked"
+          ? "Sinyal var ancak risk filtresi nedeniyle bloke edildi."
+          : signalStatus === "no_signal"
+            ? "Bu varlık için aktif sinyal yok. Son fiyat hareketi izleniyor."
+            : s.reason;
 
     return {
       ...s, cgId: undefined, yfSym: undefined, price, change_24h: +(priceData.chg).toFixed(2),
       entry_price: price, stop_loss, take_profit, created_at: now,
+      hasSignal,
+      signalStatus,
+      stage,
+      reason: statusReason,
+      dataQuality,
+      updatedAt: now,
+      scores: {
+        opportunity: opportunityScore,
+        risk: riskScoreOut,
+        confidence: confidenceScore,
+        trend: trendScore,
+        liquidity: liquidityScore,
+        volatility: volatilityScore,
+      },
     };
   });
+
+  const stage_counts = signals.reduce(
+    (acc, signal) => {
+      const key = (signal.stage || "NONE") as keyof typeof acc;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    },
+    { TRIGGER: 0, SETUP: 0, WATCH: 0, KALKAN: 0, NONE: 0 },
+  );
+
+  const activeSignals = signals.filter((signal) => signal.signalStatus === "active").length;
+  const pendingSignals = signals.filter((signal) => signal.signalStatus === "pending" || signal.signalStatus === "blocked").length;
+  const feed_status =
+    pricesFound > 0 && activeSignals > 0
+      ? "live_signals"
+      : pricesFound > 0 && pendingSignals > 0
+        ? "market_live_signal_wait"
+        : pricesFound > 0
+          ? "market_live_no_signal"
+          : "insufficient_data";
 
   return NextResponse.json({
     signals, count: signals.length, market,
     updated_at: now, source: "ayc-signal-engine-v1",
     prices_live: pricesFound > 0, prices_found: pricesFound,
+    feed_status,
+    active_signals: activeSignals,
+    stage_counts,
   });
 }

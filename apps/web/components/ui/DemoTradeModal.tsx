@@ -11,13 +11,14 @@ interface Props {
 }
 
 export function DemoTradeModal({ symbol, name, onClose }: Props) {
-  const { demo, openTrade } = useDemo();
+  const { demo, openTrade, loading: demoLoading } = useDemo();
   const priceEntry = usePrice(symbol);
   const livePrice = priceEntry?.price ?? 0;
 
   const [direction, setDirection] = useState<"LONG" | "SHORT">("LONG");
   const [amountRaw, setAmountRaw] = useState<string>("500");
   const [result, setResult] = useState<"ok" | "fail" | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const amountUSD = Math.max(10, Math.min(parseFloat(amountRaw)||10, demo.balance));
   const PRESETS = [100, 250, 500, 1000, 2500];
@@ -25,9 +26,11 @@ export function DemoTradeModal({ symbol, name, onClose }: Props) {
   const tp  = direction === "LONG" ? livePrice * 1.03 : livePrice * 0.97;
   const sl  = direction === "LONG" ? livePrice * 0.98 : livePrice * 1.02;
 
-  function handleTrade() {
+  async function handleTrade() {
     if (!livePrice) return;
-    const ok = openTrade(symbol, name, direction, livePrice, amountUSD);
+    setSubmitting(true);
+    const ok = await openTrade(symbol, name, direction, livePrice, amountUSD);
+    setSubmitting(false);
     setResult(ok ? "ok" : "fail");
     if (ok) setTimeout(onClose, 1500);
   }
@@ -151,16 +154,16 @@ export function DemoTradeModal({ symbol, name, onClose }: Props) {
             <span style={{ fontWeight:700 }}>Yetersiz bakiye!</span>
           </div>
         ) : (
-          <button onClick={handleTrade} disabled={!livePrice || amountUSD > demo.balance} style={{
+          <button onClick={() => void handleTrade()} disabled={!livePrice || amountUSD > demo.balance || submitting || demoLoading} style={{
             width: "100%", padding: "14px 0", borderRadius: 10, cursor: "pointer", border: "none",
             fontWeight: 800, fontSize: 14,
             background: direction === "LONG"
               ? "linear-gradient(135deg, var(--up), #059669)"
               : "linear-gradient(135deg, var(--down), #b91c1c)",
-            color: "#fff", opacity: (!livePrice || amountUSD > demo.balance) ? 0.5 : 1,
+            color: "#fff", opacity: (!livePrice || amountUSD > demo.balance || submitting || demoLoading) ? 0.5 : 1,
             boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
           }}>
-            Demo {direction === "LONG" ? "AL" : "SAT"} — ${amountUSD.toLocaleString()}
+            {submitting ? "İşleniyor..." : `Demo ${direction === "LONG" ? "AL" : "SAT"} — $${amountUSD.toLocaleString()}`}
           </button>
         )}
 
