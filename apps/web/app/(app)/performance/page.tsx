@@ -31,6 +31,8 @@ function toNum(value: unknown, fallback = 0): number {
 }
 
 function normalizeSignalRecord(raw: Partial<SignalRecord>, index: number): SignalRecord {
+  // No Date() fallbacks here — keep empty strings for missing timestamps so
+  // server and client render identically (avoids hydration mismatches).
   return {
     id: String(raw.id || `record_${index}`),
     symbol: String(raw.symbol || "N/A"),
@@ -40,12 +42,19 @@ function normalizeSignalRecord(raw: Partial<SignalRecord>, index: number): Signa
     target_price: toNum(raw.target_price),
     stop_price: toNum(raw.stop_price),
     confidence: toNum(raw.confidence),
-    created_at: String(raw.created_at || new Date().toISOString()),
+    created_at: typeof raw.created_at === "string" ? raw.created_at : "",
     outcome: String(raw.outcome || "PENDING"),
     exit_price: toNum(raw.exit_price),
     pnl_pct: toNum(raw.pnl_pct),
-    closed_at: String(raw.closed_at || raw.created_at || new Date().toISOString()),
+    closed_at: typeof raw.closed_at === "string" ? raw.closed_at : (typeof raw.created_at === "string" ? raw.created_at : ""),
   };
+}
+
+function formatRecordDate(value: string): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("tr");
 }
 
 function normalizePerformanceStats(input: unknown): PerfStats {
@@ -233,7 +242,7 @@ export default function PerformancePage() {
                       {r.pnl_pct===0?"\u2014":`${r.pnl_pct>0?"+":""}${r.pnl_pct.toFixed(2)}%`}
                     </td>
                     <td style={{padding:"10px 14px",fontSize:10,color:"var(--t4)",whiteSpace:"nowrap"}}>
-                      {new Date(r.created_at).toLocaleDateString("tr")}
+                      {formatRecordDate(r.created_at)}
                     </td>
                   </tr>
                 );

@@ -713,9 +713,11 @@ def test_scenario_validation_blocks_non_numeric_inputs_and_clears_cards():
     assert "setReportData(null)" in page_text
     assert "Geçerli giriş fiyatı girin." in page_text
     assert "Geçerli miktar girin" in page_text
-    assert "Kaldıraç geçerli sayı olmalıdır." in page_text
+    # Leverage must now have an upper bound (1..20) to block leverage=123423 attacks.
+    assert "Kaldıraç 1 ile 20 arasında olmalıdır." in page_text
     assert "Güven yüzdesi 0-100 arasında olmalıdır." in page_text
-    assert "Volatilite geçerli sayı olmalıdır." in page_text
+    # Volatility must now have an upper bound (0..100) to block volatility=3235235 attacks.
+    assert "Volatilite 0 ile 100 arasında olmalıdır." in page_text
     assert "parseStrictNumericInput" in api_text
 
 

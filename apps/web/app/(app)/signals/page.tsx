@@ -222,6 +222,16 @@ const MOCK_SIGNALS = [
    kalkan_reason:"Risk/ödül oranı kabul edilemez — sahte kırılım riski yüksek."},
 ];
 
+const ENABLE_MOCK_SIGNALS = process.env.NEXT_PUBLIC_ENABLE_MOCK_SIGNALS === "true";
+
+const EMPTY_SIGNALS_RESPONSE = {
+  signals: [] as any[],
+  stage_counts: { TRIGGER: 0, SETUP: 0, WATCH: 0, KALKAN: 0, NONE: 0 },
+  feed_status: "unavailable" as const,
+  prices_live: false,
+  error: true,
+};
+
 export default function SignalsPage() {
   const [filter, setFilter] = useState<"all"|"TRIGGER"|"SETUP"|"WATCH"|"KALKAN">("all");
   const [selectedAsset, setSelectedAsset] = useState<AssetInfo|null>(null);
@@ -234,14 +244,20 @@ export default function SignalsPage() {
 
   const {data, isLoading, refetch, isFetching} = useQuery({
     queryKey:["signals-live", filter],
-    queryFn:()=>api.get(`/signals/live?market=all&limit=15`).then(r=>r.data).catch(()=>({signals:MOCK_SIGNALS,stage_counts:{TRIGGER:1,SETUP:1,WATCH:1,KALKAN:1,NONE:0}})),
+    queryFn:()=>api.get(`/signals/live?market=all&limit=15`).then(r=>r.data).catch(()=>EMPTY_SIGNALS_RESPONSE),
     refetchInterval:60000,
   });
 
-  const allSigs = data?.signals || MOCK_SIGNALS;
-  const counts  = data?.stage_counts || {TRIGGER:1,SETUP:1,WATCH:1,KALKAN:1,NONE:0};
+  const apiSignals = Array.isArray(data?.signals) ? data.signals : [];
+  const allSigs: any[] = apiSignals.length > 0
+    ? apiSignals
+    : (ENABLE_MOCK_SIGNALS ? MOCK_SIGNALS : []);
+  const counts  = data?.stage_counts && typeof data.stage_counts === "object"
+    ? data.stage_counts
+    : { TRIGGER: 0, SETUP: 0, WATCH: 0, KALKAN: 0, NONE: 0 };
   const filtered = filter==="all" ? allSigs : allSigs.filter((s:any)=>s.stage===filter);
   const isLiveFeed = Boolean(data?.prices_live);
+  const isFeedUnavailable = data?.feed_status === "unavailable" || data?.error === true;
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
@@ -261,12 +277,12 @@ export default function SignalsPage() {
                 letterSpacing: "0.06em",
                 borderRadius: 4,
                 padding: "3px 8px",
-                background: isLiveFeed ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
-                color: isLiveFeed ? "var(--up)" : "var(--gold)",
-                border: `1px solid ${isLiveFeed ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.35)"}`,
+                background: isFeedUnavailable ? "rgba(255,255,255,0.04)" : (isLiveFeed ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)"),
+                color: isFeedUnavailable ? "var(--t3)" : (isLiveFeed ? "var(--up)" : "var(--gold)"),
+                border: `1px solid ${isFeedUnavailable ? "var(--b1)" : (isLiveFeed ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.35)")}`,
               }}
             >
-              {isLiveFeed ? "LIVE FEED" : "DEMO FEED"}
+              {isFeedUnavailable ? "VERİ YOK" : isLiveFeed ? "LIVE FEED" : "DEMO FEED"}
             </span>
           </div>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>
@@ -311,6 +327,19 @@ export default function SignalsPage() {
       {isLoading ? (
         <div className="signal-grid">
           {[...Array(6)].map((_,i)=><div key={i} className="skeleton" style={{height:320,borderRadius:"var(--r-xl)"}}/>)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{
+          padding:"48px 24px",textAlign:"center",
+          background:"var(--bg-card)",border:"1px dashed var(--b1)",borderRadius:"var(--r-xl)",
+        }}>
+          <Activity size={28} color="var(--t4)" style={{margin:"0 auto 12px"}}/>
+          <div style={{fontSize:14,fontWeight:600,color:"var(--t2)",marginBottom:6}}>Aktif sinyal yok</div>
+          <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.5}}>
+            {isFeedUnavailable
+              ? "Sinyal motoru veri bekliyor"
+              : "Piyasa verisi canlı olabilir ama sinyal üretilmedi"}
+          </div>
         </div>
       ) : (
         <div className="signal-grid">
