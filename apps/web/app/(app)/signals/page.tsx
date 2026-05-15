@@ -46,6 +46,7 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
   const displayPrice = livePrice ?? safeNum(sig.price, 0);
   const chg24 = safeNum(sig.change_24h, 0);
   const m = STAGE_META[sig.stage as Stage] || STAGE_META.NONE;
+  const isNoSignal = m === STAGE_META.NONE;
   const up = chg24 >= 0;
   return (
     <div onClick={onDetail} style={{
@@ -103,7 +104,7 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
       </div>
 
       {/* Score bars — only when signal is actionable */}
-      {sig.stage !== "NONE" ? (
+      {!isNoSignal ? (
         <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
           {Object.entries(SCORE_LABELS).map(([key,meta])=>{
             const score = sig.scores?.[key];
@@ -167,7 +168,7 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
           ))}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {sig.stage === "NONE" ? (
+          {isNoSignal ? (
             <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
               padding:"4px 10px",borderRadius:6,border:"1px solid var(--b1)",
               background:"transparent",color:"var(--t3)",fontSize:10,fontWeight:600,

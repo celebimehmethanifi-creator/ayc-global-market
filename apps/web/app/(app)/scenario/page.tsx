@@ -511,8 +511,8 @@ export default function ScenarioPage() {
         <div style={{ fontSize: 11, color: "var(--warn)", fontWeight: 700, marginBottom: 4 }}>
           {qualityBannerText(report.dataQuality, lang)}
         </div>
-        <div style={{ fontSize: 10, color: "var(--t3)" }}>
-          {lang === "en" ? "Generated" : "Üretim zamanı"}: {generatedAtLabel}
+        <div style={{ fontSize: 10, color: "var(--t3)" }} suppressHydrationWarning>
+          {lang === "en" ? "Generated" : "Üretim zamanı"}: <span suppressHydrationWarning>{generatedAtLabel}</span>
         </div>
       </div>
 

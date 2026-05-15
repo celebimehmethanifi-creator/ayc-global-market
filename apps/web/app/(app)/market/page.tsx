@@ -275,6 +275,8 @@ export default function MarketPage() {
           const volumeLabel = normalizedVolume != null
             ? formatVolume24h(normalizedVolume)
             : (statusMeta.volumeStatusLabel || noVolumeLabel(lang));
+          // When asset has no price, do not surface a stale/global timestamp for that row.
+          const effectiveUpdatedAt = normalizedPrice != null ? updatedAt : null;
 
           return {
             ...row,
@@ -297,8 +299,8 @@ export default function MarketPage() {
             volumeStatus: statusMeta.volumeStatus,
             volumeStatusLabel: statusMeta.volumeStatusLabel,
             provider: statusMeta.provider,
-            updatedAt,
-            updatedAtLabel: fmtUpdatedAt(updatedAt, lang),
+            updatedAt: effectiveUpdatedAt,
+            updatedAtLabel: fmtUpdatedAt(effectiveUpdatedAt, lang),
           };
         }),
       );
