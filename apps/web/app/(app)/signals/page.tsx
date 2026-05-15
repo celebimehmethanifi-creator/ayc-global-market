@@ -102,14 +102,21 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
         {sig.ai_hint?.substring(0,100)}{sig.ai_hint?.length>100?"...":""}
       </div>
 
-      {/* 6 score bars */}
-      <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
-        {Object.entries(SCORE_LABELS).map(([key,meta])=>(
-          <ScoreBar key={key} label={meta.label}
-            value={sig.scores?.[key]||0}
-            color={meta.color(sig.scores?.[key]||0)}/>
-        ))}
-      </div>
+      {/* Score bars — only when signal is actionable */}
+      {sig.stage !== "NONE" ? (
+        <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
+          {Object.entries(SCORE_LABELS).map(([key,meta])=>{
+            const score = sig.scores?.[key];
+            if (score == null || score === 0) return null;
+            return <ScoreBar key={key} label={meta.label} value={score} color={meta.color(score)}/>;
+          })}
+        </div>
+      ) : (
+        <div style={{borderTop:"1px solid var(--b1)",paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
+          <span style={{fontSize:10,color:"var(--t3)"}}>Aktif sinyal yok</span>
+          <span style={{fontSize:10,color:"var(--t4)"}}>Piyasa izleniyor</span>
+        </div>
+      )}
 
       {/* Trigger / Invalidation */}
       {(sig.trigger_level || sig.invalidation) && (
