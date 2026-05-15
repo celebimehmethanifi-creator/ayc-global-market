@@ -77,6 +77,13 @@ def test_demo_close_realized_pnl_and_percent_are_finite_and_formula_based():
     assert "const realizedPnLPct = Number.isFinite(realizedPnLPctRaw) ? realizedPnLPctRaw : 0;" in text
 
 
+def test_demo_close_rejects_unknown_or_non_open_positions():
+    text = read_text(DEMO_LIB)
+    assert "if (idx < 0) return { status: 404, payload: toNoDataError(" in text
+    assert "if (position.status !== \"OPEN\")" in text
+    assert "Pozisyon zaten kapal" in text
+
+
 def test_demo_order_flow_does_not_call_real_exchange_order_endpoint():
     demo_order_text = read_text(DEMO_ORDER)
     demo_lib_text = read_text(DEMO_LIB)
@@ -96,6 +103,9 @@ def test_demo_context_is_api_first_with_local_fallback():
     assert "\"/demo/reset\"" in text
     assert "source: \"api\" | \"local-fallback\"" in text
     assert "Demo servisine erisilemedi. Yerel fallback kullaniliyor." in text
+    assert "options?.leverage == null" in text
+    assert "leverage: leveragePayload" in text
+    assert "Number.isFinite(leverage) ? leverage : 1" not in text
 
 
 def test_demo_history_route_returns_closed_trades():

@@ -230,7 +230,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       },
     ): Promise<boolean> => {
       try {
-        const leverage = Number(options?.leverage);
+        const leveragePayload =
+          options?.leverage == null
+            ? 1
+            : Number(options.leverage);
         const stopLoss = Number(options?.stopLoss);
         const takeProfit = Number(options?.takeProfit);
 
@@ -240,7 +243,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
             symbol,
             side: direction,
             notional: investedUSD,
-            leverage: Number.isFinite(leverage) ? leverage : 1,
+            leverage: leveragePayload,
             ...(Number.isFinite(stopLoss) && stopLoss > 0 ? { stopLoss } : {}),
             ...(Number.isFinite(takeProfit) && takeProfit > 0 ? { takeProfit } : {}),
           },
