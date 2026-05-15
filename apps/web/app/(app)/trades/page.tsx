@@ -60,7 +60,7 @@ export default function TradesPage() {
 
   /* stat cards */
   const stats = [
-    { label:"Demo Bakiye",     value:mounted ? fmt(demo.balance)   : "-", sub:"Kullanılabilir", icon:Wallet,   up:true   },
+    { label:"Demo Bakiye",     value:mounted ? fmt(demo.balance)   : "-", sub:`Kullanılabilir: ${fmt(demo.availableBalance)}`, icon:Wallet,   up:true   },
     { label:"Toplam Deger",    value:mounted ? fmt(totalValue)     : "-", sub:mounted ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}%` : "-", icon:BarChart3, up: totalPnlUSD >= 0 },
     { label:"Açık PnL",        value:mounted ? fmt(openPnlUSD)     : "-", sub:`${openTrades.length} açık işlem`,  icon:Activity, up: openPnlUSD >= 0 },
     { label:"Kapalı Getiri",   value:mounted ? fmt(totalClosedPnl) : "-", sub:`Kazanma: ${winRate}%`, icon:Award, up: totalClosedPnl >= 0 },
@@ -82,7 +82,7 @@ export default function TradesPage() {
             İşlemlerim
           </h1>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0"}}>
-            Demo portfoy   $10,000 sanal bakiye ile basladin
+            Demo portföy · $10,000 sanal bakiye ile başlarsın. Gerçek emir gönderilmez.
           </p>
         </div>
         <div style={{display:"flex",gap:8}}>

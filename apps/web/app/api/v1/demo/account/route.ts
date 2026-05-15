@@ -1,0 +1,19 @@
+import { NextRequest } from "next/server";
+import {
+  createResponse,
+  getSynchronizedRecord,
+  resolveDemoIdentity,
+  toView,
+} from "../../_lib/demo-trading";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const identity = await resolveDemoIdentity(req);
+  const record = await getSynchronizedRecord(req, identity);
+  return createResponse(identity, {
+    ok: true,
+    ...toView(record),
+  });
+}
+
