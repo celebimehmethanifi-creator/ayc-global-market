@@ -8,13 +8,15 @@ import { usePrices } from "@/lib/prices/PriceContext";
 import { useDemo } from "@/lib/demo/DemoContext";
 import { FlaskConical } from "lucide-react";
 
-const MOCK: Position[] = [
-  {id:"p1",symbol:"BTCUSDT",name:"Bitcoin",   category:"CRYPTO",  entry:79200, current:81480, qty:0.05, change24h:1.82},
-  {id:"p2",symbol:"ETHUSDT",name:"Ethereum",  category:"CRYPTO",  entry:2290,  current:2357,  qty:1.0,  change24h:2.41},
-  {id:"p3",symbol:"NVDA",   name:"NVIDIA",    category:"US",      entry:210.5, current:215.2, qty:5,    change24h:3.15},
-  {id:"p4",symbol:"AAPL",   name:"Apple",     category:"US",      entry:297,   current:293.3, qty:3,    change24h:-0.72},
-  {id:"p5",symbol:"XAUUSD", name:"Altin",     category:"PRECIOUS",entry:3180,  current:3295,  qty:0.1,  change24h:0.28},
-];
+function inferCategory(sym: string): string {
+  const db = ASSET_DB.find(a => a.symbol === sym);
+  if (db) return db.category;
+  if (sym.endsWith("USDT")) return "CRYPTO";
+  if (sym === "XAUUSD" || sym === "XAGUSD") return "PRECIOUS";
+  if (sym === "USOIL" || sym === "BRENTOIL") return "ENERGY";
+  if (["EURUSD","GBPUSD","USDJPY","USDTRY"].includes(sym)) return "FOREX";
+  return "US";
+}
 
 // Kapsamli varlik veritabani (arama icin)
 const ASSET_DB = [
@@ -259,13 +261,27 @@ export default function PortfolioPage() {
     onSuccess:()=>{ qc.invalidateQueries({queryKey:["positions"]}); setShowAdd(false); setForm({symbol:"",name:"",category:"CRYPTO",entry:"",qty:"",date:""}); },
   });
 
-  const positions: Position[] = [...MOCK,...(posData||[])];
+  const demoPositions: Position[] = demo.openTrades.map(t => ({
+    id: t.id,
+    symbol: t.symbol,
+    name: t.name,
+    category: inferCategory(t.symbol),
+    entry: t.entryPrice,
+    current: getLP(t.symbol) ?? t.entryPrice,
+    qty: t.quantity,
+    change24h: 0,
+  }));
+
+  const positions: Position[] = activeTab === "demo"
+    ? demoPositions
+    : (posData || []);
+
   const totalVal  = positions.reduce((s,p)=>s+(getLP(p.symbol)??p.current)*p.qty,0);
   const totalCost = positions.reduce((s,p)=>s+p.entry*p.qty,0);
   const totalPnl  = totalVal - totalCost;
-  const totalPct  = (totalPnl/totalCost)*100;
+  const totalPct  = totalCost > 0 ? (totalPnl/totalCost)*100 : 0;
   const winners   = positions.filter(p=>(p.current-p.entry)>0).length;
-  const winRate   = Math.round(winners/positions.length*100);
+  const winRate   = positions.length > 0 ? Math.round(winners/positions.length*100) : 0;
 
   const alloc: Record<string,number> = {};
   positions.forEach(p=>{ alloc[p.category]=(alloc[p.category]||0)+p.current*p.qty; });
@@ -292,7 +308,7 @@ export default function PortfolioPage() {
       {/* STATS */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12}}>
         {[
-          {label:"Portföy Degeri",value:`$${totalVal.toLocaleString("en-US",{maximumFractionDigits:0})}`,sub:`${positions.length} pozisyon`,icon:DollarSign,color:"var(--gold)",dim:"var(--gold-dim)",border:"var(--gold-border)"},
+          {label:"Portföy Degeri",value:positions.length===0?"$0":`$${totalVal.toLocaleString("en-US",{maximumFractionDigits:0})}`,sub:positions.length===0?"Pozisyon yok":`${positions.length} pozisyon`,icon:DollarSign,color:"var(--gold)",dim:"var(--gold-dim)",border:"var(--gold-border)"},
           {label:"Toplam K/Z",value:`${totalPnl>=0?"+":""}$${Math.abs(totalPnl).toFixed(0)}`,sub:`Maliyet: $${totalCost.toLocaleString("en-US",{maximumFractionDigits:0})}`,icon:totalPnl>=0?TrendingUp:TrendingDown,color:totalPnl>=0?"var(--up)":"var(--down)",dim:totalPnl>=0?"var(--up-dim)":"var(--down-dim)",border:totalPnl>=0?"var(--up-border)":"var(--down-border)"},
           {label:"Getiri",value:`${totalPct>=0?"+":""}${totalPct.toFixed(2)}%`,sub:"Tum zamanlar",icon:Percent,color:totalPct>=0?"var(--up)":"var(--down)",dim:totalPct>=0?"var(--up-dim)":"var(--down-dim)",border:totalPct>=0?"var(--up-border)":"var(--down-border)"},
           {label:"Kazanan Oran",value:`${winRate}%`,sub:`${winners}/${positions.length} karli`,icon:Activity,color:"var(--purple)",dim:"var(--purple-dim)",border:"rgba(129,140,248,0.25)"},
@@ -316,25 +332,39 @@ export default function PortfolioPage() {
             <span style={{fontFamily:"var(--font-head)",fontSize:13,fontWeight:700,color:"var(--t1)"}}>Pozisyonlar</span>
             <span style={{marginLeft:"auto",fontSize:11,color:"var(--t3)"}}>Analiz icin satira tikla</span>
           </div>
-          <div style={{overflowX:"auto"}}>
-            <table className="market-table pos-table" style={{width:"100%",minWidth:400}}>
-              <thead>
-                <tr>
-                  {["Varlik","Fiyat","24s %","Miktar","Deger","K/Z",""].map((h,i)=>(
-                    <th key={i} style={{textAlign:i>0&&i<6?"right":"left"}}>{h}</th>
+          {positions.length === 0 ? (
+            <div style={{padding:"48px 24px",textAlign:"center",color:"var(--t3)"}}>
+              <Briefcase size={28} color="var(--t4)" style={{margin:"0 auto 12px"}}/>
+              <div style={{fontSize:14,fontWeight:600,color:"var(--t2)",marginBottom:6}}>
+                {activeTab === "demo" ? "Henüz demo pozisyon yok" : "Henüz pozisyon yok"}
+              </div>
+              <div style={{fontSize:12,color:"var(--t3)"}}>
+                {activeTab === "demo"
+                  ? "Sinyal sayfasından Demo butonuna basarak demo işlem açabilirsiniz."
+                  : "Pozisyon Ekle butonuna basarak portföyünüzü oluşturun."}
+              </div>
+            </div>
+          ) : (
+            <div style={{overflowX:"auto"}}>
+              <table className="market-table pos-table" style={{width:"100%",minWidth:400}}>
+                <thead>
+                  <tr>
+                    {["Varlik","Fiyat","24s %","Miktar","Deger","K/Z",""].map((h,i)=>(
+                      <th key={i} style={{textAlign:i>0&&i<6?"right":"left"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {positions.map(p=>(
+                    <PosRow key={p.id} pos={p} onDetail={()=>setSelectedAsset({
+                      symbol:p.symbol,name:p.name,display:p.symbol,
+                      price:getLP(p.symbol)??p.current,chg:p.change24h,market:p.category.toLowerCase(),
+                    })}/>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map(p=>(
-                  <PosRow key={p.id} pos={p} onDetail={()=>setSelectedAsset({
-                    symbol:p.symbol,name:p.name,display:p.symbol,
-                    price:getLP(p.symbol)??p.current,chg:p.change24h,market:p.category.toLowerCase(),
-                  })}/>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -343,23 +373,29 @@ export default function PortfolioPage() {
             <div className="section-hdr" style={{marginBottom:14}}>
               <span className="section-title">Dagilim</span>
             </div>
-            <div style={{height:8,borderRadius:4,overflow:"hidden",display:"flex",marginBottom:14}}>
-              {Object.entries(alloc).map(([cat,val])=>(
-                <div key={cat} style={{width:`${(val/totalVal*100)}%`,background:CAT_COLORS[cat]||"#D4A843",transition:"width 0.5s ease"}}/>
-              ))}
-            </div>
-            {Object.entries(alloc).map(([cat,val])=>(
-              <div key={cat} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9}}>
-                <div style={{display:"flex",alignItems:"center",gap:7}}>
-                  <div style={{width:7,height:7,borderRadius:2,background:CAT_COLORS[cat]||"#D4A843"}}/>
-                  <span style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{cat}</span>
+            {positions.length === 0 ? (
+              <div style={{fontSize:11,color:"var(--t3)",textAlign:"center",padding:"12px 0"}}>Pozisyon yok</div>
+            ) : (
+              <>
+                <div style={{height:8,borderRadius:4,overflow:"hidden",display:"flex",marginBottom:14}}>
+                  {Object.entries(alloc).map(([cat,val])=>(
+                    <div key={cat} style={{width:`${(val/totalVal*100)}%`,background:CAT_COLORS[cat]||"#D4A843",transition:"width 0.5s ease"}}/>
+                  ))}
                 </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:600,color:"var(--t1)"}}>{(val/totalVal*100).toFixed(1)}%</div>
-                  <div style={{fontSize:10,color:"var(--t3)"}}>${val.toLocaleString("en-US",{maximumFractionDigits:0})}</div>
-                </div>
-              </div>
-            ))}
+                {Object.entries(alloc).map(([cat,val])=>(
+                  <div key={cat} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7}}>
+                      <div style={{width:7,height:7,borderRadius:2,background:CAT_COLORS[cat]||"#D4A843"}}/>
+                      <span style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{cat}</span>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:600,color:"var(--t1)"}}>{(val/totalVal*100).toFixed(1)}%</div>
+                      <div style={{fontSize:10,color:"var(--t3)"}}>${val.toLocaleString("en-US",{maximumFractionDigits:0})}</div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {/* P&L list */}
@@ -367,11 +403,14 @@ export default function PortfolioPage() {
             <div className="section-hdr" style={{marginBottom:12}}>
               <span className="section-title">P&L Ozeti</span>
             </div>
-            {positions.map(p=>{
-              const pnl=(p.current-p.entry)*p.qty; const up=pnl>=0;
+            {positions.length === 0 ? (
+              <div style={{fontSize:11,color:"var(--t3)",textAlign:"center",padding:"12px 0"}}>Kapanan işlem yok</div>
+            ) : positions.map(p=>{
+              const cur = getLP(p.symbol) ?? p.current;
+              const pnl=(cur-p.entry)*p.qty; const up=pnl>=0;
               return (
                 <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}}
-                  onClick={()=>setSelectedAsset({symbol:p.symbol,name:p.name,display:p.symbol,price:getLP(p.symbol)??p.current,chg:p.change24h,market:p.category.toLowerCase()})}>
+                  onClick={()=>setSelectedAsset({symbol:p.symbol,name:p.name,display:p.symbol,price:cur,chg:p.change24h,market:p.category.toLowerCase()})}>
                   <span style={{fontFamily:"var(--font-mono)",fontSize:11,color:"var(--t2)",fontWeight:600}}>{p.symbol}</span>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
                     {up?<ArrowUpRight size={11} color="var(--up)"/>:<ArrowDownRight size={11} color="var(--down)"/>}

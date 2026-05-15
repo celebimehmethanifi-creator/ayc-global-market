@@ -211,7 +211,16 @@ function ScenarioCard({
   const recommendationLabel = fallbackMode
     ? (locale === "en" ? "EDU RECOMMENDED" : "EĞİTİM ÖNERİSİ")
     : (locale === "en" ? "RECOMMENDED" : "ÖNERİLEN");
-  const resultValue = insufficient ? (locale === "en" ? "Insufficient data" : "Veri yetersiz") : (scenario.resultLabel || "Nötr");
+  // "Yüksek Kar" and profit labels only show when data is reliable and all values are finite
+  const canShowResultLabel =
+    !insufficient && !fallbackMode &&
+    scenario.targetPrice != null && scenario.stopLoss != null &&
+    scenario.riskReward != null && scenario.probability != null;
+  const resultValue = canShowResultLabel
+    ? (scenario.resultLabel || "Nötr")
+    : insufficient
+      ? noDataText
+      : estimatedText;
 
   return (
     <div

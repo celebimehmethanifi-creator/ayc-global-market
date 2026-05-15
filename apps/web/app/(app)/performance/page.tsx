@@ -18,17 +18,11 @@ type PerfStats = {
   records:SignalRecord[];
 };
 
-const MOCK_STATS: PerfStats = {
-  total:47, closed:38, pending:9, hits:24, stops:10,
-  hit_rate:63.2, avg_pnl:1.24, avg_win:2.8, avg_loss:-1.4,
-  best_trade:8.2, worst_trade:-3.1, expectancy:0.82,
-  records:[
-    {id:"BTC_001",symbol:"BTCUSDT",stage:"TRIGGER",direction:"LONG",entry_price:79100,target_price:82000,stop_price:77500,confidence:82,created_at:"2026-05-10T09:15:00Z",outcome:"HIT",exit_price:82050,pnl_pct:3.73,closed_at:"2026-05-10T14:22:00Z"},
-    {id:"XAU_001",symbol:"XAUUSD", stage:"SETUP",  direction:"LONG",entry_price:3245, target_price:3310, stop_price:3210, confidence:76,created_at:"2026-05-10T11:30:00Z",outcome:"HIT",exit_price:3312, pnl_pct:2.06,closed_at:"2026-05-11T08:10:00Z"},
-    {id:"NVDA_001",symbol:"NVDA",  stage:"WATCH",  direction:"LONG",entry_price:845,  target_price:880,  stop_price:825,  confidence:68,created_at:"2026-05-09T15:00:00Z",outcome:"STOP_HIT",exit_price:824, pnl_pct:-2.49,closed_at:"2026-05-09T18:45:00Z"},
-    {id:"ETH_001",symbol:"ETHUSDT",stage:"TRIGGER",direction:"LONG",entry_price:2210, target_price:2350, stop_price:2140, confidence:79,created_at:"2026-05-09T08:00:00Z",outcome:"HIT",exit_price:2351, pnl_pct:6.38,closed_at:"2026-05-10T06:30:00Z"},
-    {id:"TSLA_001",symbol:"TSLA",  stage:"SETUP",  direction:"SHORT",entry_price:178, target_price:162,  stop_price:185,  confidence:71,created_at:"2026-05-08T14:00:00Z",outcome:"HIT",exit_price:163, pnl_pct:8.43,closed_at:"2026-05-09T10:00:00Z"},
-  ],
+const EMPTY_STATS: PerfStats = {
+  total: 0, closed: 0, pending: 0, hits: 0, stops: 0,
+  hit_rate: 0, avg_pnl: 0, avg_win: 0, avg_loss: 0,
+  best_trade: 0, worst_trade: 0, expectancy: 0,
+  records: [],
 };
 
 function toNum(value: unknown, fallback = 0): number {
@@ -55,7 +49,7 @@ function normalizeSignalRecord(raw: Partial<SignalRecord>, index: number): Signa
 }
 
 function normalizePerformanceStats(input: unknown): PerfStats {
-  if (!input || typeof input !== "object") return MOCK_STATS;
+  if (!input || typeof input !== "object") return EMPTY_STATS;
   const source = input as Partial<PerfStats> & { records?: unknown[] };
   const recordsSource = Array.isArray(source.records) ? source.records : [];
   const records = recordsSource.map((record, index) =>
@@ -75,7 +69,7 @@ function normalizePerformanceStats(input: unknown): PerfStats {
     best_trade: toNum(source.best_trade),
     worst_trade: toNum(source.worst_trade),
     expectancy: toNum(source.expectancy),
-    records: records.length > 0 ? records : MOCK_STATS.records,
+    records,
   };
 }
 
@@ -188,6 +182,13 @@ export default function PerformancePage() {
 
       {/* RECORDS TABLE */}
       <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",overflow:"hidden"}}>
+        {stats.total === 0 || filtered.length === 0 ? (
+          <div style={{padding:"48px 24px",textAlign:"center",color:"var(--t3)"}}>
+            <BarChart3 size={28} color="var(--t4)" style={{margin:"0 auto 12px"}}/>
+            <div style={{fontSize:14,fontWeight:600,color:"var(--t2)",marginBottom:6}}>Henüz performans verisi yok</div>
+            <div style={{fontSize:12,color:"var(--t3)"}}>Demo işlemler veya kapanan sinyaller oluştukça burada görünecek.</div>
+          </div>
+        ) : (
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead>
@@ -240,6 +241,7 @@ export default function PerformancePage() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
     </div>
