@@ -167,13 +167,23 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
           ))}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
-            padding:"4px 10px",borderRadius:6,border:"1px solid rgba(245,158,11,0.4)",
-            background:"rgba(245,158,11,0.1)",color:"#f59e0b",fontSize:10,fontWeight:700,
-            cursor:"pointer",display:"flex",alignItems:"center",gap:4,
-          }}>
-            <FlaskConical size={9}/>Demo
-          </button>
+          {sig.stage === "NONE" ? (
+            <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
+              padding:"4px 10px",borderRadius:6,border:"1px solid var(--b1)",
+              background:"transparent",color:"var(--t3)",fontSize:10,fontWeight:600,
+              cursor:"pointer",display:"flex",alignItems:"center",gap:4,
+            }}>
+              <FlaskConical size={9}/>Manuel Demo
+            </button>
+          ) : (
+            <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
+              padding:"4px 10px",borderRadius:6,border:"1px solid rgba(245,158,11,0.4)",
+              background:"rgba(245,158,11,0.1)",color:"#f59e0b",fontSize:10,fontWeight:700,
+              cursor:"pointer",display:"flex",alignItems:"center",gap:4,
+            }}>
+              <FlaskConical size={9}/>Demo
+            </button>
+          )}
           <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"var(--t3)"}}>
             Derin Analiz <ChevronRight size={10}/>
           </div>

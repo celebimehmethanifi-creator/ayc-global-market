@@ -1069,6 +1069,15 @@ export default function DashboardPage() {
 
 
   const longCount = signals.filter(s=>s.direction==="LONG").length;
+  // Active = only actionable signals (TRIGGER/SETUP/active). NONE/WATCH/KALKAN/insufficient_data excluded.
+  const ACTIONABLE_STAGES = new Set(["TRIGGER","SETUP","ACTIVE"]);
+  const actionableSignals = signals.filter(s => {
+    const stage = String((s as any).stage || "").toUpperCase();
+    const status = String((s as any).signalStatus || (s as any).signal_status || "").toLowerCase();
+    return ACTIONABLE_STAGES.has(stage) || ["trigger","setup","active"].includes(status);
+  });
+  const actionableCount = actionableSignals.length;
+  const actionableLong = actionableSignals.filter(s => s.direction === "LONG").length;
   const priceEntries = Object.values(livePrices);
   const freshPriceCount = priceEntries.filter((entry) => nowTs > 0 && nowTs - entry.ts < 45000).length;
   const dataStatus = freshPriceCount >= 8
@@ -1237,11 +1246,11 @@ export default function DashboardPage() {
 
 
 
-        <StatBadge icon={Zap}      label="Aktif Sinyaller" value={`${signals.length}`}
+        <StatBadge icon={Zap}      label="Aktif Sinyaller" value={`${actionableCount}`}
 
 
 
-          sub={`${longCount} LONG \u00b7 ${signals.length-longCount} SHORT/NÖTR`}
+          sub={`${actionableLong} LONG \u00b7 ${actionableCount-actionableLong} SHORT/NÖTR`}
 
 
 

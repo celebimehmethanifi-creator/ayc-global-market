@@ -626,6 +626,7 @@ h1, h2, h3, h4, h5, h6 {
 :root {
   --sidebar-w-mobile: 0px;
   --bottom-nav-h: 58px;
+  --bottom-nav-height: 58px; /* alias used by app-main padding-bottom calc */
 }
 
 /* ── body: NO overflow:hidden on mobile — need scroll ─────────── */
@@ -861,7 +862,9 @@ body.asset-modal-open .app-main {
   padding-top: 0 !important;
 }
 @media (max-width: 767px) {
-  .app-main { padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px)) 12px !important; }
+  .app-main {
+    padding: 12px 12px calc(var(--bottom-nav-height, 58px) + env(safe-area-inset-bottom, 0px) + 24px) 12px !important;
+  }
 }
 
 /* ── Tablet (768–1024px) ──────────────────────────────────────── */
