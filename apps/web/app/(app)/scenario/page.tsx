@@ -116,10 +116,18 @@ function normalizeReport(rawInput: unknown, fallbackSymbol: string, fallbackDire
       ? (raw.dataQuality as DataQuality)
       : (scenarios[0]?.dataQuality || "insufficient"),
     keyInsight: safeText(raw.key_insight ?? raw.keyInsight, "Veri sınırlı, analiz güveni düşebilir."),
-    generatedAt: safeText(raw.generatedAt, new Date().toISOString()),
+    generatedAt: safeText(raw.generatedAt ?? raw.generated_at, ""),
     disclaimer: safeText(raw.disclaimer, "Bu içerik yatırım tavsiyesi değildir."),
     scenarios,
   };
+}
+
+function formatGeneratedAt(iso: string, locale: "tr" | "en"): string {
+  const trimmed = String(iso || "").trim();
+  if (!trimmed) return "—";
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(locale === "en" ? "en-US" : "tr-TR");
 }
 
 function formatPercent(value: number | null, fallback = "Hesaplanamadı"): string {
@@ -398,7 +406,7 @@ export default function ScenarioPage() {
       keyInsight: lang === "en"
         ? "Run simulation to see realistic PnL, drawdown and Kelly outputs."
         : "Gerçekçi PnL, drawdown ve Kelly çıktıları için simülasyonu çalıştırın.",
-      generatedAt: new Date().toISOString(),
+      generatedAt: "",
       disclaimer: lang === "en"
         ? "This content is not investment advice."
         : "Bu içerik yatırım tavsiyesi değildir.",
@@ -421,7 +429,7 @@ export default function ScenarioPage() {
     }));
   }, [report.dataQuality, report.recommended, report.scenarios]);
 
-  const generatedAtLabel = new Date(report.generatedAt).toLocaleString(lang === "en" ? "en-US" : "tr-TR");
+  const generatedAtLabel = useMemo(() => formatGeneratedAt(report.generatedAt, lang), [report.generatedAt, lang]);
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
