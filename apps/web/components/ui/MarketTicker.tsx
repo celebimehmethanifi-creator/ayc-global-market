@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/lib/prices/PriceContext";
 
 const ALL_SYMBOLS = [
@@ -27,8 +27,8 @@ const ALL_SYMBOLS = [
   { sym:"GARAN",   label:"Garanti",     cat:"bist",   key:"GARAN"    },
   { sym:"ASELS",   label:"Aselsan",     cat:"bist",   key:"ASELS"    },
   { sym:"AKBNK",   label:"Akbank",      cat:"bist",   key:"AKBNK"    },
-  { sym:"XAU",     label:"Altin",       cat:"metal",  key:"XAUUSD"   },
-  { sym:"XAG",     label:"Gumus",       cat:"metal",  key:"XAGUSD"   },
+  { sym:"XAU",     label:"Altın",       cat:"metal",  key:"XAUUSD"   },
+  { sym:"XAG",     label:"Gümüş",       cat:"metal",  key:"XAGUSD"   },
   { sym:"WTI",     label:"Ham Petrol",  cat:"energy", key:"WTIUSD"   },
   { sym:"BRENT",   label:"Brent",       cat:"energy", key:"BRENT"    },
   { sym:"EUR/USD", label:"Euro",        cat:"forex",  key:"EURUSD"   },
@@ -68,6 +68,16 @@ const sc = (v: unknown): number => { const n = Number(v); return isFinite(n) ? n
 
 export function MarketTicker() {
   const prices = usePrices();
+  const [mounted, setMounted] = useState(false);
+  const [nowTs, setNowTs] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+    const tick = () => setNowTs(Date.now());
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, []);
 
   const items = useMemo(() => {
     const list = ALL_SYMBOLS
@@ -85,13 +95,23 @@ export function MarketTicker() {
     return [...gainers, ...losers];
   }, [prices]);
 
-  const liveCount = items.filter(i => i.ts > 0 && Date.now() - i.ts < 90000).length;
+  const liveCount = items.filter(i => i.ts > 0 && nowTs > 0 && nowTs - i.ts < 90000).length;
+  const isLive = liveCount >= 3;
+  const statusLabel = isLive ? "Canlı" : "Gecikmeli";
   const durationSec = Math.max(40, items.length * 3.8);
+
+  if (!mounted) {
+    return (
+      <div style={{ height: 32, background: "var(--bg-panel)", borderBottom: "1px solid var(--b1)", display: "flex", alignItems: "center", padding: "0 12px" }}>
+        <span style={{ fontSize: 10, color: "var(--t4)", fontFamily: "var(--font-mono)" }}>Piyasa verileri yükleniyor...</span>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
       <div style={{ height: 32, background: "var(--bg-panel)", borderBottom: "1px solid var(--b1)", display: "flex", alignItems: "center", padding: "0 12px" }}>
-        <span style={{ fontSize: 10, color: "var(--t4)", fontFamily: "var(--font-mono)" }}>Piyasa verileri yukleniyor...</span>
+        <span style={{ fontSize: 10, color: "var(--t4)", fontFamily: "var(--font-mono)" }}>Piyasa verileri yükleniyor...</span>
       </div>
     );
   }
@@ -110,12 +130,12 @@ export function MarketTicker() {
       }}>
         <div style={{
           width: 6, height: 6, borderRadius: "50%",
-          background: liveCount >= 3 ? "var(--up)" : "#555",
-          boxShadow: liveCount >= 3 ? "0 0 6px var(--up)" : "none",
-          animation: liveCount >= 3 ? "pulse-live 2s ease-in-out infinite" : "none",
+          background: isLive ? "var(--up)" : "var(--warn)",
+          boxShadow: isLive ? "0 0 6px var(--up)" : "none",
+          animation: isLive ? "pulse-live 2s ease-in-out infinite" : "none",
         }} />
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--t3)", letterSpacing: "0.05em" }}>
-          CANLI
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: isLive ? "var(--up)" : "var(--warn)", letterSpacing: "0.05em" }}>
+          {statusLabel}
         </span>
       </div>
 

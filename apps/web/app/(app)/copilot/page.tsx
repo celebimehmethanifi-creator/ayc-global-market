@@ -133,12 +133,7 @@ export default function CopilotPage() {
       message:m,
       chat_history:msgs.slice(-8).map(x=>({role:x.role,content:x.content})),
       tier: userTier,
-      exchange_credentials: primaryExchange ? {
-        exchange: primaryExchange.exchange,
-        apiKey: primaryExchange.apiKey,
-        apiSecret: primaryExchange.apiSecret,
-        passphrase: primaryExchange.passphrase,
-      } : undefined,
+      exchange_connection_id: primaryExchange?.connectionId,
     }).then(r=>r.data),
     onSuccess:(d)=>{
       setMsgs(p=>[...p,{

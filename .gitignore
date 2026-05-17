@@ -15,6 +15,8 @@ node_modules/
 .turbo/
 *.tsbuildinfo
 dist/
+.tmp/
+test-results/
 
 # Expo
 .expo/
@@ -25,12 +27,17 @@ ios/
 .env
 .env.*
 !.env.example
+.secure/
 
 # Docker
 docker-compose.override.yml
 
 # DB
+*.db
 *.sqlite
+*.sqlite3
+prisma/dev.db
+data/*.db
 
 # IDE
 .vscode/
@@ -40,3 +47,4 @@ docker-compose.override.yml
 # OS
 .DS_Store
 Thumbs.db
+.vercel

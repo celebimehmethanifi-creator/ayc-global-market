@@ -29,8 +29,10 @@ class Base(DeclarativeBase):
 
 
 async def init_db():
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    is_dev_or_test = env_name in {"development", "dev", "test", "testing", "local"}
     async with engine.begin() as conn:
-        if _is_sqlite:
+        if _is_sqlite and is_dev_or_test:
             await conn.run_sync(Base.metadata.create_all)
         else:
             await conn.execute(text("SELECT 1"))

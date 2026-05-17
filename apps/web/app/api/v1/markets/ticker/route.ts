@@ -3,8 +3,8 @@
 export const dynamic  = "force-dynamic";
 export const revalidate = 0;
 
-const CG_KEY = process.env.COINGECKO_API_KEY || "CG-MoxLLAjSA3r2JHXanw9fotD5";
-const FH_KEY = process.env.FINNHUB_API_KEY   || "d7pp429r01qosaapdudgd7pp429r01qosaapdue0";
+const CG_KEY = process.env.COINGECKO_API_KEY || "";
+const FH_KEY = process.env.FINNHUB_API_KEY || "";
 
 interface PD { price: number; chg: number; source: string; }
 
@@ -42,11 +42,13 @@ async function fetchStooq(sym: string): Promise<PD | null> {
 async function fetchCG(): Promise<Record<string, PD>> {
   const out: Record<string, PD> = {};
   try {
+    const headers: Record<string, string> = {};
+    if (CG_KEY) headers["x-cg-demo-api-key"] = CG_KEY;
     const ids = "bitcoin,ethereum,solana,binancecoin,ripple,dogecoin,cardano,avalanche-2";
     const r = await sf(
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
       8000,
-      { "x-cg-demo-api-key": CG_KEY }
+      headers
     );
     if (!r?.ok) return out;
     const d = await r.json();
@@ -64,6 +66,7 @@ async function fetchCG(): Promise<Record<string, PD>> {
 
 /* ── Finnhub: US stocks + ETF-based indices ── */
 async function fetchFH(symbol: string): Promise<PD | null> {
+  if (!FH_KEY) return null;
   try {
     const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FH_KEY}`, 6000);
     if (!r?.ok) return null;
@@ -156,9 +159,12 @@ export async function GET(_req: NextRequest) {
   // Fallback: if Stooq gold/silver failed, try CoinGecko PAXG
   if (!all["XAU"]) {
     try {
+      const headers: Record<string, string> = {};
+      if (CG_KEY) headers["x-cg-demo-api-key"] = CG_KEY;
       const r = await sf(
         `https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=usd&include_24hr_change=true`,
-        6000, { "x-cg-demo-api-key": CG_KEY }
+        6000,
+        headers,
       );
       if (r?.ok) {
         const d = await r.json();

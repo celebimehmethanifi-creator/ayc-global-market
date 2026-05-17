@@ -1,272 +1,655 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { getAssetBySymbol } from "@/lib/markets/asset-universe";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const AV_KEY  = process.env.ALPHAVANTAGE_API_KEY || '63T2IM69L6OSSR51';
-const CG_KEY  = process.env.COINGECKO_API_KEY    || 'CG-MoxLLAjSA3r2JHXanw9fotD5';
+const ALPHAVANTAGE_API_KEY = process.env.ALPHAVANTAGE_API_KEY || "";
+const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY || "";
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || "";
+const TWELVEDATA_API_KEY = process.env.TWELVEDATA_API_KEY || "";
 
-interface Candle { t: number; o: number; h: number; l: number; c: number; v: number; }
+type Timeframe = "5M" | "15M" | "1H" | "4H" | "1D" | "1W" | "1M" | "3M" | "1Y";
+type ProviderName =
+  | "binance"
+  | "coingecko"
+  | "yahoo"
+  | "twelvedata"
+  | "finnhub"
+  | "stooq"
+  | "alphavantage";
 
-const CRYPTO_IDS: Record<string, string> = {
-  BTC:'bitcoin', ETH:'ethereum', SOL:'solana', BNB:'binancecoin', XRP:'ripple',
-  DOGE:'dogecoin', ADA:'cardano', AVAX:'avalanche-2', LINK:'chainlink',
-  DOT:'polkadot', LTC:'litecoin', ONDO:'ondo-finance', SUI:'sui', APT:'aptos',
-  PEPE:'pepe', INJ:'injective-protocol', XLM:'stellar', VET:'vechain',
-  ICP:'internet-computer', FIL:'filecoin', HBAR:'hedera-hashgraph',
-  ALGO:'algorand', FLOKI:'floki', TON:'the-open-network', TRX:'tron',
-  OP:'optimism', ARB:'arbitrum', UNI:'uniswap', ATOM:'cosmos',
-  NEAR:'near', SHIB:'shiba-inu',
+interface Candle {
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+}
+
+interface ProviderAttempt {
+  provider: ProviderName;
+  symbol: string;
+  status: "success" | "error";
+  detail?: string;
+}
+
+const SYMBOL_ALIASES: Record<string, string> = {
+  GARAN: "GARAN.IS",
+  THYAO: "THYAO.IS",
+  ASELS: "ASELS.IS",
+  AKBNK: "AKBNK.IS",
+  EREGL: "EREGL.IS",
+  XAU: "XAUUSD",
+  XAG: "XAGUSD",
+  WTI: "WTIUSD",
+  SP500: "SPX",
+  NASDAQ: "NDX",
+  BIST100: "XU100",
 };
 
-function isCrypto(sym: string): boolean {
-  const base = sym.replace('USDT', '').replace('/USDT', '').toUpperCase();
-  return base in CRYPTO_IDS;
+function normalizeTimeframe(raw: string | null): Timeframe {
+  const value = (raw || "1D").trim().toUpperCase();
+  if (value === "5M") return "5M";
+  if (value === "15M") return "15M";
+  if (value === "1H") return "1H";
+  if (value === "4H") return "4H";
+  if (value === "1W") return "1W";
+  if (value === "1M") return "1M";
+  if (value === "3M") return "3M";
+  if (value === "1Y") return "1Y";
+  return "1D";
 }
 
-function tfToBinanceInterval(tf: string): string {
-  const m: Record<string, string> = {
-    '5M':'5m','15M':'15m','1H':'1h','4H':'4h',
-    '1D':'1d','1W':'1w','1M':'1d','3M':'1d','1Y':'1w',
+function normalizeIncomingSymbol(raw: string): string {
+  const upper = decodeURIComponent(raw).trim().toUpperCase();
+  const compact = upper.replace(/\s+/g, "").replace(/-/g, "");
+  return SYMBOL_ALIASES[compact] || compact;
+}
+
+function mapBinanceInterval(tf: Timeframe): string {
+  const map: Record<Timeframe, string> = {
+    "5M": "5m",
+    "15M": "15m",
+    "1H": "1h",
+    "4H": "4h",
+    "1D": "1d",
+    "1W": "1w",
+    "1M": "1d",
+    "3M": "1d",
+    "1Y": "1w",
   };
-  return m[tf] || '1d';
+  return map[tf];
 }
 
-function tfToBinanceLimit(tf: string): number {
-  const m: Record<string, number> = {
-    '5M':200,'15M':200,'1H':168,'4H':120,
-    '1D':90,'1W':52,'1M':30,'3M':90,'1Y':52,
+function mapBinanceLimit(tf: Timeframe): number {
+  const map: Record<Timeframe, number> = {
+    "5M": 300,
+    "15M": 300,
+    "1H": 336,
+    "4H": 240,
+    "1D": 180,
+    "1W": 104,
+    "1M": 180,
+    "3M": 240,
+    "1Y": 260,
   };
-  return m[tf] || 90;
+  return map[tf];
 }
 
-async function sfetch(url: string, ms = 9000): Promise<Response | null> {
+function mapYahooRange(tf: Timeframe): string {
+  const map: Record<Timeframe, string> = {
+    "5M": "1d",
+    "15M": "5d",
+    "1H": "5d",
+    "4H": "1mo",
+    "1D": "6mo",
+    "1W": "2y",
+    "1M": "1y",
+    "3M": "5y",
+    "1Y": "5y",
+  };
+  return map[tf];
+}
+
+function mapYahooInterval(tf: Timeframe): string {
+  const map: Record<Timeframe, string> = {
+    "5M": "5m",
+    "15M": "15m",
+    "1H": "60m",
+    "4H": "60m",
+    "1D": "1d",
+    "1W": "1wk",
+    "1M": "1d",
+    "3M": "1wk",
+    "1Y": "1wk",
+  };
+  return map[tf];
+}
+
+function mapTwelveDataInterval(tf: Timeframe): string {
+  const map: Record<Timeframe, string> = {
+    "5M": "5min",
+    "15M": "15min",
+    "1H": "1h",
+    "4H": "4h",
+    "1D": "1day",
+    "1W": "1week",
+    "1M": "1month",
+    "3M": "1month",
+    "1Y": "1month",
+  };
+  return map[tf];
+}
+
+function mapTwelveDataOutputSize(tf: Timeframe): number {
+  const map: Record<Timeframe, number> = {
+    "5M": 300,
+    "15M": 300,
+    "1H": 300,
+    "4H": 300,
+    "1D": 365,
+    "1W": 260,
+    "1M": 180,
+    "3M": 180,
+    "1Y": 260,
+  };
+  return map[tf];
+}
+
+function mapFinnhubResolution(tf: Timeframe): string {
+  const map: Record<Timeframe, string> = {
+    "5M": "5",
+    "15M": "15",
+    "1H": "60",
+    "4H": "240",
+    "1D": "D",
+    "1W": "W",
+    "1M": "D",
+    "3M": "W",
+    "1Y": "W",
+  };
+  return map[tf];
+}
+
+function mapStooqLimit(tf: Timeframe): number {
+  const map: Record<Timeframe, number> = {
+    "5M": 120,
+    "15M": 120,
+    "1H": 180,
+    "4H": 240,
+    "1D": 365,
+    "1W": 260,
+    "1M": 180,
+    "3M": 260,
+    "1Y": 260,
+  };
+  return map[tf];
+}
+
+function normalizeCandleShape(candle: Candle): boolean {
+  const { o, h, l, c, t } = candle;
+  if (!(t > 0 && o > 0 && h > 0 && l > 0 && c > 0)) return false;
+  if (h < Math.max(o, c, l)) return false;
+  if (l > Math.min(o, c, h)) return false;
+  return true;
+}
+
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function cleanCandles(candles: Candle[], tf: Timeframe): {
+  cleaned: Candle[];
+  invalidDropped: number;
+  outlierDropped: number;
+} {
+  const sorted = candles.slice().sort((a, b) => a.t - b.t);
+  const valid = sorted.filter(normalizeCandleShape);
+  const invalidDropped = sorted.length - valid.length;
+  if (!valid.length) return { cleaned: [], invalidDropped, outlierDropped: 0 };
+
+  const medClose = median(valid.map((c) => c.c));
+  if (medClose <= 0) {
+    return { cleaned: valid, invalidDropped, outlierDropped: 0 };
+  }
+
+  const highFactor = tf === "1Y" || tf === "3M" ? 1.8 : 1.35;
+  const lowFactor = tf === "1Y" || tf === "3M" ? 0.55 : 0.65;
+  const outlierFiltered = valid.filter((c) => c.h <= medClose * highFactor && c.l >= medClose * lowFactor);
+
+  const cleaned = outlierFiltered.length >= Math.max(10, Math.floor(valid.length * 0.3))
+    ? outlierFiltered
+    : valid;
+
+  return {
+    cleaned,
+    invalidDropped,
+    outlierDropped: valid.length - cleaned.length,
+  };
+}
+
+async function sfetch(url: string, timeout = 10000): Promise<Response | null> {
   try {
-    const c = new AbortController();
-    const t = setTimeout(() => c.abort(), ms);
-    const r = await fetch(url, {
-      signal: c.signal,
-      headers: { 'Accept': 'application/json', 'User-Agent': 'AYCMarket/2.0' },
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "AYCMarket/3.0",
+      },
+      cache: "no-store",
     });
-    clearTimeout(t);
-    return r;
-  } catch { return null; }
+    clearTimeout(timer);
+    return response;
+  } catch {
+    return null;
+  }
 }
 
-/* ── SOURCE 1: Binance klines (crypto) ──────────────── */
-async function binanceKlines(symbol: string, tf: string): Promise<Candle[]> {
-  const sym = symbol.toUpperCase().replace('/','').endsWith('USDT')
-    ? symbol.toUpperCase().replace('/','')
-    : symbol.toUpperCase().replace('USDT','') + 'USDT';
-  const interval = tfToBinanceInterval(tf);
-  const limit = tfToBinanceLimit(tf);
-  const r = await sfetch(
-    `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`
+async function fetchBinance(symbol: string, tf: Timeframe): Promise<Candle[]> {
+  const normalized = symbol.toUpperCase().replace("/", "");
+  const binanceSymbol = normalized.endsWith("USDT") ? normalized : `${normalized}USDT`;
+  const response = await sfetch(
+    `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${mapBinanceInterval(tf)}&limit=${mapBinanceLimit(tf)}`,
+    9000,
   );
-  if (!r?.ok) throw new Error('Binance failed');
-  const raw: Array<[number,string,string,string,string,string]> = await r.json();
-  if (!Array.isArray(raw) || raw.length === 0) throw new Error('Empty');
-  return raw.map(k => ({
-    t: k[0],
-    o: parseFloat(k[1]),
-    h: parseFloat(k[2]),
-    l: parseFloat(k[3]),
-    c: parseFloat(k[4]),
-    v: parseFloat(k[5]),
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const raw = await response.json();
+  if (!Array.isArray(raw) || !raw.length) throw new Error("empty");
+  return raw.map((row: [number, string, string, string, string, string]) => ({
+    t: Number(row[0]),
+    o: Number(row[1]),
+    h: Number(row[2]),
+    l: Number(row[3]),
+    c: Number(row[4]),
+    v: Number(row[5]),
   }));
 }
 
-/* ── SOURCE 2: CoinGecko OHLC (crypto fallback) ─────── */
-async function coinGeckoOHLC(symbol: string, tf: string): Promise<Candle[]> {
-  const base = symbol.replace('USDT','').replace('/USDT','').toUpperCase();
-  const cgId = CRYPTO_IDS[base];
-  if (!cgId) throw new Error('No CG id');
-  const days = tf === '5M' || tf === '15M' ? 1
-    : tf === '1H' ? 1
-    : tf === '4H' ? 7
-    : tf === '1D' ? 30
-    : tf === '1W' ? 90
-    : tf === '1M' ? 30
-    : tf === '3M' ? 90
-    : 365;
-  const r = await sfetch(
-    `https://api.coingecko.com/api/v3/coins/${cgId}/ohlc?vs_currency=usd&days=${days}&x_cg_demo_api_key=${CG_KEY}`,
-    10000
-  );
-  if (!r?.ok) throw new Error('CG failed');
-  const raw: Array<[number, number, number, number, number]> = await r.json();
-  if (!Array.isArray(raw) || raw.length === 0) throw new Error('Empty');
-  return raw.map(k => ({
-    t: k[0],
-    o: k[1],
-    h: k[2],
-    l: k[3],
-    c: k[4],
+async function fetchCoinGecko(coinId: string, tf: Timeframe): Promise<Candle[]> {
+  const days =
+    tf === "5M" || tf === "15M" || tf === "1H"
+      ? 1
+      : tf === "4H"
+        ? 7
+        : tf === "1D"
+          ? 90
+          : tf === "1W"
+            ? 365
+            : tf === "1M"
+              ? 365
+              : 365;
+  const headers: Record<string, string> = {};
+  if (COINGECKO_API_KEY) headers["x-cg-demo-api-key"] = COINGECKO_API_KEY;
+  const response = await fetch(
+    `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`,
+    {
+      headers: { Accept: "application/json", "User-Agent": "AYCMarket/3.0", ...headers },
+      signal: AbortSignal.timeout(10000),
+      cache: "no-store",
+    },
+  ).catch(() => null);
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const raw = await response.json();
+  if (!Array.isArray(raw) || !raw.length) throw new Error("empty");
+  return raw.map((row: [number, number, number, number, number]) => ({
+    t: Number(row[0]),
+    o: Number(row[1]),
+    h: Number(row[2]),
+    l: Number(row[3]),
+    c: Number(row[4]),
     v: 0,
   }));
 }
 
-/* ── SOURCE 3: Yahoo Finance (stocks/ETFs/indices) ───── */
-async function yahooKlines(symbol: string, tf: string): Promise<Candle[]> {
-  const rangeMap: Record<string, string> = {
-    '5M':'1d','15M':'5d','1H':'5d','4H':'1mo',
-    '1D':'3mo','1W':'1y','1M':'3mo','3M':'1y','1Y':'5y',
-  };
-  const intMap: Record<string, string> = {
-    '5M':'5m','15M':'15m','1H':'1h','4H':'60m',
-    '1D':'1d','1W':'1wk','1M':'1d','3M':'1wk','1Y':'1wk',
-  };
-  const range = rangeMap[tf] || '3mo';
-  const interval = intMap[tf] || '1d';
-  const r = await sfetch(
-    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false`,
-    10000
+async function fetchYahoo(symbol: string, tf: Timeframe): Promise<Candle[]> {
+  const response = await sfetch(
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${mapYahooInterval(tf)}&range=${mapYahooRange(tf)}&includePrePost=false`,
+    11000,
   );
-  if (!r?.ok) throw new Error('Yahoo failed');
-  const d = await r.json();
-  const res = d?.chart?.result?.[0];
-  if (!res) throw new Error('No Yahoo data');
-  const ts: number[] = res.timestamp || [];
-  const q = res.indicators?.quote?.[0];
-  if (!q || ts.length === 0) throw new Error('Empty');
-  return ts.map((t: number, i: number) => ({
-    t: t * 1000,
-    o: q.open[i] || 0,
-    h: q.high[i] || 0,
-    l: q.low[i] || 0,
-    c: q.close[i] || 0,
-    v: q.volume[i] || 0,
-  })).filter((c: Candle) => c.o > 0 && c.h > 0 && c.l > 0 && c.c > 0);
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const json = await response.json();
+  const result = json?.chart?.result?.[0];
+  const timestamps = result?.timestamp as number[] | undefined;
+  const quote = result?.indicators?.quote?.[0];
+  if (!timestamps?.length || !quote) throw new Error("empty");
+  return timestamps.map((timestamp, idx) => ({
+    t: Number(timestamp) * 1000,
+    o: Number(quote.open?.[idx] || 0),
+    h: Number(quote.high?.[idx] || 0),
+    l: Number(quote.low?.[idx] || 0),
+    c: Number(quote.close?.[idx] || 0),
+    v: Number(quote.volume?.[idx] || 0),
+  }));
 }
 
-/* ── SOURCE 4: Stooq CSV (forex/commodities/indices) ─── */
-async function stooqKlines(symbol: string, tf: string): Promise<Candle[]> {
-  const sym = symbol.toLowerCase().replace('/','').replace('usdt','');
-  const r = await sfetch(`https://stooq.com/q/d/l/?s=${sym}&i=d`);
-  if (!r?.ok) throw new Error('Stooq failed');
-  const csv = await r.text();
-  const lines = csv.split("\n").slice(1).filter(Boolean);
-  if (lines.length === 0) throw new Error('Empty Stooq');
-  const limitMap: Record<string, number> = {
-    '1D':30,'1W':90,'1M':30,'3M':90,'1Y':252,
-  };
-  const limit = limitMap[tf] || 30;
-  return lines.slice(-limit).map(line => {
-    const [date, open, high, low, close, vol] = line.split(',');
-    const t = new Date(date).getTime();
-    return { t, o: parseFloat(open), h: parseFloat(high), l: parseFloat(low), c: parseFloat(close), v: parseFloat(vol || '0') };
-  }).filter(c => !isNaN(c.t) && c.o > 0);
+async function fetchTwelveData(symbol: string, tf: Timeframe): Promise<Candle[]> {
+  if (!TWELVEDATA_API_KEY) throw new Error("missing-api-key");
+  const response = await sfetch(
+    `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${mapTwelveDataInterval(tf)}&outputsize=${mapTwelveDataOutputSize(tf)}&apikey=${TWELVEDATA_API_KEY}&format=JSON`,
+    11000,
+  );
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const json = await response.json();
+  if (json?.status === "error") throw new Error(json?.message || "provider-error");
+  const values = json?.values;
+  if (!Array.isArray(values) || !values.length) throw new Error("empty");
+  return values
+    .map((row: Record<string, string>) => ({
+      t: new Date(row.datetime).getTime(),
+      o: Number(row.open),
+      h: Number(row.high),
+      l: Number(row.low),
+      c: Number(row.close),
+      v: Number(row.volume || 0),
+    }))
+    .filter((row) => Number.isFinite(row.t));
 }
 
-/* ── SOURCE 5: Alpha Vantage (stocks/forex fallback) ─── */
-async function avKlines(symbol: string, tf: string): Promise<Candle[]> {
-  const isForex = symbol.length === 6 && /^[A-Z]{6}$/.test(symbol);
-  let url: string;
-  if (isForex) {
-    const from = symbol.slice(0, 3);
-    const to = symbol.slice(3, 6);
-    url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${from}&to_symbol=${to}&outputsize=compact&apikey=${AV_KEY}`;
-  } else {
-    url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${AV_KEY}`;
+async function fetchFinnhub(symbol: string, tf: Timeframe): Promise<Candle[]> {
+  if (!FINNHUB_API_KEY) throw new Error("missing-api-key");
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - 60 * 60 * 24 * 365 * 5;
+  const resolution = mapFinnhubResolution(tf);
+  const response = await sfetch(
+    `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${from}&to=${now}&token=${FINNHUB_API_KEY}`,
+    11000,
+  );
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const json = await response.json();
+  if (json?.s !== "ok") throw new Error(json?.s || "empty");
+  const t = json?.t as number[];
+  const o = json?.o as number[];
+  const h = json?.h as number[];
+  const l = json?.l as number[];
+  const c = json?.c as number[];
+  const v = json?.v as number[];
+  if (!Array.isArray(t) || !t.length) throw new Error("empty");
+  return t.map((ts, idx) => ({
+    t: Number(ts) * 1000,
+    o: Number(o?.[idx] || 0),
+    h: Number(h?.[idx] || 0),
+    l: Number(l?.[idx] || 0),
+    c: Number(c?.[idx] || 0),
+    v: Number(v?.[idx] || 0),
+  }));
+}
+
+async function fetchStooq(symbol: string, tf: Timeframe): Promise<Candle[]> {
+  const normalized = symbol.toLowerCase().replace("/", "");
+  const response = await sfetch(`https://stooq.com/q/d/l/?s=${normalized}&i=d`, 10000);
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const csv = await response.text();
+  const rows = csv.split("\n").slice(1).filter(Boolean);
+  if (!rows.length) throw new Error("empty");
+  const limit = mapStooqLimit(tf);
+  return rows.slice(-limit).map((line) => {
+    const [date, open, high, low, close, volume] = line.split(",");
+    return {
+      t: new Date(date).getTime(),
+      o: Number(open),
+      h: Number(high),
+      l: Number(low),
+      c: Number(close),
+      v: Number(volume || 0),
+    };
+  });
+}
+
+async function fetchAlphaVantage(symbol: string, tf: Timeframe): Promise<Candle[]> {
+  if (!ALPHAVANTAGE_API_KEY) throw new Error("missing-api-key");
+  const normalized = symbol.toUpperCase().replace("/", "");
+  const isForex = /^[A-Z]{6}$/.test(normalized);
+  const url = isForex
+    ? `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${normalized.slice(0, 3)}&to_symbol=${normalized.slice(3, 6)}&outputsize=compact&apikey=${ALPHAVANTAGE_API_KEY}`
+    : `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&outputsize=compact&apikey=${ALPHAVANTAGE_API_KEY}`;
+
+  const response = await sfetch(url, 11000);
+  if (!response?.ok) throw new Error(`HTTP ${response?.status || 0}`);
+  const json = await response.json();
+  const key = Object.keys(json).find((candidate) => candidate.includes("Time Series") || candidate.includes("FX"));
+  if (!key) throw new Error("empty");
+  const series = json[key] as Record<string, Record<string, string>>;
+  const all = Object.entries(series)
+    .map(([date, values]) => ({
+      t: new Date(date).getTime(),
+      o: Number(values["1. open"]),
+      h: Number(values["2. high"]),
+      l: Number(values["3. low"]),
+      c: Number(values["4. close"]),
+      v: Number(values["5. volume"] || 0),
+    }))
+    .sort((a, b) => a.t - b.t);
+  const limit = mapStooqLimit(tf);
+  return all.slice(-limit);
+}
+
+async function attemptProvider(
+  attempts: ProviderAttempt[],
+  provider: ProviderName,
+  symbol: string,
+  loader: () => Promise<Candle[]>,
+): Promise<Candle[] | null> {
+  try {
+    const candles = await loader();
+    if (!candles.length) {
+      attempts.push({ provider, symbol, status: "error", detail: "empty" });
+      return null;
+    }
+    attempts.push({ provider, symbol, status: "success" });
+    return candles;
+  } catch (error) {
+    attempts.push({
+      provider,
+      symbol,
+      status: "error",
+      detail: error instanceof Error ? error.message : "provider-error",
+    });
+    return null;
   }
-  const r = await sfetch(url, 10000);
-  if (!r?.ok) throw new Error('AV failed');
-  const d = await r.json();
-  const key = Object.keys(d).find(k => k.includes('Time Series') || k.includes('FX'));
-  if (!key) throw new Error('AV no data');
-  const series = d[key] as Record<string, Record<string, string>>;
-  const entries = Object.entries(series).sort(([a], [b]) => a.localeCompare(b));
-  const limit = tf === '3M' ? 90 : tf === '1Y' ? 252 : tf === '1W' ? 90 : 30;
-  return entries.slice(-limit).map(([date, val]) => ({
-    t: new Date(date).getTime(),
-    o: parseFloat(val['1. open'] || val['1. open']),
-    h: parseFloat(val['2. high']),
-    l: parseFloat(val['3. low']),
-    c: parseFloat(val['4. close']),
-    v: parseFloat(val['5. volume'] || '0'),
-  })).filter(c => c.o > 0);
 }
 
-/* ── FOREX SYMBOLS ──────────────────────────────────── */
-const FOREX_SYMS = new Set(['EURUSD','GBPUSD','USDTRY','USDJPY','USDCHF','USDCAD','EURTRY',
-  'AUDUSD','NZDUSD','USDSGD','USDHKD','EURGBP','EURJPY','GBPJPY']);
+function isCryptoSymbol(symbol: string): boolean {
+  return /USDT$/.test(symbol) || /BTC|ETH|SOL|BNB|XRP|DOGE|ADA|AVAX|PEPE|SHIB/.test(symbol);
+}
 
-/* ── COMMODITY STOOQ MAP ───────────────────────────── */
-const COMMODITY_STOOQ: Record<string, string> = {
-  XAUUSD:'xauusd', XAGUSD:'xagusd', GOLD:'xauusd', SILVER:'xagusd',
-  WTI:'cl.f', BRENT:'lco.f', OIL:'cl.f',
-};
-
-/* ── MAIN HANDLER ───────────────────────────────────── */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { symbol: string } }
+  { params }: { params: { symbol: string } },
 ) {
-  const symbol = decodeURIComponent(params.symbol).toUpperCase().trim();
-  const tf = req.nextUrl.searchParams.get('tf') || '1D';
-  const errors: string[] = [];
+  const requestedSymbol = decodeURIComponent(params.symbol || "").trim();
+  const tf = normalizeTimeframe(req.nextUrl.searchParams.get("tf"));
+  const normalizedRequest = normalizeIncomingSymbol(requestedSymbol);
+  const resolvedAsset = getAssetBySymbol(normalizedRequest) || getAssetBySymbol(requestedSymbol);
+  const canonicalSymbol = resolvedAsset?.symbol || normalizedRequest;
+  const category = resolvedAsset?.category || "unknown";
 
-  try {
-    let candles: Candle[] = [];
+  const attempts: ProviderAttempt[] = [];
+  let selectedProvider: ProviderName | null = null;
+  let selectedProviderSymbol = canonicalSymbol;
+  let candles: Candle[] = [];
 
-    if (isCrypto(symbol)) {
-      // CRYPTO: Binance → CoinGecko
-      try { candles = await binanceKlines(symbol, tf); }
-      catch (e: any) {
-        errors.push(`binance: ${e.message}`);
-        try { candles = await coinGeckoOHLC(symbol, tf); }
-        catch (e2: any) { errors.push(`coingecko: ${e2.message}`); }
-      }
-    } else if (FOREX_SYMS.has(symbol)) {
-      // FOREX: Stooq → AV
-      try { candles = await stooqKlines(symbol, tf); }
-      catch (e: any) {
-        errors.push(`stooq: ${e.message}`);
-        try { candles = await avKlines(symbol, tf); }
-        catch (e2: any) { errors.push(`av: ${e2.message}`); }
-      }
-    } else if (COMMODITY_STOOQ[symbol]) {
-      // COMMODITIES: Stooq
-      try { candles = await stooqKlines(COMMODITY_STOOQ[symbol], tf); }
-      catch (e: any) { errors.push(`stooq: ${e.message}`); }
-      // Yahoo Finance fallback for commodities when Stooq fails/empty
-      if (candles.length === 0) {
-        const ym: Record<string,string> = {XAUUSD:"GC=F",GOLD:"GC=F",XAGUSD:"SI=F",WTIUSD:"CL=F",BRENT:"BZ=F"};
-        const ys = ym[symbol]; if (ys) { try { candles = await yahooKlines(ys, tf); } catch(ey:any){errors.push("yahoo:"+ey.message);} }
-      }
-    } else {
-      // STOCKS / ETFs / INDICES: Yahoo → AV → Stooq
-      try { candles = await yahooKlines(symbol, tf); }
-      catch (e: any) {
-        errors.push(`yahoo: ${e.message}`);
-        try { candles = await avKlines(symbol, tf); }
-        catch (e2: any) {
-          errors.push(`av: ${e2.message}`);
-          try { candles = await stooqKlines(symbol, tf); }
-          catch (e3: any) { errors.push(`stooq: ${e3.message}`); }
-        }
-      }
+  const runProvider = async (
+    provider: ProviderName,
+    providerSymbol: string,
+    loader: () => Promise<Candle[]>,
+  ) => {
+    if (candles.length) return;
+    const result = await attemptProvider(attempts, provider, providerSymbol, loader);
+    if (result?.length) {
+      selectedProvider = provider;
+      selectedProviderSymbol = providerSymbol;
+      candles = result;
     }
+  };
 
+  const providerSymbols = resolvedAsset?.providerSymbols || {};
+  const defaultBinanceSymbol = canonicalSymbol.replace("/", "");
+  const defaultStooqSymbol = canonicalSymbol.toLowerCase().replace("/", "");
+  const defaultTwelveSymbol = canonicalSymbol.includes("/")
+    ? canonicalSymbol
+    : canonicalSymbol.length === 6
+      ? `${canonicalSymbol.slice(0, 3)}/${canonicalSymbol.slice(3, 6)}`
+      : canonicalSymbol;
 
-    // Ultimate fallback: try Binance for unknown symbols (might be crypto)
-    if (candles.length === 0 && !symbol.includes(".") && !symbol.includes("=")) {
-      const tryBn = symbol.endsWith("USDT") ? symbol : symbol + "USDT";
-      try { candles = await binanceKlines(tryBn, tf); } catch(e:any) { errors.push("bn-fallback:"+e.message); }
-    }
-
-    const clean = candles
-      .filter(c => c.t > 0 && c.o > 0 && c.h > 0 && c.l > 0 && c.c > 0)
-      .sort((a, b) => a.t - b.t);
-
-    return NextResponse.json(
-      { symbol, tf, candles: clean, count: clean.length, errors: errors.length > 0 ? errors : undefined },
-      { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' } }
+  if (category === "crypto" || isCryptoSymbol(canonicalSymbol)) {
+    await runProvider(
+      "binance",
+      providerSymbols.binance || defaultBinanceSymbol,
+      () => fetchBinance(providerSymbols.binance || defaultBinanceSymbol, tf),
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { symbol, tf, candles: [], count: 0, error: e.message, errors },
-      { status: 200 }
+    if (providerSymbols.coingecko) {
+      await runProvider(
+        "coingecko",
+        providerSymbols.coingecko,
+        () => fetchCoinGecko(providerSymbols.coingecko as string, tf),
+      );
+    }
+    await runProvider(
+      "twelvedata",
+      providerSymbols.twelvedata || defaultBinanceSymbol,
+      () => fetchTwelveData(providerSymbols.twelvedata || defaultBinanceSymbol, tf),
+    );
+  } else if (category === "forex") {
+    await runProvider(
+      "twelvedata",
+      providerSymbols.twelvedata || defaultTwelveSymbol,
+      () => fetchTwelveData(providerSymbols.twelvedata || defaultTwelveSymbol, tf),
+    );
+    await runProvider(
+      "stooq",
+      providerSymbols.stooq || defaultStooqSymbol,
+      () => fetchStooq(providerSymbols.stooq || defaultStooqSymbol, tf),
+    );
+    await runProvider(
+      "alphavantage",
+      providerSymbols.alphavantage || canonicalSymbol,
+      () => fetchAlphaVantage(providerSymbols.alphavantage || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "yahoo",
+      providerSymbols.yahoo || canonicalSymbol,
+      () => fetchYahoo(providerSymbols.yahoo || canonicalSymbol, tf),
+    );
+  } else if (category === "precious" || category === "energy" || category === "commodity") {
+    await runProvider(
+      "stooq",
+      providerSymbols.stooq || defaultStooqSymbol,
+      () => fetchStooq(providerSymbols.stooq || defaultStooqSymbol, tf),
+    );
+    await runProvider(
+      "yahoo",
+      providerSymbols.yahoo || canonicalSymbol,
+      () => fetchYahoo(providerSymbols.yahoo || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "twelvedata",
+      providerSymbols.twelvedata || canonicalSymbol,
+      () => fetchTwelveData(providerSymbols.twelvedata || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "alphavantage",
+      providerSymbols.alphavantage || canonicalSymbol,
+      () => fetchAlphaVantage(providerSymbols.alphavantage || canonicalSymbol, tf),
+    );
+  } else {
+    await runProvider(
+      "yahoo",
+      providerSymbols.yahoo || canonicalSymbol,
+      () => fetchYahoo(providerSymbols.yahoo || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "finnhub",
+      providerSymbols.finnhub || canonicalSymbol,
+      () => fetchFinnhub(providerSymbols.finnhub || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "twelvedata",
+      providerSymbols.twelvedata || canonicalSymbol,
+      () => fetchTwelveData(providerSymbols.twelvedata || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "alphavantage",
+      providerSymbols.alphavantage || canonicalSymbol,
+      () => fetchAlphaVantage(providerSymbols.alphavantage || canonicalSymbol, tf),
+    );
+    await runProvider(
+      "stooq",
+      providerSymbols.stooq || defaultStooqSymbol,
+      () => fetchStooq(providerSymbols.stooq || defaultStooqSymbol, tf),
     );
   }
+
+  const { cleaned, invalidDropped, outlierDropped } = cleanCandles(candles, tf);
+
+  if (!cleaned.length) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: "NO_DATA",
+        requestedSymbol,
+        canonicalSymbol,
+        tf,
+        provider: selectedProvider,
+        providerSymbol: selectedProviderSymbol,
+        providerAttempts: attempts,
+        candles: [],
+        count: 0,
+        dataQuality: "insufficient",
+        cleanedMeta: {
+          originalCount: candles.length,
+          cleanedCount: 0,
+          removedOutliers: outlierDropped,
+          removedInvalid: invalidDropped,
+        },
+      },
+      {
+        status: 200,
+        headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" },
+      },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      requestedSymbol,
+      canonicalSymbol,
+      symbol: canonicalSymbol,
+      tf,
+      provider: selectedProvider,
+      providerSymbol: selectedProviderSymbol,
+      providerAttempts: attempts,
+      candles: cleaned,
+      count: cleaned.length,
+      category,
+      dataQuality:
+        selectedProvider == null
+          ? "insufficient"
+          : selectedProvider === "binance"
+            ? "live"
+            : selectedProvider === "yahoo" || selectedProvider === "finnhub"
+              ? "delayed"
+              : "fallback",
+      cleanedMeta: {
+        originalCount: candles.length,
+        cleanedCount: cleaned.length,
+        removedOutliers: outlierDropped,
+        removedInvalid: invalidDropped,
+        invalidDropped,
+        outlierDropped,
+      },
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=60",
+      },
+    },
+  );
 }

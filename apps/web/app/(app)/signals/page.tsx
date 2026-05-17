@@ -46,6 +46,7 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
   const displayPrice = livePrice ?? safeNum(sig.price, 0);
   const chg24 = safeNum(sig.change_24h, 0);
   const m = STAGE_META[sig.stage as Stage] || STAGE_META.NONE;
+  const isNoSignal = m === STAGE_META.NONE;
   const up = chg24 >= 0;
   return (
     <div onClick={onDetail} style={{
@@ -102,14 +103,21 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
         {sig.ai_hint?.substring(0,100)}{sig.ai_hint?.length>100?"...":""}
       </div>
 
-      {/* 6 score bars */}
-      <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
-        {Object.entries(SCORE_LABELS).map(([key,meta])=>(
-          <ScoreBar key={key} label={meta.label}
-            value={sig.scores?.[key]||0}
-            color={meta.color(sig.scores?.[key]||0)}/>
-        ))}
-      </div>
+      {/* Score bars — only when signal is actionable */}
+      {!isNoSignal ? (
+        <div style={{borderTop:"1px solid var(--b1)",paddingTop:10}}>
+          {Object.entries(SCORE_LABELS).map(([key,meta])=>{
+            const score = sig.scores?.[key];
+            if (score == null || score === 0) return null;
+            return <ScoreBar key={key} label={meta.label} value={score} color={meta.color(score)}/>;
+          })}
+        </div>
+      ) : (
+        <div style={{borderTop:"1px solid var(--b1)",paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
+          <span style={{fontSize:10,color:"var(--t3)"}}>Aktif sinyal yok</span>
+          <span style={{fontSize:10,color:"var(--t4)"}}>Piyasa izleniyor</span>
+        </div>
+      )}
 
       {/* Trigger / Invalidation */}
       {(sig.trigger_level || sig.invalidation) && (
@@ -160,13 +168,23 @@ function SignalCard({sig, livePrice, onDetail, onDemo}:{sig:any; livePrice?:numb
           ))}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
-            padding:"4px 10px",borderRadius:6,border:"1px solid rgba(245,158,11,0.4)",
-            background:"rgba(245,158,11,0.1)",color:"#f59e0b",fontSize:10,fontWeight:700,
-            cursor:"pointer",display:"flex",alignItems:"center",gap:4,
-          }}>
-            <FlaskConical size={9}/>Demo
-          </button>
+          {isNoSignal ? (
+            <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
+              padding:"4px 10px",borderRadius:6,border:"1px solid var(--b1)",
+              background:"transparent",color:"var(--t3)",fontSize:10,fontWeight:600,
+              cursor:"pointer",display:"flex",alignItems:"center",gap:4,
+            }}>
+              <FlaskConical size={9}/>Manuel Demo
+            </button>
+          ) : (
+            <button onClick={e=>{e.stopPropagation();onDemo();}} style={{
+              padding:"4px 10px",borderRadius:6,border:"1px solid rgba(245,158,11,0.4)",
+              background:"rgba(245,158,11,0.1)",color:"#f59e0b",fontSize:10,fontWeight:700,
+              cursor:"pointer",display:"flex",alignItems:"center",gap:4,
+            }}>
+              <FlaskConical size={9}/>Demo
+            </button>
+          )}
           <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"var(--t3)"}}>
             Derin Analiz <ChevronRight size={10}/>
           </div>
@@ -204,6 +222,16 @@ const MOCK_SIGNALS = [
    kalkan_reason:"Risk/ödül oranı kabul edilemez — sahte kırılım riski yüksek."},
 ];
 
+const ENABLE_MOCK_SIGNALS = process.env.NEXT_PUBLIC_ENABLE_MOCK_SIGNALS === "true";
+
+const EMPTY_SIGNALS_RESPONSE = {
+  signals: [] as any[],
+  stage_counts: { TRIGGER: 0, SETUP: 0, WATCH: 0, KALKAN: 0, NONE: 0 },
+  feed_status: "unavailable" as const,
+  prices_live: false,
+  error: true,
+};
+
 export default function SignalsPage() {
   const [filter, setFilter] = useState<"all"|"TRIGGER"|"SETUP"|"WATCH"|"KALKAN">("all");
   const [selectedAsset, setSelectedAsset] = useState<AssetInfo|null>(null);
@@ -216,13 +244,20 @@ export default function SignalsPage() {
 
   const {data, isLoading, refetch, isFetching} = useQuery({
     queryKey:["signals-live", filter],
-    queryFn:()=>api.get(`/signals/live?market=all&limit=15`).then(r=>r.data).catch(()=>({signals:MOCK_SIGNALS,stage_counts:{TRIGGER:1,SETUP:1,WATCH:1,KALKAN:1,NONE:0}})),
+    queryFn:()=>api.get(`/signals/live?market=all&limit=15`).then(r=>r.data).catch(()=>EMPTY_SIGNALS_RESPONSE),
     refetchInterval:60000,
   });
 
-  const allSigs = data?.signals || MOCK_SIGNALS;
-  const counts  = data?.stage_counts || {TRIGGER:1,SETUP:1,WATCH:1,KALKAN:1,NONE:0};
+  const apiSignals = Array.isArray(data?.signals) ? data.signals : [];
+  const allSigs: any[] = apiSignals.length > 0
+    ? apiSignals
+    : (ENABLE_MOCK_SIGNALS ? MOCK_SIGNALS : []);
+  const counts  = data?.stage_counts && typeof data.stage_counts === "object"
+    ? data.stage_counts
+    : { TRIGGER: 0, SETUP: 0, WATCH: 0, KALKAN: 0, NONE: 0 };
   const filtered = filter==="all" ? allSigs : allSigs.filter((s:any)=>s.stage===filter);
+  const isLiveFeed = Boolean(data?.prices_live);
+  const isFeedUnavailable = data?.feed_status === "unavailable" || data?.error === true;
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
@@ -235,6 +270,20 @@ export default function SignalsPage() {
             <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>
               Signal Intelligence
             </h1>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                borderRadius: 4,
+                padding: "3px 8px",
+                background: isFeedUnavailable ? "rgba(255,255,255,0.04)" : (isLiveFeed ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)"),
+                color: isFeedUnavailable ? "var(--t3)" : (isLiveFeed ? "var(--up)" : "var(--gold)"),
+                border: `1px solid ${isFeedUnavailable ? "var(--b1)" : (isLiveFeed ? "rgba(16,185,129,0.35)" : "rgba(245,158,11,0.35)")}`,
+              }}
+            >
+              {isFeedUnavailable ? "VERİ YOK" : isLiveFeed ? "LIVE FEED" : "DEMO FEED"}
+            </span>
           </div>
           <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>
             4 asamali erken uyari + 7 skor + KALKAN risk filtreleme
@@ -278,6 +327,19 @@ export default function SignalsPage() {
       {isLoading ? (
         <div className="signal-grid">
           {[...Array(6)].map((_,i)=><div key={i} className="skeleton" style={{height:320,borderRadius:"var(--r-xl)"}}/>)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{
+          padding:"48px 24px",textAlign:"center",
+          background:"var(--bg-card)",border:"1px dashed var(--b1)",borderRadius:"var(--r-xl)",
+        }}>
+          <Activity size={28} color="var(--t4)" style={{margin:"0 auto 12px"}}/>
+          <div style={{fontSize:14,fontWeight:600,color:"var(--t2)",marginBottom:6}}>Aktif sinyal yok</div>
+          <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.5}}>
+            {isFeedUnavailable
+              ? "Sinyal motoru veri bekliyor"
+              : "Piyasa verisi canlı olabilir ama sinyal üretilmedi"}
+          </div>
         </div>
       ) : (
         <div className="signal-grid">

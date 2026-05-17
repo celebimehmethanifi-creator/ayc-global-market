@@ -1,240 +1,334 @@
 ﻿"use client";
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import { Users, TrendingUp, TrendingDown, Minus, BarChart2, Zap, Activity, Award } from "lucide-react";
 
-const ASSETS = [
-  {id:"a1",symbol:"BTC",  name:"Bitcoin",        cat:"CRYPTO",   bull:72, bear:18, neutral:10, votes:1842, contrarian:false},
-  {id:"a2",symbol:"ETH",  name:"Ethereum",       cat:"CRYPTO",   bull:65, bear:24, neutral:11, votes:1243, contrarian:false},
-  {id:"a3",symbol:"SOL",  name:"Solana",         cat:"CRYPTO",   bull:69, bear:21, neutral:10, votes:876,  contrarian:false},
-  {id:"a4",symbol:"NVDA", name:"NVIDIA",         cat:"US",       bull:58, bear:28, neutral:14, votes:654,  contrarian:false},
-  {id:"a5",symbol:"AAPL", name:"Apple",          cat:"US",       bull:44, bear:38, neutral:18, votes:532,  contrarian:true},
-  {id:"a6",symbol:"THYAO",name:"Turk Hava Yol.", cat:"BIST",     bull:61, bear:26, neutral:13, votes:421,  contrarian:false},
-  {id:"a7",symbol:"XAU",  name:"Altin",          cat:"PRECIOUS", bull:78, bear:13, neutral:9,  votes:987,  contrarian:false},
-  {id:"a8",symbol:"EUR",  name:"EUR/USD",        cat:"FOREX",    bull:51, bear:33, neutral:16, votes:378,  contrarian:true},
-];
+import { useMemo, useState } from "react";
+import { Users, Zap } from "lucide-react";
+import { AssetDetailModal, type AssetInfo } from "@/components/ui/AssetDetailModal";
+import {
+  ASSET_UNIVERSE,
+  getAssetDisplayName,
+  getCategoryLabel,
+  type AssetCategory,
+} from "@/lib/markets/asset-universe";
+import { useI18n } from "@/lib/i18n";
 
-const CATS = ["Tumu","CRYPTO","US","BIST","PRECIOUS","FOREX"];
-const CAT_COLORS: Record<string,string> = {
-  CRYPTO:"#F0C060", US:"#818CF8", BIST:"#F59E0B", PRECIOUS:"#0ECB81", FOREX:"#60A5FA", "Tumu":"var(--t2)"
+type SentimentPoint = {
+  bull: number;
+  bear: number;
+  neutral: number;
+  votes: number;
+  dataQuality: "demo" | "live" | "fallback";
 };
 
-const TOP_WEEKLY = [
-  {symbol:"XAU",  pct:78, dir:"bull", change:"+5.2%"},
-  {symbol:"BTC",  pct:72, dir:"bull", change:"+1.8%"},
-  {symbol:"SOL",  pct:69, dir:"bull", change:"+3.4%"},
-  {symbol:"NVDA", pct:58, dir:"bull", change:"+2.1%"},
-  {symbol:"AAPL", pct:38, dir:"bear", change:"-1.2%"},
+type CategoryKey = "all" | AssetCategory;
+
+const CATEGORY_ORDER: CategoryKey[] = [
+  "all",
+  "crypto",
+  "us",
+  "bist",
+  "precious",
+  "commodity",
+  "energy",
+  "forex",
+  "index",
+  "etf",
 ];
 
-const CONTRARIAN = [
-  {symbol:"AAPL", note:"Kitle cok ayici — contrarian LONG sinyali", bull:44},
-  {symbol:"EUR",  note:"Asiri oy dengesi — momentum tukenmis olabilir", bull:51},
-];
+const CATEGORY_COLORS: Record<CategoryKey, string> = {
+  all: "var(--t2)",
+  crypto: "#f59e0b",
+  us: "#818cf8",
+  bist: "#f97316",
+  precious: "#10b981",
+  commodity: "#14b8a6",
+  energy: "#0ea5e9",
+  forex: "#38bdf8",
+  index: "#a78bfa",
+  etf: "#22c55e",
+};
 
-function VoteBar({bull,bear,neutral}:{bull:number;bear:number;neutral:number}) {
+function seededSentiment(symbol: string): SentimentPoint {
+  const hash = symbol.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const bull = 35 + (hash % 46);
+  const bear = 12 + ((hash * 3) % 35);
+  const neutral = Math.max(0, 100 - bull - bear);
+  const votes = 120 + (hash % 1800);
+  return {
+    bull,
+    bear,
+    neutral,
+    votes,
+    dataQuality: "demo",
+  };
+}
+
+function VoteBar({ bull, bear, neutral }: { bull: number; bear: number; neutral: number }) {
   return (
-    <div style={{display:"flex",height:4,borderRadius:2,overflow:"hidden",gap:1}}>
-      <div style={{width:`${bull}%`,background:"var(--up)",borderRadius:"2px 0 0 2px"}}/>
-      <div style={{width:`${neutral}%`,background:"var(--neutral)"}}/>
-      <div style={{width:`${bear}%`,background:"var(--down)",borderRadius:"0 2px 2px 0"}}/>
+    <div style={{ display: "flex", height: 6, borderRadius: 4, overflow: "hidden", gap: 1 }}>
+      <div style={{ width: `${bull}%`, background: "var(--up)" }} />
+      <div style={{ width: `${neutral}%`, background: "var(--neutral)" }} />
+      <div style={{ width: `${bear}%`, background: "var(--down)" }} />
     </div>
   );
 }
 
 export default function SocialPage() {
-  const [cat, setCat] = useState("Tumu");
-  const [voted, setVoted] = useState<Record<string,string>>({});
+  const { locale } = useI18n();
+  const lang = locale === "en" ? "en" : "tr";
+  const [category, setCategory] = useState<CategoryKey>("all");
+  const [votes, setVotes] = useState<Record<string, "bull" | "neutral" | "bear">>({});
+  const [selectedAsset, setSelectedAsset] = useState<AssetInfo | null>(null);
 
-  const filtered = ASSETS.filter(a=>cat==="Tumu"||a.cat===cat);
+  const rows = useMemo(() => {
+    return ASSET_UNIVERSE.filter((item) => item.isChartable).map((item) => ({
+      ...item,
+      sentiment: seededSentiment(item.symbol),
+    }));
+  }, []);
 
-  const vote = (id:string, dir:string) => {
-    setVoted(p=>({...p,[id]:dir}));
-    api.post(`/social/${id}/vote`,{direction:dir}).catch(()=>{});
+  const filtered = useMemo(() => {
+    const base = category === "all" ? rows : rows.filter((row) => row.category === category);
+    return base.slice(0, 36);
+  }, [category, rows]);
+
+  const categoryStats = useMemo(() => {
+    return CATEGORY_ORDER.filter((key) => key !== "all").map((key) => {
+      const items = rows.filter((row) => row.category === key);
+      const bullAvg = items.length
+        ? Math.round(items.reduce((sum, row) => sum + row.sentiment.bull, 0) / items.length)
+        : 0;
+      const bearAvg = items.length
+        ? Math.round(items.reduce((sum, row) => sum + row.sentiment.bear, 0) / items.length)
+        : 0;
+      return {
+        key,
+        count: items.length,
+        bullAvg,
+        bearAvg,
+      };
+    });
+  }, [rows]);
+
+  const categoryLabel = (key: CategoryKey): string => {
+    if (key === "all") return lang === "en" ? "All" : "Tümü";
+    return getCategoryLabel(key, lang);
+  };
+
+  const trendLabel = (direction: "bull" | "neutral" | "bear") => {
+    if (lang === "en") {
+      if (direction === "bull") return "Bullish";
+      if (direction === "bear") return "Bearish";
+      return "Neutral";
+    }
+    if (direction === "bull") return "Yükseliş";
+    if (direction === "bear") return "Düşüş";
+    return "Nötr";
   };
 
   return (
-    <div style={{maxWidth:1100,margin:"0 auto",display:"flex",flexDirection:"column",gap:20}}>
-
-      {/* HEADER */}
+    <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <Users size={18} color="var(--gold)"/>
-          <h1 style={{fontFamily:"var(--font-head)",fontSize:20,fontWeight:800,color:"var(--t1)",margin:0}}>Sosyal Radar</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Users size={18} color="var(--gold)" />
+          <h1 style={{ margin: 0, fontSize: 20, color: "var(--t1)", fontFamily: "var(--font-head)" }}>
+            {lang === "en" ? "Social Radar" : "Sosyal Radar"}
+          </h1>
         </div>
-        <p style={{fontSize:12,color:"var(--t3)",margin:"4px 0 0",paddingLeft:28}}>Topluluk senticmenti, kitle psikolojisi ve contrarian analiz</p>
+        <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--t3)" }}>
+          {lang === "en"
+            ? "Community sentiment by market category (demo fallback shown transparently)."
+            : "Piyasa kategorilerine göre topluluk duyarlılığı (demo fallback açıkça gösterilir)."}
+        </p>
       </div>
 
-      {/* SENTIMENT OVERVIEW - 5 category bars */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
-        {["CRYPTO","US","BIST","PRECIOUS","FOREX"].map(c=>{
-          const items = ASSETS.filter(a=>a.cat===c);
-          const avgBull = Math.round(items.reduce((s,a)=>s+a.bull,0)/items.length);
-          const avgBear = Math.round(items.reduce((s,a)=>s+a.bear,0)/items.length);
-          const color = CAT_COLORS[c]||"var(--t2)";
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
+        {categoryStats.map((stat) => (
+          <button
+            key={stat.key}
+            onClick={() => setCategory(category === stat.key ? "all" : stat.key)}
+            style={{
+              background: "var(--bg-card)",
+              border: `1px solid ${category === stat.key ? `${CATEGORY_COLORS[stat.key]}55` : "var(--b1)"}`,
+              borderRadius: "var(--r-md)",
+              padding: "10px 12px",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: CATEGORY_COLORS[stat.key], fontWeight: 700 }}>{categoryLabel(stat.key)}</span>
+              <span style={{ fontSize: 10, color: "var(--t4)" }}>{stat.count}</span>
+            </div>
+            {stat.count > 0 ? (
+              <>
+                <VoteBar bull={stat.bullAvg} bear={stat.bearAvg} neutral={Math.max(0, 100 - stat.bullAvg - stat.bearAvg)} />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+                  <span style={{ fontSize: 10, color: "var(--up)" }}>{trendLabel("bull")} {stat.bullAvg}%</span>
+                  <span style={{ fontSize: 10, color: "var(--down)" }}>{trendLabel("bear")} {stat.bearAvg}%</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, color: "var(--t3)" }}>{lang === "en" ? "No data" : "Veri yok"}</div>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="cat-pills social-cats">
+        {CATEGORY_ORDER.map((key) => (
+          <button
+            key={key}
+            className={`cat-pill${category === key ? " active" : ""}`}
+            onClick={() => setCategory(key)}
+          >
+            {categoryLabel(key)}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12 }}>
+        {filtered.map((asset) => {
+          const sentiment = asset.sentiment;
+          const userVote = votes[asset.symbol];
+
           return (
-            <div key={c} className="card" style={{cursor:"pointer",borderColor:cat===c?`${color}40`:"var(--b1)"}}
-                 onClick={()=>setCat(cat===c?"Tumu":c)}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontSize:11,fontWeight:700,color,letterSpacing:"0.04em"}}>{c}</span>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:18,fontWeight:800,color:avgBull>50?"var(--up)":"var(--down)"}}>{avgBull}%</span>
+            <div
+              key={asset.symbol}
+              className="card"
+              style={{ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer" }}
+              onClick={() =>
+                setSelectedAsset({
+                  symbol: asset.symbol,
+                  display: asset.displaySymbol,
+                  name: getAssetDisplayName(asset, lang),
+                  price: 0,
+                  chg: 0,
+                  market: asset.category,
+                })
+              }
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 800 }}>
+                    {asset.displaySymbol}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {getAssetDisplayName(asset, lang)}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--t3)",
+                    border: "1px solid var(--b1)",
+                    borderRadius: 6,
+                    padding: "2px 7px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {categoryLabel(asset.category)}
+                </span>
               </div>
-              <VoteBar bull={avgBull} bear={avgBear} neutral={100-avgBull-avgBear}/>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
-                <span style={{fontSize:10,color:"var(--up)",fontFamily:"var(--font-mono)"}}>BULL {avgBull}%</span>
-                <span style={{fontSize:10,color:"var(--down)",fontFamily:"var(--font-mono)"}}>BEAR {avgBear}%</span>
+
+              <VoteBar bull={sentiment.bull} bear={sentiment.bear} neutral={sentiment.neutral} />
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                <SmallMetric label={trendLabel("bull")} value={`${sentiment.bull}%`} color="var(--up)" />
+                <SmallMetric label={trendLabel("neutral")} value={`${sentiment.neutral}%`} color="var(--t3)" />
+                <SmallMetric label={trendLabel("bear")} value={`${sentiment.bear}%`} color="var(--down)" />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ fontSize: 10, color: "var(--t4)" }}>{sentiment.votes.toLocaleString("en-US")} {lang === "en" ? "votes" : "oy"}</span>
+                <span style={{ fontSize: 10, color: "var(--warn)" }}>{lang === "en" ? "Demo" : "Demo"}</span>
+              </div>
+
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["bull", "neutral", "bear"] as const).map((dir) => {
+                  const active = userVote === dir;
+                  const isBull = dir === "bull";
+                  const isBear = dir === "bear";
+                  return (
+                    <button
+                      key={`${asset.symbol}-${dir}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setVotes((prev) => ({ ...prev, [asset.symbol]: dir }));
+                      }}
+                      style={{
+                        flex: 1,
+                        borderRadius: 7,
+                        border: `1px solid ${active ? (isBull ? "var(--up-border)" : isBear ? "var(--down-border)" : "var(--b2)") : "var(--b1)"}`,
+                        background: active ? (isBull ? "var(--up-dim)" : isBear ? "var(--down-dim)" : "var(--bg-hover)") : "transparent",
+                        color: active ? (isBull ? "var(--up)" : isBear ? "var(--down)" : "var(--t2)") : "var(--t3)",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "7px 4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {trendLabel(dir)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* CAT PILLS */}
-      <div className="cat-pills">
-        {CATS.map(c=>(
-          <button key={c} className={`cat-pill${cat===c?" active":""}`} onClick={()=>setCat(c)}>
-            {c}
-          </button>
-        ))}
+      {filtered.length === 0 && (
+        <div style={{ border: "1px dashed var(--b1)", borderRadius: "var(--r-md)", padding: 20, textAlign: "center", color: "var(--t3)" }}>
+          {lang === "en" ? "No assets in this category" : "Bu kategoride varlık yok"}
+        </div>
+      )}
+
+      <div
+        style={{
+          border: "1px solid var(--b1)",
+          borderRadius: "var(--r-md)",
+          padding: "10px 12px",
+          background: "var(--bg-hover)",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 8,
+        }}
+      >
+        <Zap size={12} color="var(--warn)" style={{ marginTop: 1 }} />
+        <span style={{ fontSize: 11, color: "var(--t3)", lineHeight: 1.5 }}>
+          {lang === "en"
+            ? "Social Radar is informational and may run in demo fallback mode when provider data is missing. This is not investment advice."
+            : "Sosyal Radar bilgilendirme amaçlıdır; sağlayıcı verisi yoksa demo fallback modunda çalışabilir. Bu içerik yatırım tavsiyesi değildir."}
+        </span>
       </div>
 
-      {/* MAIN GRID + SIDEBAR */}
-      <div className="social-grid">
-
-        {/* Asset Cards */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-          {filtered.map(a=>{
-            const bullColor = a.bull>=65?"var(--up)":a.bull>=50?"var(--warn)":"var(--down)";
-            const catColor = CAT_COLORS[a.cat]||"var(--t2)";
-            const userVote = voted[a.id];
-            return (
-              <div key={a.id} className="card" style={{
-                borderColor:a.contrarian?"var(--warn-dim)":"var(--b1)",
-                background:a.contrarian?"linear-gradient(135deg,var(--warn-dim),var(--bg-card))":"var(--bg-card)",
-                position:"relative",
-              }}>
-                {a.contrarian && (
-                  <div style={{
-                    position:"absolute",top:10,right:10,
-                    display:"flex",alignItems:"center",gap:4,
-                    padding:"2px 7px",borderRadius:4,
-                    background:"var(--warn-dim)",border:"1px solid rgba(245,158,11,0.3)",
-                  }}>
-                    <Zap size={9} color="var(--warn)"/>
-                    <span style={{fontSize:8,fontWeight:800,color:"var(--warn)",letterSpacing:"0.06em"}}>CONTRARIAN</span>
-                  </div>
-                )}
-
-                {/* Symbol + votes */}
-                <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12}}>
-                  <div style={{
-                    width:40,height:40,borderRadius:"var(--r-md)",flexShrink:0,
-                    background:`${catColor}18`,border:`1px solid ${catColor}30`,
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    fontFamily:"var(--font-mono)",fontSize:10,fontWeight:800,color:catColor,
-                  }}>{a.symbol}</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontFamily:"var(--font-mono)",fontSize:13,fontWeight:700,color:"var(--t1)"}}>{a.symbol}</div>
-                    <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{a.name}</div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontFamily:"var(--font-mono)",fontSize:22,fontWeight:800,color:bullColor,lineHeight:1}}>{a.bull}%</div>
-                    <div style={{fontSize:9,color:"var(--t3)",marginTop:1}}>BULL</div>
-                  </div>
-                </div>
-
-                {/* Vote bar */}
-                <VoteBar bull={a.bull} bear={a.bear} neutral={a.neutral}/>
-                <div style={{display:"flex",justifyContent:"space-between",marginTop:5,marginBottom:12}}>
-                  <span style={{fontSize:10,color:"var(--up)",fontFamily:"var(--font-mono)"}}>↑ {a.bull}%</span>
-                  <span style={{fontSize:10,color:"var(--neutral)",fontFamily:"var(--font-mono)"}}>{a.neutral}%</span>
-                  <span style={{fontSize:10,color:"var(--down)",fontFamily:"var(--font-mono)"}}>↓ {a.bear}%</span>
-                </div>
-
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                  <div style={{display:"flex",alignItems:"center",gap:4}}>
-                    <Users size={10} color="var(--t4)"/>
-                    <span style={{fontSize:10,color:"var(--t3)",fontFamily:"var(--font-mono)"}}>{a.votes.toLocaleString()} oy</span>
-                  </div>
-                </div>
-
-                {/* Vote buttons */}
-                <div style={{display:"flex",gap:5}}>
-                  {["bull","neutral","bear"].map(d=>{
-                    const isVoted = userVote===d;
-                    const cfg = d==="bull"
-                      ? {label:"YUKARI",color:"var(--up)",bg:"var(--up-dim)",border:"var(--up-border)"}
-                      : d==="neutral"
-                      ? {label:"NOTR",color:"var(--t3)",bg:"var(--bg-hover)",border:"var(--b2)"}
-                      : {label:"ASAGI",color:"var(--down)",bg:"var(--down-dim)",border:"var(--down-border)"};
-                    return (
-                      <button key={d} onClick={()=>vote(a.id,d)} style={{
-                        flex:1,padding:"6px 4px",borderRadius:"var(--r-sm)",border:`1px solid ${isVoted?cfg.border:"var(--b1)"}`,
-                        background:isVoted?cfg.bg:"transparent",
-                        color:isVoted?cfg.color:"var(--t3)",
-                        fontSize:9,fontWeight:800,fontFamily:"var(--font-mono)",
-                        cursor:"pointer",letterSpacing:"0.04em",transition:"all 0.12s",
-                      }}
-                      onMouseEnter={e=>{if(!isVoted){(e.currentTarget.style.background=cfg.bg);(e.currentTarget.style.color=cfg.color);(e.currentTarget.style.borderColor=cfg.border);}}}
-                      onMouseLeave={e=>{if(!isVoted){(e.currentTarget.style.background="transparent");(e.currentTarget.style.color="var(--t3)");(e.currentTarget.style.borderColor="var(--b1)");}}}
-                      >{cfg.label}</button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* SIDEBAR */}
-        <div className="social-sidebar-panel" style={{display:"flex",flexDirection:"column",gap:12}}>
-
-          {/* Top weekly */}
-          <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-lg)",padding:16}}>
-            <div className="section-hdr" style={{marginBottom:12}}>
-              <span className="section-title">Haftanin Lider</span>
-            </div>
-            {TOP_WEEKLY.map((t,i)=>(
-              <div key={t.symbol} style={{
-                display:"flex",alignItems:"center",gap:10,
-                padding:"8px 0",borderBottom:i<TOP_WEEKLY.length-1?"1px solid var(--b1)":"none"
-              }}>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:11,fontWeight:700,color:"var(--t4)",minWidth:14}}>{i+1}</span>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:700,color:"var(--t1)",flex:1}}>{t.symbol}</span>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:700,color:t.dir==="bull"?"var(--up)":"var(--down)"}}>{t.pct}%</span>
-                <span style={{fontFamily:"var(--font-mono)",fontSize:10,color:t.change.startsWith("+")?"var(--up)":"var(--down)"}}>{t.change}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Contrarian alerts */}
-          <div style={{background:"var(--bg-card)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:"var(--r-lg)",padding:16}}>
-            <div className="section-hdr" style={{marginBottom:12}}>
-              <span className="section-title" style={{color:"var(--warn)"}}>Contrarian Uyari</span>
-            </div>
-            {CONTRARIAN.map((c)=>(
-              <div key={c.symbol} style={{
-                padding:"10px 12px",background:"var(--warn-dim)",
-                border:"1px solid rgba(245,158,11,0.2)",borderRadius:"var(--r-md)",marginBottom:8
-              }}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                  <Zap size={11} color="var(--warn)"/>
-                  <span style={{fontFamily:"var(--font-mono)",fontSize:12,fontWeight:700,color:"var(--t1)"}}>{c.symbol}</span>
-                </div>
-                <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.45}}>{c.note}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Disclaimer */}
-          <div style={{padding:"10px 12px",background:"var(--bg-hover)",borderRadius:"var(--r-md)",border:"1px solid var(--b1)"}}>
-            <div style={{fontSize:10,color:"var(--t4)",lineHeight:1.5}}>
-              Bu veriler yalnizca topluluk goruslerini yansitir. Yatirim karari vermek icin kullanilmamalidir.
-            </div>
-          </div>
-        </div>
-      </div>
+      <style>{`
+        .social-cats {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          flex-wrap: nowrap;
+          scrollbar-width: none;
+          padding-bottom: 2px;
+        }
+        .social-cats::-webkit-scrollbar {
+          display: none;
+        }
+        .social-cats .cat-pill {
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+      `}</style>
+      <AssetDetailModal asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
     </div>
   );
 }
+
+function SmallMetric({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{ background: "var(--bg-hover)", borderRadius: 7, padding: "7px 8px" }}>
+      <div style={{ fontSize: 9, color: "var(--t4)", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, color }}>{value}</div>
+    </div>
+  );
+}
+

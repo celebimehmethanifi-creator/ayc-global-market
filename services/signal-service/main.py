@@ -5,10 +5,28 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 log = logging.getLogger("signal-service")
+
+
+def _is_production() -> bool:
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    return env_name in {"production", "prod"}
+
+
+def _parse_cors_origins() -> list[str]:
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if raw:
+        origins = [item.strip() for item in raw.split(",") if item.strip()]
+    else:
+        if _is_production():
+            raise RuntimeError("CORS_ORIGINS must be configured in production.")
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if _is_production() and not origins:
+        raise RuntimeError("CORS_ORIGINS must be configured in production.")
+    return origins
 
 
 class _MemoryCache:
@@ -24,6 +42,17 @@ class _MemoryCache:
 
     async def set(self, key, value, ex=None):
         self._store[key] = value
+
+    async def keys(self, pattern: str = "*") -> list:
+        if pattern == "*":
+            return list(self._store.keys())
+        if pattern.endswith("*"):
+            prefix = pattern[:-1]
+            return [k for k in self._store.keys() if k.startswith(prefix)]
+        return [k for k in self._store.keys() if k == pattern]
+
+    async def ping(self) -> bool:
+        return True
 
     async def publish(self, channel, message):
         pass
@@ -67,18 +96,52 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="NEURA Signal Service", version="0.1.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_parse_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Signature"],
+)
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "service": "neura-signal"}
+async def health(request: Request):
+    redis = getattr(request.app.state, "redis", None)
+    is_memory = isinstance(redis, _MemoryCache)
+    warnings: list[str] = []
+    persistent = False
+    storage = "memory"
+    status = "ok"
+
+    if redis is None:
+        warnings.append("Cache backend unavailable.")
+        status = "degraded"
+    elif is_memory:
+        warnings.append("Redis unavailable; using in-memory fallback. State may be lost on restart.")
+        status = "degraded"
+        storage = "memory"
+    else:
+        try:
+            await redis.ping()
+            persistent = True
+            storage = "redis"
+        except Exception:
+            warnings.append("Redis ping failed; using in-memory fallback. State may be lost on restart.")
+            status = "degraded"
+
+    return {
+        "status": status,
+        "service": "neura-signal",
+        "persistent": persistent,
+        "storage": storage,
+        "warnings": warnings,
+    }
 
 
 # ── Signal endpoints (inline router) ─────────────────────────────────────────
 import json, uuid
 from datetime import datetime, timezone
-from fastapi import Request
 from pydantic import BaseModel
 
 class GenerateRequest(BaseModel):

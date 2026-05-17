@@ -1,232 +1,747 @@
 ﻿"use client";
-import { usePrices } from "@/lib/prices/PriceContext";
 
-/* Map market/SEED symbols -> PriceContext keys */
-const PRICE_KEY: Record<string,string> = {
-  "GC=F":"XAUUSD","SI=F":"XAGUSD","PL=F":"XPTUSD",
-  "CL=F":"WTIUSD","BZ=F":"BRENT","NG=F":"NATGAS",
-  "EURUSD=X":"EURUSD","USDJPY=X":"USDJPY","USDTRY=X":"USDTRY",
-  "JPY=X":"USDJPY","CHF=X":"USDCHF","CAD=X":"USDCAD","GBPUSD=X":"GBPUSD",
-  "^GSPC":"SPX","^DJI":"DJI","^NDX":"NDX","^GDAXI":"DAX","^FTSE":"FTSE","^VIX":"VIX",
-  "XU100.IS":"BIST100","THYAO.IS":"THYAO","GARAN.IS":"GARAN",
-  "AKBNK.IS":"AKBNK","ASELS.IS":"ASELS","EREGL.IS":"EREGL",
-};
-import { useState, useEffect, useCallback } from "react";
-import { ArrowUpRight, ArrowDownRight, RefreshCw, Search, TrendingUp, SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowDownRight, ArrowUpRight, RefreshCw, Search, TrendingUp } from "lucide-react";
 import { AssetDetailModal } from "@/components/ui/AssetDetailModal";
 import type { AssetInfo } from "@/components/ui/AssetDetailModal";
+import { usePrices } from "@/lib/prices/PriceContext";
+import {
+  ASSET_UNIVERSE,
+  getAssetDisplayName,
+  getCategoryLabel,
+  normalizeSearchText,
+  type AssetCategory,
+} from "@/lib/markets/asset-universe";
+import { buildDataStatusMeta, type DataStatus } from "@/lib/markets/data-status";
+import { useI18n } from "@/lib/i18n";
+import { useBreakpoint } from "@/lib/responsive/useBreakpoint";
 
 const API = "/api/v1";
 
-type Asset = {
-  symbol:string; display?:string; name:string;
-  price:number; chg:number; chg7d?:number;
-  vol?:string; mcap?:string; market?:string;
+type SortKey = "symbol" | "price" | "chg" | "chg7d" | "name";
+
+type NormalizedMarketAsset = {
+  symbol: string;
+  name: string;
+  categoryLabel: string;
+  price: number | null;
+  change24hPct: number | null;
+  change7dPct: number | null;
+  volume24h: number | null;
+  volumeLabel: string;
+  dataStatus: DataStatus;
+  dataStatusLabel: string;
+  sourceLabel: string;
+  updatedAtLabel: string;
+  displaySymbol: string;
+  name_tr: string;
+  name_en: string;
+  category: AssetCategory;
+  exchange: string;
+  precision: number;
+  chg: number | null;
+  chg7d: number | null;
+  volume: number | null;
+  source: string;
+  delayMinutes: number | null;
+  hasVolume: boolean;
+  volumeStatus: DataStatus;
+  volumeStatusLabel: string;
+  provider: string;
+  updatedAt: string | null;
 };
 
-const CATS = [
-  {k:"all",l:"Tüm Piyasalar"},{k:"crypto",l:"Kripto"},{k:"us",l:"ABD Borsası"},
-  {k:"turkey",l:"BIST"},{k:"precious",l:"Emtia"},{k:"energy",l:"Enerji"},
-  {k:"forex",l:"Forex"},{k:"index",l:"Endeksler"},
+const BIST_REALTIME_LICENSED = process.env.NEXT_PUBLIC_BIST_REALTIME_LICENSED === "1";
+
+const CATEGORY_FILTERS: Array<{ key: "all" | AssetCategory; labelTr: string; labelEn: string }> = [
+  { key: "all", labelTr: "Tümü", labelEn: "All" },
+  { key: "crypto", labelTr: "Kripto", labelEn: "Crypto" },
+  { key: "us", labelTr: "ABD Borsası", labelEn: "US Stocks" },
+  { key: "bist", labelTr: "BIST", labelEn: "BIST" },
+  { key: "commodity", labelTr: "Emtia", labelEn: "Commodity" },
+  { key: "energy", labelTr: "Enerji", labelEn: "Energy" },
+  { key: "forex", labelTr: "Forex", labelEn: "Forex" },
+  { key: "index", labelTr: "Endeksler", labelEn: "Indices" },
+  { key: "etf", labelTr: "ETF", labelEn: "ETF" },
+  { key: "precious", labelTr: "Değerli Metaller", labelEn: "Precious" },
 ];
 
-const SEED: Asset[] = [
-  {symbol:"BTCUSDT",display:"BTC",name:"Bitcoin",price:94520,chg:2.14,chg7d:5.4,vol:"42.6B",mcap:"1.85T",market:"crypto"},
-  {symbol:"ETHUSDT",display:"ETH",name:"Ethereum",price:3218,chg:3.42,chg7d:8.1,vol:"18.2B",mcap:"386B",market:"crypto"},
-  {symbol:"SOLUSDT",display:"SOL",name:"Solana",price:172.4,chg:4.81,chg7d:12.3,vol:"2.1B",mcap:"79B",market:"crypto"},
-  {symbol:"BNBUSDT",display:"BNB",name:"BNB",price:587.3,chg:1.22,chg7d:3.2,vol:"1.4B",mcap:"88B",market:"crypto"},
-  {symbol:"XRPUSDT",display:"XRP",name:"Ripple",price:0.5241,chg:-1.14,chg7d:-2.8,vol:"1.9B",mcap:"29B",market:"crypto"},
-  {symbol:"AVAXUSDT",display:"AVAX",name:"Avalanche",price:36.4,chg:2.85,chg7d:7.1,vol:"0.8B",mcap:"15B",market:"crypto"},
-  {symbol:"DOGEUSDT",display:"DOGE",name:"Dogecoin",price:0.162,chg:1.45,chg7d:3.8,vol:"1.2B",mcap:"23B",market:"crypto"},
-  {symbol:"ADAUSDT",display:"ADA",name:"Cardano",price:0.461,chg:-0.82,chg7d:1.2,vol:"0.6B",mcap:"16B",market:"crypto"},
-  {symbol:"AAPL",display:"AAPL",name:"Apple",price:211,chg:0.72,chg7d:1.8,vol:"8.4B",mcap:"2.9T",market:"us"},
-  {symbol:"NVDA",display:"NVDA",name:"NVIDIA",price:1085,chg:3.15,chg7d:9.4,vol:"12.1B",mcap:"2.16T",market:"us"},
-  {symbol:"TSLA",display:"TSLA",name:"Tesla",price:285,chg:-2.84,chg7d:-6.1,vol:"8.7B",mcap:"549B",market:"us"},
-  {symbol:"MSFT",display:"MSFT",name:"Microsoft",price:435,chg:0.42,chg7d:1.2,vol:"6.2B",mcap:"3.06T",market:"us"},
-  {symbol:"AMZN",display:"AMZN",name:"Amazon",price:209,chg:1.18,chg7d:3.5,vol:"5.1B",mcap:"1.92T",market:"us"},
-  {symbol:"META",display:"META",name:"Meta",price:588,chg:1.64,chg7d:4.2,vol:"4.3B",mcap:"1.28T",market:"us"},
-  {symbol:"GOOGL",display:"GOOGL",name:"Alphabet",price:175,chg:0.89,chg7d:2.1,vol:"3.8B",mcap:"2.18T",market:"us"},
-  {symbol:"THYAO.IS",display:"THYAO",name:"Türk Hava Yol.",price:286.5,chg:1.14,chg7d:4.2,vol:"2.8B",mcap:"248B",market:"turkey"},
-  {symbol:"GARAN.IS",display:"GARAN",name:"Garanti BBVA",price:98.4,chg:0.91,chg7d:2.1,vol:"1.2B",mcap:"41B",market:"turkey"},
-  {symbol:"AKBNK.IS",display:"AKBNK",name:"Akbank",price:54.7,chg:0.55,chg7d:1.4,vol:"0.9B",mcap:"44B",market:"turkey"},
-  {symbol:"ASELS.IS",display:"ASELS",name:"Aselsan",price:47.2,chg:1.80,chg7d:5.6,vol:"0.5B",mcap:"25B",market:"turkey"},
-  {symbol:"EREGL.IS",display:"EREGL",name:"Ereğli Demir",price:42.8,chg:-0.46,chg7d:-1.2,vol:"0.7B",mcap:"36B",market:"turkey"},
-  {symbol:"GC=F",display:"XAU/USD",name:"Altın",price:3295,chg:0.31,chg7d:1.4,market:"precious"},
-  {symbol:"SI=F",display:"XAG/USD",name:"Gümüş",price:32.5,chg:0.74,chg7d:3.1,market:"precious"},
-  {symbol:"CL=F",display:"WTI",name:"Ham Petrol",price:78.5,chg:-0.62,chg7d:-1.8,market:"energy"},
-  {symbol:"BZ=F",display:"BRENT",name:"Brent Petrol",price:82.2,chg:-0.44,chg7d:-1.2,market:"energy"},
-  {symbol:"EURUSD=X",display:"EUR/USD",name:"Euro / Dolar",price:1.0875,chg:-0.11,chg7d:-0.4,market:"forex"},
-  {symbol:"USDJPY=X",display:"USD/JPY",name:"Dolar / Yen",price:145.5,chg:0.22,chg7d:0.9,market:"forex"},
-  {symbol:"USDTRY=X",display:"USD/TRY",name:"Dolar / Lira",price:38.5,chg:0.48,chg7d:1.6,market:"forex"},
-  {symbol:"^GSPC",display:"SPX",name:"S&P 500",price:5600,chg:0.58,chg7d:1.9,market:"index"},
-  {symbol:"^NDX",display:"NDX",name:"NASDAQ 100",price:19800,chg:0.91,chg7d:3.2,market:"index"},
-  {symbol:"XU100.IS",display:"BIST100",name:"BIST 100",price:9500,chg:0.87,chg7d:2.4,market:"index"},
-];
-
-function fmtP(p:number) {
-  if (!p&&p!==0) return "-";
-  if (p>=10000) return p.toLocaleString("en",{maximumFractionDigits:0});
-  if (p>=1000)  return p.toLocaleString("en",{minimumFractionDigits:1,maximumFractionDigits:1});
-  if (p>=1)     return p.toFixed(2);
-  return p.toFixed(4);
+function toInitialRows(locale: "tr" | "en"): NormalizedMarketAsset[] {
+  return ASSET_UNIVERSE.map((asset) => ({
+    symbol: asset.symbol,
+    name: locale === "en" ? asset.name_en : asset.name_tr,
+    categoryLabel: getCategoryLabel(asset.category, locale),
+    change24hPct: null,
+    change7dPct: null,
+    volume24h: null,
+    volumeLabel: locale === "en" ? "No volume" : "Hacim yok",
+    updatedAtLabel: "—",
+    displaySymbol: asset.displaySymbol,
+    name_tr: asset.name_tr,
+    name_en: asset.name_en,
+    category: asset.category,
+    exchange: asset.exchange,
+    precision: asset.precision,
+    price: null,
+    chg: null,
+    chg7d: null,
+    volume: null,
+    source: "unavailable",
+    sourceLabel: locale === "en" ? "No data" : "Veri yok",
+    dataStatus: "no_data",
+    dataStatusLabel: locale === "en" ? "No data" : "Veri yok",
+    delayMinutes: null,
+    hasVolume: false,
+    volumeStatus: "no_volume",
+    volumeStatusLabel: locale === "en" ? "No volume" : "Hacim yok",
+    provider: "UNAVAILABLE",
+    updatedAt: null,
+  }));
 }
-function getSym(a:Asset) { return a.display||a.symbol; }
-function getMarket(a:Asset) { return (a.market||"").toLowerCase(); }
-function toAssetInfo(a:Asset): AssetInfo {
-  return { symbol:a.symbol, display:getSym(a), name:a.name, price:a.price, chg:a.chg, market:getMarket(a) };
+
+function mapToLiveKeys(symbol: string): string[] {
+  const normalized = symbol.toUpperCase();
+  const compact = normalized.replace(/[/.]/g, "");
+  const keys = [normalized, compact];
+
+  if (normalized.endsWith(".IS")) keys.push(normalized.replace(".IS", ""));
+  if (!compact.endsWith("USDT") && compact.length <= 6) keys.push(`${compact}USDT`);
+
+  if (normalized === "USDTRY") keys.push("USD/TRY");
+  if (normalized === "EURTRY") keys.push("EUR/TRY");
+  if (normalized === "EURUSD") keys.push("EUR/USD");
+  if (normalized === "GBPUSD") keys.push("GBP/USD");
+
+  return Array.from(new Set(keys));
+}
+
+function fmtPrice(price: number | null, precision: number): string {
+  if (price == null || !Number.isFinite(price) || price <= 0) return "—";
+  if (price >= 1000) {
+    return price.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: Math.min(2, precision),
+    });
+  }
+  if (price < 1) {
+    return price.toFixed(Math.min(Math.max(precision, 4), 8));
+  }
+  return price.toFixed(Math.min(Math.max(precision, 2), 6));
+}
+
+function fmtUpdatedAt(ts: string | null, locale: "tr" | "en"): string {
+  if (!ts) return "—";
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString(locale === "en" ? "en-US" : "tr-TR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function parseNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtChange(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function noDataLabel(locale: "tr" | "en"): string {
+  return locale === "en" ? "No data" : "Veri yok";
+}
+
+function no7dLabel(locale: "tr" | "en"): string {
+  return locale === "en" ? "No 7d data" : "7g veri yok";
+}
+
+function noVolumeLabel(locale: "tr" | "en"): string {
+  return locale === "en" ? "No volume" : "Hacim yok";
+}
+
+function formatVolume24h(value: number | null): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "";
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function volumeLabelFromRow(row: NormalizedMarketAsset, locale: "tr" | "en"): string {
+  if (row.volume24h != null && row.volume24h > 0) return formatVolume24h(row.volume24h);
+  if (row.volumeStatusLabel) return row.volumeStatusLabel;
+  if (row.dataStatus === "no_data") return noDataLabel(locale);
+  return noVolumeLabel(locale);
+}
+
+function statusVisual(status: string) {
+  if (status === "live") {
+    return {
+      color: "var(--up)",
+      bg: "var(--up-dim)",
+      border: "var(--up-border)",
+    };
+  }
+  if (status === "delayed" || status === "license_required") {
+    return {
+      color: "var(--warn)",
+      bg: "rgba(245,158,11,0.12)",
+      border: "rgba(245,158,11,0.35)",
+    };
+  }
+  if (status === "fallback") {
+    return {
+      color: "var(--gold)",
+      bg: "var(--gold-dim)",
+      border: "var(--gold-border)",
+    };
+  }
+  return {
+    color: "var(--t3)",
+    bg: "rgba(148,163,184,0.12)",
+    border: "rgba(148,163,184,0.25)",
+  };
 }
 
 export default function MarketPage() {
-  const [cat,     setCat]     = useState("all");
-  const [data,    setData]    = useState<Asset[]>(SEED);
-  const [search,  setSearch]  = useState("");
-  const [sortKey, setSort]    = useState<"chg"|"price"|"name"|"chg7d">("chg");
-  const [sortDir, setSortDir] = useState<1|-1>(-1);
-  const [loading, setLoading] = useState(false);
-  const [apiOk,   setApiOk]   = useState<boolean|null>(null);
-  const [selected,setSelected]= useState<AssetInfo|null>(null);
+  const { locale, t } = useI18n();
+  const lang = locale === "en" ? "en" : "tr";
+  const { isMobile } = useBreakpoint();
   const livePrices = usePrices();
+  const [rows, setRows] = useState<NormalizedMarketAsset[]>(() => toInitialRows(lang));
+  const [cat, setCat] = useState<"all" | AssetCategory>("all");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("chg");
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const [loading, setLoading] = useState(false);
+  const [apiOk, setApiOk] = useState<boolean | null>(null);
+  const [selected, setSelected] = useState<AssetInfo | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchMarketData = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API}/brain/scan?market=${cat}&limit=100`,{signal:AbortSignal.timeout(8000)});
-      if (!r.ok) throw new Error();
-      const d = await r.json();
-      const items:Asset[] = (d.items||[]).map((s:any):Asset=>({
-        symbol:s.symbol, display:s.display||s.symbol, name:s.name||s.symbol,
-        price:s.current_price||s.price||0, chg:s.change_pct||s.chg||0,
-        chg7d:s.change_7d||0, vol:s.volume_label||"-", market:s.market||s.assetClass||"",
-      }));
-      if (items.length>0) {
-        // Merge: update prices for known symbols, add new ones — never remove SEED categories
-        const apiMap = new Map(items.map((i:Asset) => [i.symbol, i]));
-        setData(prev => {
-          const updated = prev.map(a => {
-            const u = apiMap.get(a.symbol);
-            if (u && u.price > 0) return { ...a, price: u.price, chg: u.chg, chg7d: u.chg7d||a.chg7d, vol: u.vol||a.vol };
-            return a;
-          });
-          const existing = new Set(prev.map(a => a.symbol));
-          const newItems = items.filter((i:Asset) => !existing.has(i.symbol));
-          return [...updated, ...newItems];
-        });
-        setApiOk(true);
+      const symbols = ASSET_UNIVERSE.map((asset) => asset.symbol).join(",");
+      const [liveRes, scanRes] = await Promise.all([
+        fetch(`${API}/prices/live?symbols=${encodeURIComponent(symbols)}`, {
+          signal: AbortSignal.timeout(10000),
+          cache: "no-store",
+        }),
+        fetch(`${API}/brain/scan?market=all&limit=250`, {
+          signal: AbortSignal.timeout(10000),
+          cache: "no-store",
+        }).catch(() => null),
+      ]);
+
+      if (!liveRes.ok) throw new Error("prices-live-failed");
+      const liveData = await liveRes.json();
+      const scanData = scanRes && scanRes.ok ? await scanRes.json() : null;
+
+      const scanMap = new Map<string, any>();
+      for (const item of scanData?.items || []) {
+        const key = String(item?.symbol || "").toUpperCase();
+        if (!key) continue;
+        scanMap.set(key, item);
+        scanMap.set(key.replace(/[/.]/g, ""), item);
       }
-      else setApiOk(true);
+
+      setRows((prev) =>
+        prev.map((row) => {
+          const liveEntry = mapToLiveKeys(row.symbol)
+            .map((key) => liveData?.prices?.[key])
+            .find((entry: any) => entry && Number(entry.price) > 0);
+
+          const scanEntry = scanMap.get(row.symbol) || scanMap.get(row.symbol.replace(/[/.]/g, ""));
+
+          const fallbackPrice = parseNumber(scanEntry?.current_price ?? scanEntry?.price);
+          const price = parseNumber(liveEntry?.price) ?? fallbackPrice ?? row.price;
+          const chg =
+            parseNumber(liveEntry?.change24h ?? liveEntry?.chg) ??
+            parseNumber(scanEntry?.change_pct ?? scanEntry?.chg) ??
+            row.chg;
+          const chg7d = parseNumber(scanEntry?.change_7d) ?? row.chg7d;
+          const source = String(liveEntry?.source || scanEntry?.source || row.source || "unavailable");
+          const updatedAt = String(liveEntry?.updatedAt || liveData?.updated_at || row.updatedAt || "") || null;
+          const volumeValue = parseNumber(scanEntry?.volume);
+          const hasVolume = volumeValue != null && volumeValue > 0;
+          const statusMeta = buildDataStatusMeta({
+            source,
+            provider: source,
+            category: row.category,
+            updatedAt,
+            hasPrice: Boolean(price && price > 0),
+            hasVolume,
+            locale: lang,
+            bistRealtimeLicensed: BIST_REALTIME_LICENSED,
+          });
+          const normalizedPrice = price && price > 0 ? price : null;
+          const normalizedChg = Number.isFinite(chg) ? Number(chg) : null;
+          const normalizedVolume = volumeValue != null && volumeValue > 0 ? volumeValue : null;
+          const volumeLabel = normalizedVolume != null
+            ? formatVolume24h(normalizedVolume)
+            : (statusMeta.volumeStatusLabel || noVolumeLabel(lang));
+          // When asset has no price, do not surface a stale/global timestamp for that row.
+          const effectiveUpdatedAt = normalizedPrice != null ? updatedAt : null;
+
+          return {
+            ...row,
+            name: getAssetDisplayName(row, lang),
+            categoryLabel: getCategoryLabel(row.category, lang),
+            price: normalizedPrice,
+            chg: normalizedChg,
+            chg7d,
+            volume: normalizedVolume,
+            change24hPct: normalizedChg,
+            change7dPct: chg7d,
+            volume24h: normalizedVolume,
+            volumeLabel: volumeLabel || noVolumeLabel(lang),
+            source: statusMeta.source,
+            sourceLabel: statusMeta.sourceLabel,
+            dataStatus: statusMeta.dataStatus,
+            dataStatusLabel: statusMeta.dataStatusLabel,
+            delayMinutes: statusMeta.delayMinutes,
+            hasVolume: statusMeta.hasVolume,
+            volumeStatus: statusMeta.volumeStatus,
+            volumeStatusLabel: statusMeta.volumeStatusLabel,
+            provider: statusMeta.provider,
+            updatedAt: effectiveUpdatedAt,
+            updatedAtLabel: fmtUpdatedAt(effectiveUpdatedAt, lang),
+          };
+        }),
+      );
+
+      setApiOk(true);
     } catch {
       setApiOk(false);
-      setData(p=>p.map(a=>({...a,price:+(a.price*(1+(Math.random()-0.499)*0.0005)),chg:+(a.chg+(Math.random()-0.5)*0.06)})));
-    } finally { setLoading(false); }
-  },[cat]);
+    } finally {
+      setLoading(false);
+    }
+  }, [lang]);
 
-  useEffect(()=>{fetchData();const iv=setInterval(fetchData,30000);return()=>clearInterval(iv);},[fetchData]);
+  useEffect(() => {
+    fetchMarketData().catch(() => {});
+    const interval = setInterval(() => {
+      fetchMarketData().catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchMarketData]);
 
-  // Overlay Binance WS / Finnhub live prices (faster than REST poll)
-  useEffect(()=>{
-    if(Object.keys(livePrices).length===0) return;
-    setData(prev=>prev.map(a=>{
-      const pkey = PRICE_KEY[a.symbol] ?? a.symbol;
-      const lp = livePrices[pkey] ?? livePrices[a.symbol] ?? livePrices[a.symbol+"USDT"];
-      if(!lp) return a;
-      const sc = (v:any)=>{const n=Number(v);return isFinite(n)?n:0;};
-      const liveChg = sc(lp.chg); return {...a, price:lp.price||a.price, chg:liveChg!==0?liveChg:a.chg};
-    }));
-  },[livePrices]);
+  useEffect(() => {
+    if (Object.keys(livePrices).length === 0) return;
+    setRows((prev) =>
+      prev.map((row) => {
+        const liveEntry = mapToLiveKeys(row.symbol)
+          .map((key) => livePrices[key])
+          .find((entry) => entry && Number(entry.price) > 0);
+        if (!liveEntry) return row;
+        const updatedAt = new Date(liveEntry.ts).toISOString();
+        const statusMeta = buildDataStatusMeta({
+          source: liveEntry.source || row.source,
+          provider: liveEntry.source || row.provider,
+          category: row.category,
+          updatedAt,
+          hasPrice: Number(liveEntry.price) > 0,
+          hasVolume: row.hasVolume,
+          locale: lang,
+          bistRealtimeLicensed: BIST_REALTIME_LICENSED,
+        });
+        const normalizedPrice = Number(liveEntry.price) > 0 ? Number(liveEntry.price) : null;
+        const normalizedChg = Number.isFinite(liveEntry.chg) ? liveEntry.chg : row.chg;
+        return {
+          ...row,
+          name: getAssetDisplayName(row, lang),
+          categoryLabel: getCategoryLabel(row.category, lang),
+          price: normalizedPrice,
+          chg: normalizedChg,
+          change24hPct: normalizedChg,
+          source: statusMeta.source,
+          sourceLabel: statusMeta.sourceLabel,
+          dataStatus: statusMeta.dataStatus,
+          dataStatusLabel: statusMeta.dataStatusLabel,
+          delayMinutes: statusMeta.delayMinutes,
+          volumeStatus: statusMeta.volumeStatus,
+          volumeStatusLabel: statusMeta.volumeStatusLabel,
+          provider: statusMeta.provider,
+          updatedAt,
+          updatedAtLabel: fmtUpdatedAt(updatedAt, lang),
+        };
+      }),
+    );
+  }, [lang, livePrices]);
 
-  const toggleSort=(k:typeof sortKey)=>{
-    if(k===sortKey)setSortDir(d=>d===-1?1:-1); else{setSort(k);setSortDir(-1);}
+  const filteredRows = useMemo(() => {
+    const q = normalizeSearchText(search);
+
+    let output = rows;
+    if (cat !== "all") {
+      output = output.filter((row) => row.category === cat);
+    }
+
+    if (q) {
+      output = output.filter((row) => {
+        const label = normalizeSearchText(row.displaySymbol);
+        const symbol = normalizeSearchText(row.symbol);
+        const trName = normalizeSearchText(row.name_tr);
+        const enName = normalizeSearchText(row.name_en);
+        const categoryLabel = normalizeSearchText(getCategoryLabel(row.category, locale));
+        return (
+          label.includes(q) ||
+          symbol.includes(q) ||
+          trName.includes(q) ||
+          enName.includes(q) ||
+          categoryLabel.includes(q)
+        );
+      });
+    }
+
+    return [...output].sort((a, b) => {
+      if (sortKey === "symbol") {
+        return sortDir * a.displaySymbol.localeCompare(b.displaySymbol);
+      }
+      if (sortKey === "name") {
+        return sortDir * getAssetDisplayName(a, locale).localeCompare(getAssetDisplayName(b, locale));
+      }
+      const aValue = sortKey === "price" ? a.price || 0 : sortKey === "chg7d" ? a.chg7d || 0 : a.chg || 0;
+      const bValue = sortKey === "price" ? b.price || 0 : sortKey === "chg7d" ? b.chg7d || 0 : b.chg || 0;
+      return sortDir * (aValue - bValue);
+    });
+  }, [cat, locale, rows, search, sortDir, sortKey]);
+
+  const toggleSort = (nextKey: SortKey) => {
+    if (sortKey === nextKey) {
+      setSortDir((dir) => (dir === -1 ? 1 : -1));
+    } else {
+      setSortKey(nextKey);
+      setSortDir(-1);
+    }
   };
 
-  let rows=data;
-  if(cat!=="all") rows=rows.filter(a=>getMarket(a)===cat);
-  if(search.trim()){const q=search.toLowerCase();rows=rows.filter(a=>getSym(a).toLowerCase().includes(q)||a.name.toLowerCase().includes(q));}
-  rows=[...rows].sort((a,b)=>{
-    if(sortKey==="name") return sortDir*(getSym(a)<getSym(b)?-1:1);
-    const va=sortKey==="price"?a.price:sortKey==="chg7d"?(a.chg7d||0):a.chg;
-    const vb=sortKey==="price"?b.price:sortKey==="chg7d"?(b.chg7d||0):b.chg;
-    return sortDir*(vb-va);
-  });
+  const categoryPills = CATEGORY_FILTERS.map((filter) => ({
+    ...filter,
+    label: locale === "en" ? filter.labelEn : filter.labelTr,
+  }));
 
-  function SortHdr({k,children}:{k:typeof sortKey,children:React.ReactNode}){
-    const a=sortKey===k;
-    return(<th className="right" onClick={()=>toggleSort(k)} style={{cursor:"pointer",userSelect:"none",color:a?"var(--gold)":"var(--t3)"}}>{children}{a?(sortDir===-1?" ↓":" ↑"):""}</th>);
-  }
+  const openAssetDetail = (row: NormalizedMarketAsset) => {
+    setSelected({
+      symbol: row.symbol,
+      display: row.displaySymbol,
+      name: row.name,
+      price: row.price || 0,
+      chg: row.chg ?? 0,
+      market: row.category,
+    });
+  };
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,rowGap:12}}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div>
-          <h1 style={{fontFamily:"var(--font-head)",fontSize:"18px",fontWeight:800,color:"var(--t1)"}}>Piyasalar</h1>
-          <div style={{fontSize:"11px",color:"var(--t3)",marginTop:2}}>{rows.length} enstrüman · {apiOk?"Canlı":"Demo"} · Üstüne tıklayın → Detay + AI Analiz</div>
-        </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <div style={{position:"relative"}}>
-            <Search size={12} style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"var(--t3)"}}/>
-            <input className="inp" style={{paddingLeft:28,width:"100%",maxWidth:200,minWidth:120}} placeholder="Sembol ara..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <h1 style={{ fontFamily: "var(--font-head)", fontSize: 18, fontWeight: 800, color: "var(--t1)" }}>
+            {t("market.title")}
+          </h1>
+          <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2 }}>
+            {filteredRows.length} {t("market.subtitle")} · {locale === "en" ? "Live/Delayed mixed by asset" : "Veri durumu varlığa göre değişir"}
           </div>
-          <button onClick={fetchData} disabled={loading} className="btn-ghost">
-            <RefreshCw size={12} style={{animation:loading?"spin 0.8s linear infinite":""}}/>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ position: "relative" }}>
+            <Search
+              size={12}
+              style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--t3)" }}
+            />
+            <input
+              className="inp"
+              style={{ paddingLeft: 28, width: "100%", maxWidth: 260, minWidth: 150 }}
+              placeholder={t("market.searchPlaceholder")}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <button onClick={fetchMarketData} disabled={loading} className="btn-ghost" title="refresh">
+            <RefreshCw size={12} style={{ animation: loading ? "spin 0.8s linear infinite" : "" }} />
           </button>
         </div>
       </div>
 
       <div className="cat-pills">
-        {CATS.map(c=>(<button key={c.k} className={`cat-pill${cat===c.k?" active":""}`} onClick={()=>setCat(c.k)}>{c.l}</button>))}
+        {categoryPills.map((item) => (
+          <button
+            key={item.key}
+            className={`cat-pill${cat === item.key ? " active" : ""}`}
+            onClick={() => setCat(item.key)}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-lg)",overflow:"hidden"}}>
-        <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
-        <table className="market-table" style={{minWidth:520}}>
-          <thead><tr>
-            <th style={{width:36,padding:"8px 8px 8px 14px"}}>#</th>
-            <th onClick={()=>toggleSort("name")} style={{cursor:"pointer",userSelect:"none",color:sortKey==="name"?"var(--gold)":"var(--t3)"}}>Varlık</th>
-            <SortHdr k="price">Fiyat</SortHdr>
-            <SortHdr k="chg">24s%</SortHdr>
-            <SortHdr k="chg7d">7G%</SortHdr>
-            <th className="right">Hacim</th>
-            <th className="right">Piyasa</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((a,i)=>{
-              const up=(a.chg||0)>=0;const u7=(a.chg7d||0)>=0;
-              return(
-                <tr key={a.symbol} onClick={()=>setSelected(toAssetInfo(a))}
-                  style={{cursor:"pointer"}} className="fade-in"
-                  onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background="var(--bg-hover)"}
-                  onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=""}>
-                  <td style={{color:"var(--t4)",fontSize:"11px",paddingLeft:14,fontFamily:"var(--font-mono)"}}>{i+1}</td>
-                  <td><div style={{display:"flex",flexDirection:"column",gap:2}}>
-                    <span style={{fontFamily:"var(--font-mono)",fontWeight:700,fontSize:"12px",color:"var(--t1)"}}>{getSym(a)}</span>
-                    <span style={{fontSize:"10px",color:"var(--t3)"}}>{a.name}</span>
-                  </div></td>
-                  <td className="price right">{fmtP(a.price)}</td>
-                  <td className={`chg right ${up?"chg-up":"chg-down"}`}>{up?"+":""}{(isFinite(Number(a.chg))?Number(a.chg):0).toFixed(2)}%</td>
-                  <td className={`right ${u7?"chg-up":"chg-down"}`} style={{fontFamily:"var(--font-mono)",fontSize:"11px",fontWeight:600}}>{a.chg7d!=null?(u7?"+":"")+a.chg7d.toFixed(2)+"%":"-"}</td>
-                  <td className="right" style={{fontSize:"11px",color:"var(--t3)",fontFamily:"var(--font-mono)"}}>{a.vol||"-"}</td>
-                  <td className="right"><span style={{fontSize:"9px",fontWeight:600,background:"var(--bg-hover)",border:"1px solid var(--b1)",padding:"2px 6px",borderRadius:3,color:"var(--t3)",fontFamily:"var(--font-mono)",letterSpacing:"0.04em"}}>{getMarket(a).toUpperCase()||"-"}</span></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div style={{ background: "var(--bg-card)", border: "1px solid var(--b1)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
+        {!isMobile && (
+        <div className="market-table-wrap" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table className="market-table" style={{ minWidth: 1120 }}>
+            <thead>
+              <tr>
+                <th onClick={() => toggleSort("symbol")} style={{ cursor: "pointer" }}>{t("market.col.symbol")}</th>
+                <th onClick={() => toggleSort("name")} style={{ cursor: "pointer" }}>{t("market.col.name")}</th>
+                <th>{t("market.col.category")}</th>
+                <th className="right" onClick={() => toggleSort("price")} style={{ cursor: "pointer" }}>{t("market.col.price")}</th>
+                <th className="right" onClick={() => toggleSort("chg")} style={{ cursor: "pointer" }}>{t("market.col.change24h")}</th>
+                <th className="right" onClick={() => toggleSort("chg7d")} style={{ cursor: "pointer" }}>{t("market.col.change7d")}</th>
+                <th className="right">{t("market.col.volume")}</th>
+                <th className="right">{t("market.col.dataStatus")}</th>
+                <th className="right">{t("market.col.source")}</th>
+                <th className="right">{t("market.col.updated")}</th>
+                <th className="right">{t("market.col.chart")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => {
+                const up24 = (row.change24hPct ?? 0) >= 0;
+                const up7d = (row.change7dPct ?? 0) >= 0;
+                const hasPrice = row.price != null && row.price > 0;
+                const has7d = row.change7dPct != null && Number.isFinite(row.change7dPct);
+                const statusStyle = statusVisual(row.dataStatus);
+                const change24Label = hasPrice ? fmtChange(row.change24hPct) : noDataLabel(lang);
+                const change7dLabel = has7d ? fmtChange(row.change7dPct) : no7dLabel(lang);
+                const volumeLabel = volumeLabelFromRow(row, lang);
+                return (
+                  <tr
+                    key={row.symbol}
+                    className="fade-in"
+                    onClick={() => openAssetDetail(row)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>{row.displaySymbol}</td>
+                    <td>{row.name}</td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "2px 7px",
+                          borderRadius: 4,
+                          border: "1px solid var(--b1)",
+                          background: "var(--bg-hover)",
+                          color: "var(--t3)",
+                        }}
+                      >
+                        {row.categoryLabel}
+                      </span>
+                    </td>
+                    <td className="right" style={{ fontFamily: "var(--font-mono)", color: "var(--t1)", fontWeight: 700 }}>
+                      {fmtPrice(row.price, row.precision)}
+                    </td>
+                    <td className={`right ${up24 ? "chg-up" : "chg-down"}`}>
+                      {hasPrice ? (up24 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />) : null}
+                      {change24Label}
+                    </td>
+                    <td className={`right ${up7d ? "chg-up" : "chg-down"}`}>
+                      {change7dLabel}
+                    </td>
+                    <td className="right" style={{ color: "var(--t3)" }}>
+                      {volumeLabel}
+                    </td>
+                    <td className="right">
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: statusStyle.color,
+                          background: statusStyle.bg,
+                          border: `1px solid ${statusStyle.border}`,
+                          borderRadius: 6,
+                          padding: "2px 8px",
+                        }}
+                      >
+                        {hasPrice ? row.dataStatusLabel : noDataLabel(lang)}
+                      </span>
+                    </td>
+                    <td className="right" style={{ color: "var(--t3)" }}>{row.sourceLabel}</td>
+                    <td className="right" style={{ color: "var(--t3)" }}>{row.updatedAtLabel}</td>
+                    <td className="right">
+                      <button
+                        className="btn-ghost"
+                        style={{ padding: "4px 10px", fontSize: 11 }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAssetDetail(row);
+                        }}
+                      >
+                        {t("market.chartButton")}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        {rows.length===0&&(<div style={{padding:"40px",textAlign:"center",color:"var(--t3)"}}><TrendingUp size={28} style={{marginBottom:8,opacity:0.3}}/><br/>Veri bulunamadi</div>)}
+        )}
+
+        {isMobile && (
+        <div className="market-mobile-list">
+          {filteredRows.map((row) => {
+            const up24 = (row.change24hPct ?? 0) >= 0;
+            const up7d = (row.change7dPct ?? 0) >= 0;
+            const hasPrice = row.price != null && row.price > 0;
+            const has7d = row.change7dPct != null && Number.isFinite(row.change7dPct);
+            const source = row.sourceLabel;
+            const quality = statusVisual(row.dataStatus);
+            const change24Label = hasPrice ? fmtChange(row.change24hPct) : noDataLabel(lang);
+            const change7dLabel = has7d ? fmtChange(row.change7dPct) : no7dLabel(lang);
+            const volumeLabel = volumeLabelFromRow(row, lang);
+            const analysisLabel = locale === "en" ? "Analysis" : "Analiz";
+
+            return (
+              <div
+                key={`mobile-${row.symbol}`}
+                className="market-mobile-card"
+                onClick={() => openAssetDetail(row)}
+                style={{ cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 800 }}>
+                      {row.displaySymbol}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "95%" }}>
+                      {row.name}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "2px 7px",
+                      borderRadius: 5,
+                      border: "1px solid var(--b1)",
+                      background: "var(--bg-hover)",
+                      color: "var(--t3)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {row.categoryLabel}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.price")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t1)", fontWeight: 700 }}>
+                      {fmtPrice(row.price, row.precision)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change24h")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: hasPrice ? (up24 ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
+                      {change24Label}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.change7d")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: has7d ? (up7d ? "var(--up)" : "var(--down)") : "var(--t3)", fontWeight: 700 }}>
+                      {change7dLabel}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.volume")}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--t2)", fontWeight: 700 }}>
+                      {volumeLabel}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: "var(--t4)" }}>{t("market.col.dataStatus")}</div>
+                    <div
+                      style={{
+                        marginTop: 1,
+                        fontSize: 11,
+                        color: quality.color,
+                        fontWeight: 700,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        background: quality.bg,
+                        border: `1px solid ${quality.border}`,
+                      }}
+                    >
+                      {row.dataStatusLabel}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 10, color: "var(--t4)" }}>{t("market.col.source")}:</span>
+                    <span style={{ fontSize: 10, color: quality.color, fontWeight: 700 }}>{source}</span>
+                  </div>
+                  <span style={{ fontSize: 10, color: "var(--t4)" }}>{row.updatedAtLabel}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button
+                      className="btn-ghost"
+                      style={{ padding: "5px 10px", fontSize: 11 }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openAssetDetail(row);
+                      }}
+                    >
+                      {t("market.chartButton")}
+                    </button>
+                    <button
+                      className="btn-ghost"
+                      style={{ padding: "5px 10px", fontSize: 11 }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openAssetDetail(row);
+                      }}
+                    >
+                      {analysisLabel}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        )}
+
+        {filteredRows.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--t3)" }}>
+            <TrendingUp size={26} style={{ marginBottom: 8, opacity: 0.3 }} />
+            <div>{t("market.noData")}</div>
+          </div>
+        )}
       </div>
 
-      <AssetDetailModal asset={selected} onClose={()=>setSelected(null)}/>
+      <AssetDetailModal asset={selected} onClose={() => setSelected(null)} />
+
       <style>{`
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @media(max-width:640px){
-          .market-table th:nth-child(5),.market-table td:nth-child(5){display:none}
-          .market-table th:nth-child(6),.market-table td:nth-child(6){display:none}
-          .market-table th:nth-child(7),.market-table td:nth-child(7){display:none}
-          .cat-pills{flex-wrap:nowrap!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
-          .cat-pills::-webkit-scrollbar{display:none}
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .market-table td.right,
+        .market-table th.right {
+          text-align: right;
+        }
+        .market-table td.chg-up,
+        .market-table td.chg-down {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 3px;
+        }
+        .market-mobile-list {
+          display: none;
+          padding: 10px;
+          gap: 10px;
+          flex-direction: column;
+        }
+        .market-mobile-card {
+          border: 1px solid var(--b1);
+          border-radius: 10px;
+          background: var(--bg);
+          padding: 10px;
+        }
+        @media (max-width: 767px) {
+          .market-mobile-list {
+            display: flex;
+          }
         }
       `}</style>
     </div>
   );
 }
-
-

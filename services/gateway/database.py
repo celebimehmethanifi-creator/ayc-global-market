@@ -5,6 +5,7 @@ SQLite (dev) / PostgreSQL (prod) — SQLAlchemy 2.x
 from __future__ import annotations
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from sqlalchemy import (
     create_engine, Column, String, Float, Boolean,
     DateTime, Integer, Text, Enum as SAEnum, Index
@@ -115,6 +116,29 @@ def get_db():
 
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
-    print("[DB] Tables created / verified.")
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    is_dev_or_test = env_name in {"development", "dev", "local", "test", "testing"}
+
+    if is_dev_or_test:
+        Base.metadata.create_all(bind=engine)
+        print("[DB] create_all completed for dev/test environment.")
+        return
+
+    try:
+        from alembic import command
+        from alembic.config import Config
+
+        root = Path(__file__).resolve().parent
+        alembic_ini = root / "alembic.ini"
+        script_location = root / "alembic"
+        if not alembic_ini.exists() or not script_location.exists():
+            raise RuntimeError("Alembic configuration missing.")
+
+        cfg = Config(str(alembic_ini))
+        cfg.set_main_option("script_location", str(script_location))
+        cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+        command.upgrade(cfg, "head")
+        print("[DB] Alembic migrations applied.")
+    except Exception as exc:
+        raise RuntimeError(f"Database migration failed: {exc}") from exc
 

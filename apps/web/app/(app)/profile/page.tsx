@@ -1,8 +1,11 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { clearAuth, exitGuestDemo, isGuestDemo } from "@/lib/auth";
 import {
   User, Shield, Bell, CreditCard, Globe, ChevronRight,
   Trash2, Check, Lock, Star, Zap, Crown, LogOut
@@ -15,32 +18,55 @@ const PLAN_META = {
 };
 
 const PLAN_FEATURES = {
-  free:  ["Gunluk 5 sinyal","Temel analiz","1 portfoy"],
-  pro:   ["Sinirssiz sinyal","AI Copilot","3 portfoy","Gercek zamanli veri","Alarm merkezi"],
-  elite: ["Hersey dahil","Ozel AI modeli","API erisimi","Oncelikli destek","Kalkan Pro"],
+  free:  ["Günlük 5 sinyal","Temel analiz","1 portföy"],
+  pro:   ["Sınırsız sinyal","AI Copilot","3 portföy","Gerçek zamanlı veri","Alarm merkezi"],
+  elite: ["Her şey dahil","Özel AI modeli","API erişimi","Öncelikli destek","Kalkan Pro"],
 };
 
 const TABS = [
-  {id:"profile", label:"Profil",      icon:User},
-  {id:"security",label:"Güvenlik",    icon:Shield},
-  {id:"notif",   label:"Bildirimler", icon:Bell},
-  {id:"plan",    label:"Abonelik",    icon:CreditCard},
+  {id:"profile", labelKey:"nav.profile",            icon:User},
+  {id:"security",labelKey:"profile.security",       icon:Shield},
+  {id:"notif",   labelKey:"profile.notifications",  icon:Bell},
+  {id:"plan",    labelKey:"profile.subscription",   icon:CreditCard},
 ];
 
 const RISK_LEVELS = [
-  {value:"low",    label:"Düþük",   desc:"Muhafazakâr, sermaye koruma öncelikli", color:"#10b981"},
-  {value:"medium", label:"Orta",    desc:"Dengeli risk/getiri profili",           color:"#f59e0b"},
-  {value:"high",   label:"Yüksek",  desc:"Agresif, yüksek getiri odaklý",         color:"#ef4444"},
+  {value:"low",    labelKey:"profile.risk.low",    desc:"Muhafazakar, sermaye koruma öncelikli", color:"#10b981", tone:"16,185,129"},
+  {value:"medium", labelKey:"profile.risk.medium", desc:"Dengeli risk/getiri profili",            color:"#f59e0b", tone:"245,158,11"},
+  {value:"high",   labelKey:"profile.risk.high",   desc:"Agresif, yüksek getiri odaklı",           color:"#ef4444", tone:"239,68,68"},
 ];
 
+const RISK_PROFILE_CONFIG = {
+  low: { defaultDrawdown: 5, maxLeverage: 2, signalThreshold: 80 },
+  medium: { defaultDrawdown: 10, maxLeverage: 5, signalThreshold: 70 },
+  high: { defaultDrawdown: 20, maxLeverage: 10, signalThreshold: 60 },
+} as const;
+
 export default function ProfilePage() {
+  const { locale, setLocale, t } = useI18n();
   const qc = useQueryClient();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
+
+  function handleLogout() {
+    clearAuth();
+    exitGuestDemo();
+    router.push("/signin");
+  }
   const [displayName, setDisplayName] = useState("");
-  const [language, setLanguage] = useState("tr");
+  const [language, setLanguage] = useState(locale);
   const [riskLevel, setRiskLevel] = useState("medium");
   const [maxDrawdown, setMaxDrawdown] = useState("10");
+  const [drawdownOverridden, setDrawdownOverridden] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const applyRiskDefaults = (level: string) => {
+    const normalized = (level === "low" || level === "high") ? level : "medium";
+    const cfg = RISK_PROFILE_CONFIG[normalized];
+    setRiskLevel(normalized);
+    setMaxDrawdown(String(cfg.defaultDrawdown));
+    setDrawdownOverridden(false);
+  };
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -56,9 +82,41 @@ export default function ProfilePage() {
     },
   });
 
+  useEffect(() => {
+    setLanguage(locale);
+  }, [locale]);
+
+  useEffect(() => {
+    if (!profile) return;
+    if (typeof profile.display_name === "string") setDisplayName(profile.display_name);
+    if (typeof profile.language === "string") {
+      const normalized = profile.language === "en" ? "en" : "tr";
+      setLanguage(normalized);
+      setLocale(normalized);
+    }
+    if (typeof profile.risk_level === "string") {
+      const normalizedRisk: keyof typeof RISK_PROFILE_CONFIG =
+        profile.risk_level === "low" || profile.risk_level === "high"
+          ? profile.risk_level
+          : "medium";
+      setRiskLevel(normalizedRisk);
+      const cfg = RISK_PROFILE_CONFIG[normalizedRisk];
+      if (typeof profile.max_drawdown_pct === "number" && Number.isFinite(profile.max_drawdown_pct)) {
+        setMaxDrawdown(String(profile.max_drawdown_pct));
+        setDrawdownOverridden(true);
+      } else {
+        setMaxDrawdown(String(cfg.defaultDrawdown));
+        setDrawdownOverridden(false);
+      }
+    }
+  }, [profile, setLocale]);
+
+  const normalizedRiskLevel: keyof typeof RISK_PROFILE_CONFIG =
+    riskLevel === "low" || riskLevel === "high" ? riskLevel : "medium";
+  const riskCfg = RISK_PROFILE_CONFIG[normalizedRiskLevel];
   const tier = profile?.tier || "free";
   const planMeta = PLAN_META[tier as keyof typeof PLAN_META] || PLAN_META.free;
-  const username = profile?.display_name || profile?.email || "Kullanici";
+  const username = profile?.display_name || profile?.email || "Kullanıcı";
   const initial = username[0].toUpperCase();
 
   return (
@@ -89,30 +147,30 @@ export default function ProfilePage() {
         </div>
 
         {/* Nav */}
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
             display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
             borderRadius:12,border:"none",cursor:"pointer",textAlign:"left",
-            background: activeTab===t.id ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)",
+            background: activeTab===tab.id ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.03)",
             transition:"all 0.2s",fontFamily:"inherit"
           }}>
-            <t.icon size={15} color={activeTab===t.id ? "#8b5cf6" : "rgba(255,255,255,0.4)"} />
-            <span style={{fontSize:13,fontWeight:600,color: activeTab===t.id ? "#fff" : "rgba(255,255,255,0.5)"}}>
-              {t.label}
+            <tab.icon size={15} color={activeTab===tab.id ? "#8b5cf6" : "rgba(255,255,255,0.4)"} />
+            <span style={{fontSize:13,fontWeight:600,color: activeTab===tab.id ? "#fff" : "rgba(255,255,255,0.5)"}}>
+              {t(tab.labelKey)}
             </span>
-            {activeTab===t.id && <ChevronRight size={12} color="#8b5cf6" style={{marginLeft:"auto"}} />}
+            {activeTab===tab.id && <ChevronRight size={12} color="#8b5cf6" style={{marginLeft:"auto"}} />}
           </button>
         ))}
 
         <div style={{height:1,background:"rgba(255,255,255,0.05)",margin:"4px 0"}} />
-        <button style={{
+        <button onClick={handleLogout} style={{
           display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
           borderRadius:12,border:"none",cursor:"pointer",
           background:"rgba(239,68,68,0.05)",fontFamily:"inherit",
           color:"#ef4444",fontSize:13,fontWeight:600
         }}>
           <LogOut size={15} color="#ef4444" />
-          Çýkýþ Yap
+          {isGuestDemo() ? "Oturumu Kapat" : t("auth.logout")}
         </button>
       </div>
 
@@ -123,13 +181,13 @@ export default function ProfilePage() {
             <div style={{
               background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:18,padding:24
             }}>
-              <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:20}}>Kiþisel Bilgiler</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:20}}>{t("profile.personal")}</div>
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
                 <div>
-                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Görünen Ad</label>
+                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>{t("profile.displayName")}</label>
                   <input
                     type="text"
-                    defaultValue={profile?.display_name || ""}
+                    value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                     style={{
                       width:"100%",background:"rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,0.1)",
@@ -138,11 +196,11 @@ export default function ProfilePage() {
                     }}
                     onFocus={e => e.target.style.borderColor="rgba(139,92,246,0.5)"}
                     onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"}
-                    placeholder="Görünen adýnýzý girin"
+                    placeholder={t("profile.displayNamePlaceholder")}
                   />
                 </div>
                 <div>
-                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>E-posta</label>
+                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>{t("profile.email")}</label>
                   <input
                     type="email"
                     defaultValue={profile?.email || "trader@ayc.com"}
@@ -155,23 +213,34 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Arayüz Dili</label>
+                  <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>{t("profile.language")}</label>
                   <select
-                    defaultValue={profile?.language || "tr"}
-                    onChange={e => setLanguage(e.target.value)}
+                    value={language}
+                    onChange={e => {
+                      const next = e.target.value === "en" ? "en" : "tr";
+                      setLanguage(next);
+                      setLocale(next);
+                    }}
                     style={{
                       width:"100%",background:"rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,0.1)",
                       borderRadius:10,padding:"10px 14px",fontSize:13,color:"#fff",
                       outline:"none",boxSizing:"border-box",fontFamily:"inherit",cursor:"pointer"
                     }}
                   >
-                    <option value="tr">Turkce</option>
+                    <option value="tr">Türkçe</option>
                     <option value="en">English</option>
                   </select>
                 </div>
               </div>
               <button
-                onClick={() => updateMutation.mutate({ display_name: displayName || undefined, language })}
+                onClick={() => updateMutation.mutate({
+                  display_name: displayName || undefined,
+                  language,
+                  risk_level: normalizedRiskLevel,
+                  max_drawdown_pct: Number(maxDrawdown),
+                  max_leverage: riskCfg.maxLeverage,
+                  signal_threshold: riskCfg.signalThreshold,
+                })}
                 disabled={updateMutation.isPending}
                 style={{
                   marginTop:18,display:"flex",alignItems:"center",gap:8,
@@ -182,7 +251,7 @@ export default function ProfilePage() {
                   transition:"all 0.3s"
                 }}
               >
-                {saved ? <><Check size={14} /> Kaydedildi</> : "Deðiþiklikleri Kaydet"}
+                {saved ? <><Check size={14} /> {t("profile.saved")}</> : t("profile.save")}
               </button>
             </div>
 
@@ -194,13 +263,13 @@ export default function ProfilePage() {
                 <Shield size={15} color="var(--primary)" /> Risk Profili
               </div>
               <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:18}}>
-                Risk toleransýnýz sinyallerin gösterim sýklýðý ve kalkan eþiklerini etkiler
+                Risk toleransınız sinyallerin gösterim sıklığını ve kalkan eşiklerini etkiler
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
                 {RISK_LEVELS.map(r => (
-                  <button key={r.value} onClick={() => setRiskLevel(r.value)} style={{
+                  <button key={r.value} onClick={() => applyRiskDefaults(r.value)} style={{
                     display:"flex",alignItems:"center",gap:12,padding:"12px 16px",
-                    background: riskLevel===r.value ? `rgba(${r.color==="10b981"?"16,185,129":r.color==="f59e0b"?"245,158,11":"239,68,68"},0.1)` : "rgba(255,255,255,0.02)",
+                    background: riskLevel===r.value ? `rgba(${r.tone},0.1)` : "rgba(255,255,255,0.02)",
                     border: riskLevel===r.value ? `1px solid ${r.color}40` : "1px solid rgba(255,255,255,0.06)",
                     borderRadius:12,cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.2s"
                   }}>
@@ -211,17 +280,20 @@ export default function ProfilePage() {
                       transition:"all 0.2s"
                     }} />
                     <div>
-                      <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{r.label} Risk</div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{t(r.labelKey)} Risk</div>
                       <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>{r.desc}</div>
                     </div>
                   </button>
                 ))}
               </div>
               <div>
-                <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Max Drawdown Esigi</label>
+                <label style={{fontSize:12,color:"rgba(255,255,255,0.4)",display:"block",marginBottom:6}}>Maksimum Drawdown Eşiği</label>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <input type="range" min="2" max="30" value={maxDrawdown}
-                    onChange={e => setMaxDrawdown(e.target.value)}
+                    onChange={e => {
+                      setMaxDrawdown(e.target.value);
+                      setDrawdownOverridden(true);
+                    }}
                     style={{flex:1,accentColor:"var(--primary)"}} />
                   <div style={{
                     minWidth:48,padding:"4px 10px",background:"rgba(239,68,68,0.1)",
@@ -229,6 +301,11 @@ export default function ProfilePage() {
                     fontSize:13,fontWeight:700,color:"#ef4444",textAlign:"center"
                   }}>%{maxDrawdown}</div>
                 </div>
+                {drawdownOverridden && (
+                  <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:6}}>
+                    Manuel drawdown ayarı aktif.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -240,11 +317,11 @@ export default function ProfilePage() {
             background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:18,padding:24,
             display:"flex",flexDirection:"column",gap:16
           }}>
-            <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>Güvenlik Ayarlari</div>
+            <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>Güvenlik Ayarları</div>
             {[
-              {label:"Sifre Degistir",          icon:Lock,  color:"var(--primary)", action:"Degistir"},
-              {label:"Iki Faktorlu Dogrulama",  icon:Shield,color:"#10b981",        action:"Aktifles"},
-              {label:"Aktif Oturumlar",         icon:Globe, color:"#f59e0b",        action:"Goruntule"},
+              {label:"Şifre Değiştir",          icon:Lock,  color:"var(--primary)", action:"Değiştir"},
+              {label:"İki Faktörlü Doğrulama",  icon:Shield,color:"#10b981",        action:"Aktifleştir"},
+              {label:"Aktif Oturumlar",         icon:Globe, color:"#f59e0b",        action:"Görüntüle"},
             ].map(item => (
               <div key={item.label} style={{
                 display:"flex",alignItems:"center",gap:14,padding:"14px 16px",
@@ -268,13 +345,13 @@ export default function ProfilePage() {
             <div style={{
               padding:16,background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.15)",borderRadius:14
             }}>
-              <div style={{fontSize:13,fontWeight:700,color:"#ef4444",marginBottom:10}}>Tehlikeli Bolge</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#ef4444",marginBottom:10}}>Tehlikeli Bölge</div>
               <button style={{
                 display:"flex",alignItems:"center",gap:8,padding:"8px 16px",
                 background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",
                 borderRadius:10,cursor:"pointer",color:"#ef4444",fontSize:12,fontFamily:"inherit"
               }}>
-                <Trash2 size={13} /> Hesabi Sil (KVKK)
+                <Trash2 size={13} /> Hesabı Sil (KVKK)
               </button>
             </div>
           </div>
@@ -287,12 +364,12 @@ export default function ProfilePage() {
           }}>
             <div style={{fontSize:14,fontWeight:700,color:"#fff",marginBottom:20}}>Bildirim Tercihleri</div>
             {[
-              {label:"Yüksek guvenli sinyaller",    desc:"82%+ güven skorlu sinyaller",        on:true,  color:"#10b981"},
-              {label:"Kalkan uyarilari",             desc:"Drawdown ve risk uyarilari",          on:true,  color:"#ef4444"},
-              {label:"Sabah brifing",                desc:"Her gun saat 08:30 piyasa ozeti",     on:true,  color:"#8b5cf6"},
-              {label:"Fiyat alarmlari",              desc:"Ayarladiginiz alarm esiklerine ulasim",on:true, color:"#00d4ff"},
-              {label:"Makro haberler",               desc:"FED, enflasyon, jeopolitik gelismeler",on:false,color:"#f59e0b"},
-              {label:"Haftalik rapor",               desc:"Pazar aksamý performans ozeti",       on:false, color:"#6b7280"},
+              {label:"Yüksek güvenli sinyaller",     desc:"82%+ güven skorlu sinyaller",         on:true,  color:"#10b981"},
+              {label:"Kalkan uyarıları",             desc:"Drawdown ve risk uyarıları",           on:true,  color:"#ef4444"},
+              {label:"Sabah brifing",                desc:"Her gün saat 08:30 piyasa özeti",      on:true,  color:"#8b5cf6"},
+              {label:"Fiyat alarmları",              desc:"Ayarladığınız alarm eşiklerine ulaşım",on:true, color:"#00d4ff"},
+              {label:"Makro haberler",               desc:"FED, enflasyon, jeopolitik gelişmeler",on:false,color:"#f59e0b"},
+              {label:"Haftalık rapor",               desc:"Pazar akşamı performans özeti",       on:false, color:"#6b7280"},
             ].map((n, i) => (
               <div key={i} style={{
                 display:"flex",alignItems:"center",gap:14,padding:"14px 0",
@@ -344,13 +421,13 @@ export default function ProfilePage() {
                       <div style={{
                         position:"absolute",top:12,left:12,fontSize:9,fontWeight:800,
                         padding:"2px 8px",borderRadius:10,background:"rgba(16,185,129,0.15)",color:"#10b981",letterSpacing:1
-                      }}>AKTIF</div>
+                      }}>AKTİF</div>
                     )}
                     <div style={{marginTop:28,marginBottom:16}}>
                       <meta.icon size={22} color={meta.color} />
                       <div style={{fontSize:18,fontWeight:800,color:meta.color,marginTop:8}}>{meta.label}</div>
-                      <div style={{fontSize:22,fontWeight:900,color:"#fff",lineHeight:1,marginTop:4}}>
-                        {p==="free" ? "$0" : p==="pro" ? "$29" : "$79"}
+                    <div style={{fontSize:22,fontWeight:900,color:"#fff",lineHeight:1,marginTop:4}}>
+                        {p==="free" ? "$0" : p==="pro" ? "$9.99" : "$24.99"}
                         {p!=="free" && <span style={{fontSize:12,color:"rgba(255,255,255,0.35)",fontWeight:400}}>/ay</span>}
                       </div>
                     </div>

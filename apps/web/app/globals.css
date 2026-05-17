@@ -1,13 +1,13 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+﻿/* •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
    AYC GLOBAL MARKET - DESIGN SYSTEM v2.0
    Bloomberg Terminal veri yogunlugu + TradingView akiciligi
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••• */
 
 /* Note: Inter is loaded via next/font/google in layout.tsx (--font-inter variable).
    Only load Syne, DM Sans, and IBM Plex Mono here to avoid duplicate Inter loading. */
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-/* â”€â”€ Reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Reset ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 
@@ -30,7 +30,7 @@ img.interactive { pointer-events: auto; }
   body { display: none !important; }
 }
 
-/* â”€â”€ Color tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Color tokens ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 :root {
   /* Base */
   --bg:          #080A10;
@@ -47,8 +47,8 @@ img.interactive { pointer-events: auto; }
 
   /* Text */
   --t1:          #F0F2F8;
-  --t2:          #9BA3BA;
-  --t3:          #5C6480;
+  --t2:          #B8C0D8;
+  --t3:          #8690AD;
   --t4:          #3A4060;
 
   /* Gold - AYC brand */
@@ -97,14 +97,15 @@ img.interactive { pointer-events: auto; }
   --r-xl: 20px;
 }
 
-/* â”€â”€ Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Base ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 body {
   background: var(--bg);
   color: var(--t1);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -135,13 +136,13 @@ h1, h2, h3, h4, h5, h6 {
   font-feature-settings: "tnum";
 }
 
-/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Scrollbar ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--b3); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--t4); }
 
-/* â”€â”€ Brand mark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Brand mark ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .brand-mark {
   width: 28px; height: 28px;
   background: linear-gradient(135deg, #D4A843 0%, #F0C060 60%, #A07828 100%);
@@ -155,7 +156,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 2px 8px rgba(212,168,67,0.35);
 }
 
-/* â”€â”€ Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Cards ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--b1);
@@ -167,7 +168,7 @@ h1, h2, h3, h4, h5, h6 {
 .card-sm    { padding: 12px; border-radius: var(--r-md); }
 .card-ghost { background: transparent; border-color: var(--b1); }
 
-/* â”€â”€ Stat card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Stat card ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--b1);
@@ -178,12 +179,12 @@ h1, h2, h3, h4, h5, h6 {
   transition: border-color 0.15s, transform 0.15s;
 }
 .stat-card:hover { border-color: var(--b2); transform: translateY(-1px); }
-.stat-label  { font-size: 11px; color: var(--t3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-label  { font-size: 12px; color: var(--t2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-value  { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--t1); line-height: 1; }
-.stat-delta  { font-size: 11px; color: var(--t3); }
+.stat-delta  { font-size: 12px; color: var(--t2); }
 .stat-icon   { position: absolute; top: 14px; right: 14px; opacity: 0.15; }
 
-/* â”€â”€ Signal rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Signal rows ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .sig-row {
   display: grid;
   grid-template-columns: 88px 1fr auto auto;
@@ -221,7 +222,7 @@ h1, h2, h3, h4, h5, h6 {
 .conf-fill.medium { background: var(--warn); }
 .conf-fill.low    { background: var(--t3); }
 
-/* â”€â”€ Market table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Market table ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .market-table {
   width: 100%;
   border-collapse: collapse;
@@ -231,8 +232,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 .market-table th {
   padding: 8px 12px;
-  font-size: 10px; font-weight: 600;
-  color: var(--t3); text-transform: uppercase;
+  font-size: 11px; font-weight: 700;
+  color: var(--t2); text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: left;
   white-space: nowrap;
@@ -246,7 +247,7 @@ h1, h2, h3, h4, h5, h6 {
 .market-table tbody tr:hover { background: var(--bg-hover); }
 .market-table td {
   padding: 9px 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--t2);
   white-space: nowrap;
 }
@@ -262,7 +263,7 @@ h1, h2, h3, h4, h5, h6 {
 .chg-up   { color: var(--up); }
 .chg-down { color: var(--down); }
 
-/* â”€â”€ Category pills â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Category pills ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .cat-pills {
   display: flex; gap: 4px;
   overflow-x: auto; padding-bottom: 2px;
@@ -273,7 +274,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 5px 12px;
   border-radius: 20px;
   border: 1px solid var(--b1);
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 700;
   color: var(--t3);
   background: transparent;
   cursor: pointer;
@@ -283,7 +284,7 @@ h1, h2, h3, h4, h5, h6 {
 .cat-pill:hover   { border-color: var(--b2); color: var(--t2); background: var(--bg-hover); }
 .cat-pill.active  { border-color: var(--gold-border); color: var(--gold); background: var(--gold-dim); }
 
-/* â”€â”€ Topbar search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Topbar search ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .topbar-search {
   display: flex; align-items: center; gap: 8px;
   padding: 0 12px; height: 28px;
@@ -302,7 +303,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 1px 5px; border-radius: 3px;
 }
 
-/* â”€â”€ Topbar pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Topbar pill ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .topbar-pill {
   display: flex; align-items: center; gap: 4px;
   padding: 3px 8px; border-radius: 5px;
@@ -314,7 +315,7 @@ h1, h2, h3, h4, h5, h6 {
 .pill-live { color: var(--up); border-color: var(--up-border); background: var(--up-dim); }
 .pill-time { color: var(--t3); font-family: var(--font-mono); }
 
-/* â”€â”€ Pulse dot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Pulse dot ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .pulse-dot {
   width: 6px; height: 6px; border-radius: 50%;
   flex-shrink: 0;
@@ -322,7 +323,7 @@ h1, h2, h3, h4, h5, h6 {
 .pulse-dot.green { background: var(--up); box-shadow: 0 0 6px var(--up); animation: pulse-live 2s ease-in-out infinite; }
 .pulse-dot.gold  { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
 
-/* â”€â”€ Market Ticker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Market Ticker ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .ticker-wrap {
   height: var(--ticker-h);
   background: var(--bg-panel);
@@ -350,7 +351,7 @@ h1, h2, h3, h4, h5, h6 {
 .ticker-fade-l { position:absolute; left:0; top:0; bottom:0; width:40px; background:linear-gradient(to right,var(--bg-panel),transparent); pointer-events:none; z-index:1; }
 .ticker-fade-r { position:absolute; right:0; top:0; bottom:0; width:40px; background:linear-gradient(to left,var(--bg-panel),transparent); pointer-events:none; z-index:1; }
 
-/* â”€â”€ Bottom nav (mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Bottom nav (mobile) ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .bottom-nav {
   display: none;
 }
@@ -365,7 +366,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .bn-btn.active { color: var(--gold); }
 
-/* â”€â”€ Loader skeleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Loader skeleton ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .skeleton {
   background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
   background-size: 200% 100%;
@@ -373,7 +374,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--r-sm);
 }
 
-/* â”€â”€ Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Badge ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .badge {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 2px 7px; border-radius: 4px;
@@ -385,7 +386,7 @@ h1, h2, h3, h4, h5, h6 {
 .badge-down    { background: var(--down-dim); border: 1px solid var(--down-border); color: var(--down); }
 .badge-neutral { background: var(--bg-hover); border: 1px solid var(--b2);          color: var(--t3);   }
 
-/* â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Section header ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .section-hdr {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px;
@@ -404,7 +405,7 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-block;
 }
 
-/* â”€â”€ Command Palette overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Command Palette overlay ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .cmd-overlay {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(8,10,16,0.7);
@@ -438,7 +439,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .cmd-result-item:hover, .cmd-result-item.selected { background: var(--bg-hover); }
 
-/* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Animations ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 @keyframes ticker-scroll {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -472,7 +473,7 @@ h1, h2, h3, h4, h5, h6 {
 .fade-in   { animation: fade-in  0.2s ease both; }
 .slide-in-r{ animation: slide-in-r 0.25s ease both; }
 
-/* â”€â”€ Mobile responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Mobile responsive ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 @media (max-width: 768px) {
   .bottom-nav  { display: flex !important; }
   .topbar-search { display: none; }
@@ -480,20 +481,20 @@ h1, h2, h3, h4, h5, h6 {
   .topbar-kbd  { display: none; }
 }
 
-/* â”€â”€ Divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Divider ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .divider { height: 1px; background: var(--b1); margin: 16px 0; }
 
-/* â”€â”€ Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Input ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .inp {
   background: var(--bg); border: 1px solid var(--b1);
   border-radius: var(--r-sm); color: var(--t1);
-  font-family: var(--font-body); font-size: 12px;
+  font-family: var(--font-body); font-size: 13px;
   padding: 6px 10px; outline: none;
   transition: border-color 0.15s;
 }
 .inp:focus { border-color: var(--gold-border); }
 
-/* â”€â”€ Btn â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ”€”€ Btn ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€ */
 .btn-gold {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 16px; border-radius: var(--r-sm);
@@ -625,6 +626,7 @@ h1, h2, h3, h4, h5, h6 {
 :root {
   --sidebar-w-mobile: 0px;
   --bottom-nav-h: 58px;
+  --bottom-nav-height: 58px; /* alias used by app-main padding-bottom calc */
 }
 
 /* ── body: NO overflow:hidden on mobile — need scroll ─────────── */
@@ -832,8 +834,37 @@ h1, h2, h3, h4, h5, h6 {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+body.chart-fullscreen {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+body.asset-modal-open {
+  overflow: hidden !important;
+}
+body.chart-fullscreen .app-demo-banner,
+body.chart-fullscreen .app-ticker,
+body.chart-fullscreen .app-topbar,
+body.chart-fullscreen .sidebar-desktop,
+body.chart-fullscreen .bottom-nav {
+  display: none !important;
+}
+body.chart-fullscreen .app-main {
+  padding: 0 !important;
+}
+body.asset-modal-open .app-demo-banner,
+body.asset-modal-open .app-ticker,
+body.asset-modal-open .app-topbar,
+body.asset-modal-open .bottom-nav {
+  display: none !important;
+}
+body.asset-modal-open .app-main {
+  padding-top: 0 !important;
+}
 @media (max-width: 767px) {
-  .app-main { padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px)) 12px !important; }
+  .app-main {
+    padding: 12px 12px calc(var(--bottom-nav-height, 58px) + env(safe-area-inset-bottom, 0px) + 24px) 12px !important;
+  }
 }
 
 /* ── Tablet (768–1024px) ──────────────────────────────────────── */
@@ -898,22 +929,27 @@ button, a { touch-action: manipulation; }
   gap: 10px;
   flex-wrap: wrap;
 }
+.dashboard-top-stats {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .dashboard-top-stats {
+    grid-template-columns: 1fr !important;
+  }
+}
 @media (max-width: 640px) {
   .stat-scroll {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-    scrollbar-width: none;
-    margin: 0 -16px;
-    padding-left: 16px;
-    padding-right: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
   }
-  .stat-scroll::-webkit-scrollbar { display: none; }
   .stat-scroll > * {
-    flex-shrink: 0;
-    min-width: 130px;
-    max-width: 160px;
+    min-width: 0;
+    max-width: 100%;
   }
 }
 
@@ -1056,13 +1092,6 @@ button, a { touch-action: manipulation; }
   }
 }
 
-/* GENERAL: prevent any 2-col inline grid from overflowing */
-@media (max-width: 480px) {
-  [style*="gridTemplateColumns"] {
-    overflow-x: hidden;
-  }
-}
-
 /* Bottom nav: ensure it doesn't overlap content */
 @media (max-width: 768px) {
   .page-main-content {
@@ -1162,7 +1191,7 @@ img, svg, canvas, iframe, video {
 
 /* ── Stats/signal cards: horizontal scroll snap on mobile ──── */
 @media (max-width: 640px) {
-  .stat-scroll, .dash-stats-grid, .stats-bar {
+  .stats-bar {
     display: flex !important;
     overflow-x: auto;
     flex-wrap: nowrap !important;
@@ -1172,8 +1201,8 @@ img, svg, canvas, iframe, video {
     scrollbar-width: none;
     padding-bottom: 4px;
   }
-  .stat-scroll::-webkit-scrollbar, .dash-stats-grid::-webkit-scrollbar, .stats-bar::-webkit-scrollbar { display: none; }
-  .stat-scroll > *, .dash-stats-grid > *, .stats-bar > * {
+  .stats-bar::-webkit-scrollbar { display: none; }
+  .stats-bar > * {
     flex: 0 0 clamp(130px, 42vw, 170px);
     min-width: 0;
     scroll-snap-align: start;
@@ -1222,11 +1251,6 @@ img, svg, canvas, iframe, video {
   }
 }
 
-/* ── Inline grids: force single column on very small ──────── */
-@media (max-width: 380px) {
-  [style*="gridTemplateColumns"] {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-  }
-}
+/* Intentionally avoid forcing generic inline-grid overrides.
+   Page-level components handle their own responsive behavior. */
+

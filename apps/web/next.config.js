@@ -1,6 +1,6 @@
-/** @type {import('next').NextConfig} */
+﻿/** @type {import('next').NextConfig} */
 
-// AYC Global Market — Platform Config
+// AYC Global Market - Platform Config
 // © 2026 AYC Grup. Tüm hakları saklıdır.
 
 const ContentSecurityPolicy = `
@@ -12,7 +12,7 @@ const ContentSecurityPolicy = `
   media-src 'none';
   connect-src 'self' wss: ws: https:;
   frame-src 'self' https://s.tradingview.com https://www.tradingview.com https://charting-library.tradingview.com https://widget.tradingview.com;
-  frame-ancestors 'none';
+  frame-ancestors 'self' https://aycmarket.com https://app.aycmarket.com https://www.aycmarket.com https://blog.aycmarket.com http://aycmarket.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -21,7 +21,7 @@ const ContentSecurityPolicy = `
 const securityHeaders = [
   { key: "Content-Security-Policy",           value: ContentSecurityPolicy },
   { key: "Strict-Transport-Security",         value: "max-age=63072000; includeSubDomains; preload" },
-  { key: "X-Frame-Options",                   value: "DENY" },
+  { key: "X-Frame-Options",           value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options",            value: "nosniff" },
   { key: "X-XSS-Protection",                  value: "1; mode=block" },
   { key: "Referrer-Policy",                   value: "strict-origin-when-cross-origin" },
@@ -30,7 +30,7 @@ const securityHeaders = [
   { key: "X-Download-Options",                value: "noopen" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   { key: "Cross-Origin-Opener-Policy",        value: "same-origin-allow-popups" },
-  // COEP require-corp is intentionally omitted — it blocks TradingView and all external embeds
+  // COEP require-corp is intentionally omitted - it blocks TradingView and external embeds.
 ];
 
 const nextConfig = {
@@ -79,3 +79,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+

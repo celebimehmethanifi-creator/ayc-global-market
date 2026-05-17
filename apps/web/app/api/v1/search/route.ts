@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const CG_KEY = process.env.COINGECKO_API_KEY    || "CG-MoxLLAjSA3r2JHXanw9fotD5";
-const FH_KEY = process.env.FINNHUB_API_KEY       || "d7pp429r01qosaapdudgd7pp429r01qosaapdue0";
-const TD_KEY = process.env.TWELVEDATA_API_KEY     || "c6293bae084a4c0fb46e2cb5df525ef8";
+const CG_KEY = process.env.COINGECKO_API_KEY || "";
+const FH_KEY = process.env.FINNHUB_API_KEY || "";
+const TD_KEY = process.env.TWELVEDATA_API_KEY || "";
 
 interface SearchResult {
   symbol: string;
@@ -68,6 +68,7 @@ async function searchCoinGecko(q: string): Promise<SearchResult[]> {
 
 /* ── Finnhub symbol search ─────────────────────────────── */
 async function searchFinnhub(q: string): Promise<SearchResult[]> {
+  if (!FH_KEY) return [];
   try {
     const r = await safeFetch(
       `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FH_KEY}`
@@ -115,6 +116,7 @@ async function searchFinnhub(q: string): Promise<SearchResult[]> {
 
 /* ── Twelve Data symbol search ──────────────────────────── */
 async function searchTwelveData(q: string): Promise<SearchResult[]> {
+  if (!TD_KEY) return [];
   try {
     const r = await safeFetch(
       `https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(q)}&apikey=${TD_KEY}&outputsize=6`

@@ -3,8 +3,5 @@ packages:
   - "services/*"
   - "packages/*"
 
-allowBuilds:
-  unrs-resolver: set this to true or false
-
 onlyBuiltDependencies:
   - unrs-resolver

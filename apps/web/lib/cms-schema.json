@@ -99,7 +99,7 @@
         { "id": "nav-dashboard",  "label": "Dashboard", "href": "/dashboard",  "icon": "LayoutDashboard", "order": 1, "visible": true },
         { "id": "nav-piyasalar",  "label": "Piyasalar", "href": "/piyasalar",  "icon": "TrendingUp",      "order": 2, "visible": true },
         { "id": "nav-sinyaller",  "label": "Sinyaller", "href": "/sinyaller",  "icon": "Zap",             "order": 3, "visible": true },
-        { "id": "nav-portfoy",    "label": "Portfoy",   "href": "/portfoy",    "icon": "PieChart",        "order": 4, "visible": true },
+        { "id": "nav-portfoy",    "label": "Portföy",   "href": "/portfoy",    "icon": "PieChart",        "order": 4, "visible": true },
         { "id": "nav-copilot",    "label": "Copilot",   "href": "/copilot",    "icon": "Bot",             "order": 5, "visible": true },
         { "id": "nav-alarmlar",   "label": "Alarmlar",  "href": "/alarmlar",   "icon": "Bell",            "order": 6, "visible": true },
         { "id": "nav-islemler",   "label": "Islemler",  "href": "/islemler",   "icon": "History",         "order": 7, "visible": true },
@@ -164,7 +164,7 @@
           "type": "string",
           "interface": "input",
           "required": true,
-          "example": "Portfoy Degeri"
+          "example": "Portföy Değeri"
         },
         "description": {
           "type": "text",
@@ -201,7 +201,7 @@
         }
       },
       "seed_data": [
-        { "id": "card-portfolio-value", "title": "Portfoy Degeri",           "description": "Toplam varlik degeriniz.",                        "icon": "DollarSign",   "order": 1, "visible": true, "section": "stats"     },
+        { "id": "card-portfolio-value", "title": "Portföy Değeri",           "description": "Toplam varlık değeriniz.",                        "icon": "DollarSign",   "order": 1, "visible": true, "section": "stats"     },
         { "id": "card-daily-pnl",       "title": "Gunluk Kar/Zarar",         "description": "Bugunun net performansi.",                        "icon": "TrendingUp",   "order": 2, "visible": true, "section": "stats"     },
         { "id": "card-active-signals",  "title": "Aktif Sinyal",             "description": "Acik sinyal pozisyonu sayisi.",                   "icon": "Zap",          "order": 3, "visible": true, "section": "stats"     },
         { "id": "card-win-rate",        "title": "Basari Orani",             "description": "Son 30 gunluk sinyal isabeti.",                   "icon": "Target",       "order": 4, "visible": true, "section": "stats"     },

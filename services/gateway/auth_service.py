@@ -14,7 +14,24 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import User, RefreshToken, get_db
 
-SECRET_KEY    = os.environ.get("SECRET_KEY", "ayc-global-market-secret-2026-CHANGE-THIS")
+MIN_SECRET_LENGTH = 32
+
+
+def _read_secret_key() -> str:
+    secret = (os.environ.get("SECRET_KEY") or "").strip()
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    is_production = env_name in {"production", "prod"}
+
+    if not secret:
+        raise RuntimeError("SECRET_KEY environment variable is required.")
+    if len(secret) < MIN_SECRET_LENGTH:
+        raise RuntimeError(f"SECRET_KEY must be at least {MIN_SECRET_LENGTH} characters.")
+    if is_production and any(marker in secret.lower() for marker in ("change-this", "example", "test", "demo")):
+        raise RuntimeError("SECRET_KEY is not production-safe.")
+    return secret
+
+
+SECRET_KEY = _read_secret_key()
 ALGORITHM     = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES  = 60 * 24          # 24h
 REFRESH_TOKEN_EXPIRE_DAYS    = 30

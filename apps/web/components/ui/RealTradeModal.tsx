@@ -52,11 +52,9 @@ export default function RealTradeModal({ isOpen, onClose, symbol, name, price, d
       const res = await fetch('/api/v1/exchange/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          exchange: selectedEx.exchange,
-          apiKey: selectedEx.apiKey,
-          apiSecret: selectedEx.apiSecret,
-          passphrase: selectedEx.passphrase,
+          connectionId: selectedEx.connectionId,
           symbol: symbol + 'USDT',
           side,
           type: orderType,
@@ -64,7 +62,7 @@ export default function RealTradeModal({ isOpen, onClose, symbol, name, price, d
         }),
       });
       const data = await res.json();
-      if (data.ok) { setResult(data); setStep('success'); }
+      if (data.ok || data.mode === 'paper') { setResult(data); setStep('success'); }
       else { setErrorMsg(data.error || 'Islem basarisiz'); setStep('error'); }
     } catch (e: any) {
       setErrorMsg(e.message || 'Baglanti hatasi');
@@ -225,10 +223,16 @@ export default function RealTradeModal({ isOpen, onClose, symbol, name, price, d
         ) : step === 'success' ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <div style={{ fontSize: 56, marginBottom: 12 }}>✓</div>
-            <div style={{ color: '#10b981', fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Islem Basarili!</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 20 }}>Emir ID: {result?.orderId || 'N/A'}</div>
+            <div style={{ color: '#10b981', fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+              {result?.mode === 'paper' ? 'Paper Trade Modu' : 'Islem Basarili!'}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 20 }}>
+              {result?.mode === 'paper'
+                ? 'Gercek emir gonderilmedi. Production guvenlik guard aktif.'
+                : `Emir ID: ${result?.orderId || 'N/A'}`}
+            </div>
             <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 16, marginBottom: 20, textAlign: 'left' }}>
-              {[['Borsa', exInfo?.name || ''], ['Varlik', symbol], ['Islem', side === 'buy' ? 'ALIS' : 'SATIS'], ['Durum', result?.status || 'NEW']].map(([k, v]) => (
+              {[['Borsa', exInfo?.name || ''], ['Varlik', symbol], ['Islem', side === 'buy' ? 'ALIS' : 'SATIS'], ['Durum', result?.status || (result?.mode === 'paper' ? 'DRY-RUN' : 'NEW')]].map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
                   <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{k}</span>
                   <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{v}</span>

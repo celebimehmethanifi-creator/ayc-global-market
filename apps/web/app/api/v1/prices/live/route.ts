@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const CG_KEY = process.env.COINGECKO_API_KEY || "CG-MoxLLAjSA3r2JHXanw9fotD5";
-const FH_KEY = process.env.FINNHUB_API_KEY   || "d7pp429r01qosaapdudgd7pp429r01qosaapdue0";
+const CG_KEY = process.env.COINGECKO_API_KEY || "";
+const FH_KEY = process.env.FINNHUB_API_KEY || "";
 
 interface PD { price: number; chg: number; source: string; }
 const safe = (v: unknown): number => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -36,8 +36,10 @@ const CG_MAP: Record<string,string> = {
 
 async function fetchCG(): Promise<Record<string,PD>> {
   try {
+    const headers: Record<string, string> = { "Accept": "application/json" };
+    if (CG_KEY) headers["x-cg-demo-api-key"] = CG_KEY;
     const r = await sf(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${CG_IDS}&vs_currencies=usd&include_24hr_change=true`, { headers: { "x-cg-demo-api-key": CG_KEY } }
+      `https://api.coingecko.com/api/v3/simple/price?ids=${CG_IDS}&vs_currencies=usd&include_24hr_change=true`, { headers }
     );
     if (!r?.ok) return {};
     const d = await r.json();
@@ -54,6 +56,7 @@ async function fetchCG(): Promise<Record<string,PD>> {
 const FH_STOCK_SYMS = ["AAPL","TSLA","NVDA","MSFT","AMZN","META","GOOGL","AMD","NFLX","JPM","V","WMT","BABA"];
 
 async function fetchFinnhubStocks(): Promise<Record<string,PD>> {
+  if (!FH_KEY) return {};
   const out: Record<string,PD> = {};
   await Promise.allSettled(FH_STOCK_SYMS.map(async (sym) => {
     try {
@@ -75,6 +78,7 @@ const FH_ETF_MAP: [string, string][] = [
 ];
 
 async function fetchIndices(): Promise<Record<string,PD>> {
+  if (!FH_KEY) return {};
   const out: Record<string,PD> = {};
   await Promise.allSettled(FH_ETF_MAP.map(async ([etf, key]) => {
     try {
@@ -151,9 +155,10 @@ async function fetchStooq(sym: string): Promise<PD | null> {
   } catch { return null; }
 }
 
-const AV_KEY = process.env.ALPHAVANTAGE_API_KEY || "63T2IM69L6OSSR51";
+const AV_KEY = process.env.ALPHAVANTAGE_API_KEY || "";
 
 async function fetchAV(symbol: string): Promise<PD | null> {
+  if (!AV_KEY) return null;
   try {
     const r = await sf(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${AV_KEY}`, {}, 10000);
     if (!r?.ok) return null;
@@ -211,6 +216,7 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
   const upper = sym.toUpperCase().replace("USDT","").replace("/","");
   if (COMMODITY_SET[upper]) { const stooqR = await fetchStooq(COMMODITY_SET[upper]); if (stooqR) return stooqR; return fetchAV(upper); }
   if (STOCK_SET.has(upper)) {
+    if (!FH_KEY) return null;
     try {
       const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${upper}&token=${FH_KEY}`, {}, 6000);
       if (r?.ok) {
@@ -223,7 +229,10 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
   const cgId = CG_ID_MAP[upper];
   if (cgId) {
     try {
-      const r = await sf(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true&x_cg_demo_api_key=${CG_KEY}`, {}, 7000);
+      const cgUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`;
+      const headers: Record<string, string> = {};
+      if (CG_KEY) headers["x-cg-demo-api-key"] = CG_KEY;
+      const r = await sf(cgUrl, { headers }, 7000);
       if (r?.ok) {
         const d = await r.json();
         if (d[cgId]?.usd > 0) return { price: d[cgId].usd, chg: safe(d[cgId].usd_24h_change), source: "coingecko" };
@@ -240,6 +249,7 @@ async function fetchOnDemand(sym: string): Promise<PD | null> {
     return null;
   }
   try {
+    if (!FH_KEY) return null;
     const r = await sf(`https://finnhub.io/api/v1/quote?symbol=${upper}&token=${FH_KEY}`, {}, 4000);
     if (r?.ok) {
       const d = await r.json();
