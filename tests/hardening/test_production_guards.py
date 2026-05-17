@@ -831,7 +831,6 @@ def test_professional_chart_rotate_hint_is_temporary():
     assert "setTimeout(() => setShowRotateHint(false), 2800)" in text
 
 
-<<<<<<< HEAD
 # ──────────────────────────────────────────────────────────────────────────────
 # P1-H: Hardcoded static signal route must be disabled in production
 # ──────────────────────────────────────────────────────────────────────────────
