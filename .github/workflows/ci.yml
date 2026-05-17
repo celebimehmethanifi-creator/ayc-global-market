@@ -1,21 +1,24 @@
-﻿name: NEURA CI
+name: NEURA CI
 
 on:
   push:
-    branches: [main, develop, hardening-production-readiness]
+    branches:
+      - main
+      - develop
+      - hardening-production-readiness
+      - security/p0-production-containment
+      - feature/p0-live-truth-mobile-fix
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
+      - hardening-production-readiness
+  workflow_dispatch:
 
 jobs:
   web-quality:
     name: Web lint + type-check + build
     runs-on: ubuntu-latest
-    env:
-      NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://api.example.com
-      NEXT_PUBLIC_SITE_URL: https://app.example.com
-      JWT_SECRET: ci_jwt_secret_please_rotate_32_chars_minimum
-      EXCHANGE_CREDENTIALS_KEY: ci_exchange_secret_please_rotate_32_chars
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,26 +28,62 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+      - name: Generate test secrets
+        shell: bash
+        run: |
+          echo "JWT_SECRET=$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(32))
+PY
+)" >> "$GITHUB_ENV"
+          echo "EXCHANGE_CREDENTIALS_KEY=$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(32))
+PY
+)" >> "$GITHUB_ENV"
       - name: pnpm install
         run: pnpm install --frozen-lockfile
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          NEXT_PUBLIC_SITE_URL: https://app.example.com
       - name: web lint
         run: pnpm --filter neura-web lint
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          NEXT_PUBLIC_SITE_URL: https://app.example.com
       - name: web type-check
         run: pnpm --filter neura-web type-check
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          NEXT_PUBLIC_SITE_URL: https://app.example.com
       - name: web build
         run: pnpm --filter neura-web build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          NEXT_PUBLIC_SITE_URL: https://app.example.com
 
   backend-tests:
     name: Pytest backend tests
     runs-on: ubuntu-latest
     env:
-      SECRET_KEY: ci_gateway_secret_please_rotate_32_chars
       ENVIRONMENT: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Generate test secrets
+        shell: bash
+        run: |
+          echo "SECRET_KEY=$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(32))
+PY
+)" >> "$GITHUB_ENV"
       - name: Install backend deps
         run: |
           python -m pip install --upgrade pip

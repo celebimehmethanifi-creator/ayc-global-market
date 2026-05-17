@@ -869,3 +869,184 @@ def test_portfolio_positions_route_exposes_persistent_false_and_storage_warning(
     assert 'persistent: false' in text
     assert 'storage_warning' in text
     assert 'in-memory' in text.lower()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F1: mock_router MUST have production guard in gateway/main.py
+# ──────────────────────────────────────────────────────────────────────────────
+
+GATEWAY_ENV_EXAMPLE = ROOT / "services" / "gateway" / ".env.example"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def test_mock_router_not_unconditionally_mounted():
+    src = read_text(GATEWAY_MAIN)
+    # Must have the guard function
+    assert "AYC_ENABLE_MOCK_ROUTES" in src, "Missing AYC_ENABLE_MOCK_ROUTES guard in gateway/main.py"
+    assert "_mock_routes_enabled" in src, "Missing _mock_routes_enabled() in gateway/main.py"
+    # The unconditional mount pattern must not exist
+    assert "app.include_router(mock_router,    prefix=PREFIX)" not in src, \
+        "mock_router mounted unconditionally at module level"
+
+
+def test_mock_routes_disabled_in_production_by_guard_function():
+    src = read_text(GATEWAY_MAIN)
+    assert "_is_production()" in src or "_is_production" in src
+    # The guard must check both AYC_ENABLE_MOCK_ROUTES and production status
+    assert "AYC_ENABLE_MOCK_ROUTES" in src
+    assert "not _is_production()" in src
+
+
+def test_gateway_is_production_checks_app_env():
+    src = read_text(GATEWAY_MAIN)
+    assert 'APP_ENV' in src, "_is_production() must check APP_ENV"
+    assert 'ENVIRONMENT' in src
+
+
+def test_gateway_health_not_hardcoded_ok():
+    src = read_text(GATEWAY_MAIN)
+    # Must not have the bare hardcoded response
+    assert '{"status":"ok","service":"ayc-global-market","version":"2.1.0"}' not in src
+    # Must report persistent, storage, warnings
+    assert '"persistent"' in src or "persistent" in src
+    assert '"storage"' in src or "storage" in src
+    assert '"warnings"' in src or "warnings" in src
+    assert "mockRoutesEnabled" in src
+
+
+def test_gateway_health_exposes_mock_routes_enabled():
+    src = read_text(GATEWAY_MAIN)
+    assert "mockRoutesEnabled" in src
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F2: signals/live must not return SIGNALS_BASE in production
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_signals_live_production_guard_present():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert "IS_PRODUCTION" in src or "NODE_ENV" in src, "No production guard in signals/live/route.ts"
+    assert "ENABLE_DEV_SIGNALS" in src or "NEXT_PUBLIC_ENABLE_MOCK_SIGNALS" in src
+
+
+def test_signals_live_no_unconditional_signals_base():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    # Old unconditional constant name must not exist
+    assert "const SIGNALS_BASE" not in src, \
+        "SIGNALS_BASE is still the unconditional export constant — rename to DEV_MOCK_SIGNALS_BASE"
+
+
+def test_signals_live_production_path_returns_empty():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert "signals: []" in src, "Production path must return signals: []"
+    assert 'feed_status: "no_signal"' in src
+
+
+def test_signals_live_mock_mode_source_is_dev_mock():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert 'source: "dev-mock-signals"' in src, \
+        "Dev mock path source must be 'dev-mock-signals', not 'ayc-signal-engine-v1'"
+
+
+def test_signals_live_engine_source_not_returned_with_hardcoded_signals():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    # ayc-signal-engine-v1 should only appear in the no_signal production path
+    # It must NOT be paired with DEV_MOCK_SIGNALS_BASE returns
+    # Simplest check: if "DEV_MOCK_SIGNALS_BASE" exists, "ayc-signal-engine-v1"
+    # must not be in the mock return block — we verify via source label
+    assert 'source: "dev-mock-signals"' in src
+    # The old unconditional pairing must not exist
+    assert 'source: "ayc-signal-engine-v1"' not in src or "no_signal" in src
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F3: backend health endpoints must not be hardcoded ok
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_signal_service_health_not_hardcoded_ok():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    # Must not return the old bare dict
+    assert '{"status": "ok", "service": "neura-signal"}' not in src
+    assert "persistent" in src
+    assert "storage" in src
+    assert "warnings" in src
+
+
+def test_memory_cache_has_keys_method():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    assert "async def keys" in src, "_MemoryCache must implement async def keys()"
+
+
+def test_memory_cache_keys_supports_wildcard():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    assert "endswith" in src or "startswith" in src, \
+        "_MemoryCache.keys() must handle wildcard patterns (endswith/startswith)"
+
+
+def test_signal_service_health_reports_is_memory_degraded():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    assert "is_memory" in src or "_MemoryCache" in src, \
+        "Health must distinguish _MemoryCache from real Redis"
+    assert '"degraded"' in src or "'degraded'" in src
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F5 / F4: CI workflow must include security branch and no plaintext creds
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_ci_includes_security_branch_trigger():
+    src = read_text(CI_WORKFLOW)
+    assert "security/p0-production-containment" in src, \
+        "CI workflow must trigger on security/p0-production-containment"
+
+
+def test_ci_has_workflow_dispatch():
+    src = read_text(CI_WORKFLOW)
+    assert "workflow_dispatch" in src, "CI workflow must have workflow_dispatch trigger"
+
+
+def test_ci_no_plaintext_jwt_secret():
+    src = read_text(CI_WORKFLOW)
+    assert "ci_jwt_secret_please_rotate" not in src, \
+        "Plaintext JWT_SECRET found in CI workflow"
+
+
+def test_ci_no_plaintext_gateway_secret():
+    src = read_text(CI_WORKFLOW)
+    assert "ci_gateway_secret_please_rotate" not in src, \
+        "Plaintext SECRET_KEY found in CI workflow"
+
+
+def test_ci_no_plaintext_exchange_key():
+    src = read_text(CI_WORKFLOW)
+    assert "ci_exchange_secret_please_rotate" not in src, \
+        "Plaintext EXCHANGE_CREDENTIALS_KEY found in CI workflow"
+
+
+def test_ci_uses_runtime_secret_generation():
+    src = read_text(CI_WORKFLOW)
+    assert "secrets.token_hex" in src or "openssl" in src or "secrets." in src, \
+        "CI must generate secrets at runtime (secrets.token_hex or openssl)"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# .env.example: no fake non-empty SECRET_KEY placeholder
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_gateway_env_example_no_fake_secret_key():
+    src = read_text(GATEWAY_ENV_EXAMPLE)
+    assert "ayc-super-secret-key-change-in-production" not in src, \
+        "services/gateway/.env.example contains a non-empty fake SECRET_KEY"
+
+
+def test_gateway_env_example_secret_key_is_empty_or_placeholder():
+    src = read_text(GATEWAY_ENV_EXAMPLE)
+    for line in src.splitlines():
+        if line.strip().startswith("SECRET_KEY="):
+            value = line.split("=", 1)[1].strip()
+            # Must be empty, a generate instruction, or a ${{ secrets.* }} reference
+            assert (
+                value == ""
+                or value.startswith("<")
+                or value.startswith("${{")
+            ), f"SECRET_KEY must be empty or a generate-instruction placeholder, got: {value!r}"
+            break
