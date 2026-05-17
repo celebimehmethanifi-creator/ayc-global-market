@@ -919,7 +919,7 @@ export default function DashboardPage() {
 
 
 
-  const signals: Signal[] = (signalData?.signals as Signal[] || MOCK_SIGNALS).map(s => {
+  const signals: Signal[] = (Array.isArray(signalData?.signals) ? signalData.signals as Signal[] : []).map(s => {
 
 
 
@@ -967,7 +967,7 @@ export default function DashboardPage() {
 
 
 
-  const causal: CausalCard = causalData || MOCK_CAUSAL;
+  const causal: CausalCard | null = (causalData as CausalCard) ?? null;
 
 
 
@@ -1350,6 +1350,12 @@ export default function DashboardPage() {
 
 
 
+          ) : signals.length === 0 ? (
+
+            <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:24,textAlign:"center"}}>
+              <p style={{fontSize:12,color:"var(--t3)",margin:0}}>Aktif sinyal yok, piyasa izleniyor.</p>
+            </div>
+
           ) : (
 
 
@@ -1398,7 +1404,13 @@ export default function DashboardPage() {
 
 
 
-          <CausalSection data={causal}/>
+          {causal ? (
+            <CausalSection data={causal}/>
+          ) : (
+            <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:20}}>
+              <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,margin:0}}>Bu varlık için anlamlı hareket verisi henüz oluşmadı.</p>
+            </div>
+          )}
 
 
 
