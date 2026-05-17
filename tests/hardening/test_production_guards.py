@@ -827,3 +827,45 @@ def test_professional_chart_rotate_hint_is_temporary():
     text = read_text(WEB_PROFESSIONAL_CHART)
     assert "showRotateHint" in text
     assert "setTimeout(() => setShowRotateHint(false), 2800)" in text
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# P1-H: Hardcoded static signal route must be disabled in production
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_static_signals_route_is_guarded_by_production_flag():
+    text = read_text(WEB_SIGNALS_ROUTE)
+    # Must not blindly export hardcoded SIGNALS as the response
+    assert 'const SIGNALS = [' not in text
+    # Must have production guard
+    assert 'IS_PRODUCTION' in text
+    assert 'ENABLE_DEV_SIGNALS' in text
+    # In production path returns empty items
+    assert 'source: "static_disabled"' in text
+    assert 'items: []' in text
+    # Dev array must be under a clearly-named dev variable
+    assert 'STATIC_DEV_SIGNALS' in text
+
+
+def test_static_signals_route_warns_to_use_live_endpoint():
+    text = read_text(WEB_SIGNALS_ROUTE)
+    assert '/api/v1/signals/live' in text
+    assert 'warning' in text
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# P1-J: In-memory alarm and position stores must disclose non-persistence
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_alarms_route_exposes_persistent_false_and_storage_warning():
+    text = read_text(WEB_ALARMS_ROUTE)
+    assert 'persistent: false' in text
+    assert 'storage_warning' in text
+    assert 'in-memory' in text.lower()
+
+
+def test_portfolio_positions_route_exposes_persistent_false_and_storage_warning():
+    text = read_text(WEB_PORTFOLIO_POSITIONS)
+    assert 'persistent: false' in text
+    assert 'storage_warning' in text
+    assert 'in-memory' in text.lower()

@@ -11,7 +11,12 @@ export async function GET(req: NextRequest) {
   const payload = await getUserFromAuthHeader(req);
   const userId = payload?.sub || "guest";
   const alarms = globalThis.__AYC_ALARMS.filter((a: any) => a.user_id === userId);
-  return NextResponse.json({ alarms, count: alarms.length });
+  return NextResponse.json({
+    alarms,
+    count: alarms.length,
+    persistent: false,
+    storage_warning: "Alarm state is stored in-memory and will be lost on cold start or redeploy.",
+  });
 }
 
 export async function POST(req: NextRequest) {
