@@ -1050,3 +1050,87 @@ def test_gateway_env_example_secret_key_is_empty_or_placeholder():
                 or value.startswith("${{")
             ), f"SECRET_KEY must be empty or a generate-instruction placeholder, got: {value!r}"
             break
+
+# ──────────────────────────────────────────────────────────────────────────────
+# P0: CoinGecko API key must not have a hardcoded fallback in source
+# ──────────────────────────────────────────────────────────────────────────────
+
+COINGECKO_FETCHER = ROOT / "services" / "data-service" / "fetchers" / "coingecko.py"
+
+
+def test_coingecko_fetcher_no_hardcoded_key():
+    src = read_text(COINGECKO_FETCHER)
+    assert "CG-" not in src, \
+        "Hardcoded CoinGecko API key (CG- prefix) found in coingecko.py"
+
+
+def test_coingecko_fetcher_no_literal_fallback():
+    src = read_text(COINGECKO_FETCHER)
+    # os.environ.get("COINGECKO_API_KEY", "<non-empty-value>") is forbidden.
+    # Precise pattern: environ.get( "COINGECKO_API_KEY" , " <4+ chars> " )
+    import re
+    pattern = re.compile(
+        r'environ\.get\(\s*["\']COINGECKO_API_KEY["\'],\s*["\'][^"\']{4,}["\']'
+    )
+    assert not pattern.search(src), \
+        "COINGECKO_API_KEY has a non-empty literal fallback in coingecko.py"
+
+
+def test_coingecko_fetcher_empty_string_fallback_only():
+    src = read_text(COINGECKO_FETCHER)
+    # Allowed: os.environ.get("COINGECKO_API_KEY", "").strip() or similar
+    assert 'os.environ.get("COINGECKO_API_KEY", "")' in src or \
+           "os.environ.get('COINGECKO_API_KEY', '')" in src, \
+        "COINGECKO_API_KEY must use empty-string fallback"
+
+
+def test_coingecko_fetcher_header_is_conditional():
+    src = read_text(COINGECKO_FETCHER)
+    # The x-cg-demo-api-key header must only be added when key is non-empty
+    assert "x-cg-demo-api-key" in src, "Header reference missing from coingecko.py"
+    # The unconditional pattern: headers = {"x-cg-demo-api-key": COINGECKO_KEY}
+    # must not exist at module level or unconditionally inside the function
+    import re
+    unconditional = re.compile(
+        r'headers\s*=\s*\{[^}]*"x-cg-demo-api-key"\s*:\s*COINGECKO_KEY[^}]*\}'
+    )
+    assert not unconditional.search(src), \
+        "x-cg-demo-api-key header is set unconditionally (even when key is empty)"
+
+
+def test_coingecko_fetcher_conditional_helper_exists():
+    src = read_text(COINGECKO_FETCHER)
+    # Must have a helper or inline guard that checks key before adding header
+    assert ("if COINGECKO_KEY" in src or "if CG_KEY" in src or
+            "_coingecko_headers" in src), \
+        "No conditional guard found for x-cg-demo-api-key header in coingecko.py"
+
+
+def test_coingecko_no_cg_prefix_anywhere_in_data_service():
+    """CG- prefixed key must not appear anywhere in data-service source."""
+    data_service_dir = ROOT / "services" / "data-service"
+    for py_file in data_service_dir.rglob("*.py"):
+        src = py_file.read_text(encoding="utf-8")
+        assert "CG-" not in src, \
+            f"CG- key prefix found in {py_file.relative_to(ROOT)}"
+
+
+def test_other_provider_keys_have_no_literal_fallback():
+    """FINNHUB, TWELVEDATA, FMP, CMC, ALPHAVANTAGE must not have literal key fallbacks."""
+    import re
+    # Pattern: env.get("KEY_NAME", "<non-empty-value>")
+    patterns = [
+        (re.compile(r'FINNHUB_API_KEY["\s,]+["\'][A-Za-z0-9]{8,}["\']'), "FINNHUB_API_KEY"),
+        (re.compile(r'TWELVEDATA_API_KEY["\s,]+["\'][A-Za-z0-9]{8,}["\']'), "TWELVEDATA_API_KEY"),
+        (re.compile(r'FMP_API_KEY["\s,]+["\'][A-Za-z0-9]{8,}["\']'), "FMP_API_KEY"),
+        (re.compile(r'COINMARKETCAP_API_KEY["\s,]+["\'][A-Za-z0-9]{8,}["\']'), "COINMARKETCAP_API_KEY"),
+        (re.compile(r'ALPHAVANTAGE_API_KEY["\s,]+["\'][A-Za-z0-9]{8,}["\']'), "ALPHAVANTAGE_API_KEY"),
+    ]
+    for search_dir in [ROOT / "services", ROOT / "apps" / "web" / "app" / "api"]:
+        if not search_dir.exists():
+            continue
+        for py_file in list(search_dir.rglob("*.py")) + list(search_dir.rglob("*.ts")):
+            src = py_file.read_text(encoding="utf-8")
+            for pattern, key_name in patterns:
+                assert not pattern.search(src), \
+                    f"Literal key fallback for {key_name} found in {py_file.relative_to(ROOT)}"
