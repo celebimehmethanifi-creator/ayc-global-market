@@ -150,13 +150,19 @@ export function buildDataStatusMeta(args: {
   }
   if (dataStatus === "api_error") volumeStatus = "api_error";
 
+  // When there is no actual price data, do not surface a misleading provider label.
+  const finalSourceLabel = args.hasPrice
+    ? getSourceLabel(source, locale)
+    : "—";
+  const finalUpdatedAt = args.hasPrice ? (args.updatedAt || null) : null;
+
   return {
     source,
-    sourceLabel: getSourceLabel(source, locale),
+    sourceLabel: finalSourceLabel,
     dataStatus,
     dataStatusLabel: getStatusLabel(dataStatus, locale),
     delayMinutes,
-    updatedAt: args.updatedAt || null,
+    updatedAt: finalUpdatedAt,
     hasVolume: args.hasVolume,
     volumeStatus,
     volumeStatusLabel: getStatusLabel(volumeStatus, locale),

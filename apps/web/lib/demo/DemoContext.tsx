@@ -6,7 +6,8 @@ import React, {
 import { usePrices } from "@/lib/prices/PriceContext";
 
 const DEMO_INITIAL = 10000;          // $10,000 virtual USD
-const STORAGE_KEY  = "ayc_demo_v1";
+const STORAGE_KEY  = "ayc_demo_v2";  // bumped from v1: drop pre-seeded portfolio fixtures
+const LEGACY_KEYS  = ["ayc_demo_v1", "ayc_portfolio", "ayc_portfolio_seed"];
 
 /* ─── Types ────────────────────────────────────────────────── */
 export interface DemoTrade {
@@ -64,11 +65,30 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [demo, setDemo] = useState<DemoState>(initState);
   const prices = usePrices();
 
-  /* load from localStorage */
+  /* load from localStorage + clear legacy seeds */
   useEffect(() => {
     try {
+      // Drop legacy keys (pre-seeded portfolio with BTCUSDT/ETHUSDT/NVDA/AAPL/XAUUSD)
+      for (const k of LEGACY_KEYS) {
+        try { localStorage.removeItem(k); } catch {}
+      }
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setDemo(JSON.parse(raw));
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      // Only keep trades that originated from a real demo order
+      const openTrades = Array.isArray(parsed?.openTrades)
+        ? parsed.openTrades.filter((t: any) => t && typeof t.id === "string" && t.id.startsWith("dt_"))
+        : [];
+      const closedTrades = Array.isArray(parsed?.closedTrades)
+        ? parsed.closedTrades.filter((t: any) => t && typeof t.id === "string" && t.id.startsWith("dt_"))
+        : [];
+      setDemo({
+        balance: typeof parsed?.balance === "number" && Number.isFinite(parsed.balance) ? parsed.balance : DEMO_INITIAL,
+        initialBalance: DEMO_INITIAL,
+        openTrades,
+        closedTrades,
+        createdAt: typeof parsed?.createdAt === "number" ? parsed.createdAt : Date.now(),
+      });
     } catch {}
   }, []);
 

@@ -116,7 +116,7 @@ function normalizeReport(rawInput: unknown, fallbackSymbol: string, fallbackDire
       ? (raw.dataQuality as DataQuality)
       : (scenarios[0]?.dataQuality || "insufficient"),
     keyInsight: safeText(raw.key_insight ?? raw.keyInsight, "Veri sınırlı, analiz güveni düşebilir."),
-    generatedAt: safeText(raw.generatedAt, new Date().toISOString()),
+    generatedAt: typeof raw.generatedAt === "string" && raw.generatedAt.trim() !== "" ? raw.generatedAt : "",
     disclaimer: safeText(raw.disclaimer, "Bu içerik yatırım tavsiyesi değildir."),
     scenarios,
   };
@@ -211,7 +211,16 @@ function ScenarioCard({
   const recommendationLabel = fallbackMode
     ? (locale === "en" ? "EDU RECOMMENDED" : "EĞİTİM ÖNERİSİ")
     : (locale === "en" ? "RECOMMENDED" : "ÖNERİLEN");
-  const resultValue = insufficient ? (locale === "en" ? "Insufficient data" : "Veri yetersiz") : (scenario.resultLabel || "Nötr");
+  // "Yüksek Kar" and profit labels only show when data is reliable and all values are finite
+  const canShowResultLabel =
+    !insufficient && !fallbackMode &&
+    scenario.targetPrice != null && scenario.stopLoss != null &&
+    scenario.riskReward != null && scenario.probability != null;
+  const resultValue = canShowResultLabel
+    ? (scenario.resultLabel || "Nötr")
+    : insufficient
+      ? noDataText
+      : estimatedText;
 
   return (
     <div
@@ -334,20 +343,26 @@ export default function ScenarioPage() {
     const confidence = parseStrictNumberInput(form.confidence);
     const volatility = parseStrictNumberInput(form.volatility);
 
-    if (entryPrice == null || entryPrice <= 0) {
+    if (entryPrice == null || !Number.isFinite(entryPrice) || entryPrice <= 0) {
       next.entryPrice = lang === "en" ? "Enter a valid entry price." : "Geçerli giriş fiyatı girin.";
     }
-    if (amount == null || amount <= 0) {
+    if (amount == null || !Number.isFinite(amount) || amount <= 0) {
       next.amount = lang === "en" ? "Enter a valid amount" : "Geçerli miktar girin";
     }
-    if (leverage == null || leverage <= 0) {
-      next.leverage = lang === "en" ? "Leverage must be a valid number." : "Kaldıraç geçerli sayı olmalıdır.";
+    // Leverage: must be finite and within 1..20 (matches typical exchange retail limit)
+    if (leverage == null || !Number.isFinite(leverage) || leverage < 1 || leverage > 20) {
+      next.leverage = lang === "en"
+        ? "Leverage must be between 1 and 20."
+        : "Kaldıraç 1 ile 20 arasında olmalıdır.";
     }
-    if (confidence == null || confidence < 0 || confidence > 100) {
+    if (confidence == null || !Number.isFinite(confidence) || confidence < 0 || confidence > 100) {
       next.confidence = lang === "en" ? "Confidence must be between 0 and 100." : "Güven yüzdesi 0-100 arasında olmalıdır.";
     }
-    if (volatility == null || volatility < 0) {
-      next.volatility = lang === "en" ? "Volatility must be a valid number." : "Volatilite geçerli sayı olmalıdır.";
+    // Volatility: must be finite and within 0..100 (percent)
+    if (volatility == null || !Number.isFinite(volatility) || volatility < 0 || volatility > 100) {
+      next.volatility = lang === "en"
+        ? "Volatility must be between 0 and 100."
+        : "Volatilite 0 ile 100 arasında olmalıdır.";
     }
     return next;
   };
@@ -398,7 +413,7 @@ export default function ScenarioPage() {
       keyInsight: lang === "en"
         ? "Run simulation to see realistic PnL, drawdown and Kelly outputs."
         : "Gerçekçi PnL, drawdown ve Kelly çıktıları için simülasyonu çalıştırın.",
-      generatedAt: new Date().toISOString(),
+      generatedAt: "",
       disclaimer: lang === "en"
         ? "This content is not investment advice."
         : "Bu içerik yatırım tavsiyesi değildir.",
@@ -421,7 +436,12 @@ export default function ScenarioPage() {
     }));
   }, [report.dataQuality, report.recommended, report.scenarios]);
 
-  const generatedAtLabel = new Date(report.generatedAt).toLocaleString(lang === "en" ? "en-US" : "tr-TR");
+  const generatedAtLabel = (() => {
+    if (!report.generatedAt) return "—";
+    const date = new Date(report.generatedAt);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString(lang === "en" ? "en-US" : "tr-TR");
+  })();
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -502,8 +522,8 @@ export default function ScenarioPage() {
         <div style={{ fontSize: 11, color: "var(--warn)", fontWeight: 700, marginBottom: 4 }}>
           {qualityBannerText(report.dataQuality, lang)}
         </div>
-        <div style={{ fontSize: 10, color: "var(--t3)" }}>
-          {lang === "en" ? "Generated" : "Üretim zamanı"}: {generatedAtLabel}
+        <div style={{ fontSize: 10, color: "var(--t3)" }} suppressHydrationWarning>
+          {lang === "en" ? "Generated" : "Üretim zamanı"}: <span suppressHydrationWarning>{generatedAtLabel}</span>
         </div>
       </div>
 

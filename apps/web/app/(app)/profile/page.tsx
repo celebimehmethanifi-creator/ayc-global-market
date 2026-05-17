@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { clearAuth, exitGuestDemo, isGuestDemo } from "@/lib/auth";
 import {
   User, Shield, Bell, CreditCard, Globe, ChevronRight,
   Trash2, Check, Lock, Star, Zap, Crown, LogOut
@@ -43,7 +45,14 @@ const RISK_PROFILE_CONFIG = {
 export default function ProfilePage() {
   const { locale, setLocale, t } = useI18n();
   const qc = useQueryClient();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
+
+  function handleLogout() {
+    clearAuth();
+    exitGuestDemo();
+    router.push("/signin");
+  }
   const [displayName, setDisplayName] = useState("");
   const [language, setLanguage] = useState(locale);
   const [riskLevel, setRiskLevel] = useState("medium");
@@ -154,14 +163,14 @@ export default function ProfilePage() {
         ))}
 
         <div style={{height:1,background:"rgba(255,255,255,0.05)",margin:"4px 0"}} />
-        <button style={{
+        <button onClick={handleLogout} style={{
           display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
           borderRadius:12,border:"none",cursor:"pointer",
           background:"rgba(239,68,68,0.05)",fontFamily:"inherit",
           color:"#ef4444",fontSize:13,fontWeight:600
         }}>
           <LogOut size={15} color="#ef4444" />
-          {t("auth.logout")}
+          {isGuestDemo() ? "Oturumu Kapat" : t("auth.logout")}
         </button>
       </div>
 

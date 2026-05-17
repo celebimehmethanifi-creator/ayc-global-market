@@ -8,6 +8,7 @@ on:
       - hardening-production-readiness
       - security/p0-production-containment
       - feature/p0-live-truth-mobile-fix
+      - qa/product-truth-merge-check
   pull_request:
     branches:
       - main
@@ -36,7 +37,6 @@ jobs:
       - name: pnpm install
         run: pnpm install --frozen-lockfile
         env:
-          NODE_ENV: production
           NEXT_PUBLIC_API_URL: https://api.example.com
           NEXT_PUBLIC_SITE_URL: https://app.example.com
       - name: web lint
