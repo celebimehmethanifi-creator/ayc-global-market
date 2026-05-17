@@ -713,9 +713,11 @@ def test_scenario_validation_blocks_non_numeric_inputs_and_clears_cards():
     assert "setReportData(null)" in page_text
     assert "Geçerli giriş fiyatı girin." in page_text
     assert "Geçerli miktar girin" in page_text
-    assert "Kaldıraç geçerli sayı olmalıdır." in page_text
+    # Leverage must now have an upper bound (1..20) to block leverage=123423 attacks.
+    assert "Kaldıraç 1 ile 20 arasında olmalıdır." in page_text
     assert "Güven yüzdesi 0-100 arasında olmalıdır." in page_text
-    assert "Volatilite geçerli sayı olmalıdır." in page_text
+    # Volatility must now have an upper bound (0..100) to block volatility=3235235 attacks.
+    assert "Volatilite 0 ile 100 arasında olmalıdır." in page_text
     assert "parseStrictNumericInput" in api_text
 
 
@@ -1134,3 +1136,92 @@ def test_other_provider_keys_have_no_literal_fallback():
             for pattern, key_name in patterns:
                 assert not pattern.search(src), \
                     f"Literal key fallback for {key_name} found in {py_file.relative_to(ROOT)}"
+
+
+# ── Product truth: signals live API guard ─────────────────────────────────────
+
+def test_signals_live_api_does_not_use_hardcoded_signals_in_production():
+    text = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert "NEXT_PUBLIC_ENABLE_MOCK_SIGNALS" in text
+    assert "ENABLE_DEV_SIGNALS" in text
+    assert "signals: []" in text
+    assert "isMock: true" in text
+    assert 'source: "dev-mock-signals"' in text
+    assert "catch(() => ({ signals: SIGNALS_BASE }))" not in text
+    assert "data?.signals || SIGNALS_BASE" not in text
+
+
+def test_signals_live_api_production_guard_uses_mock_signals_enabled():
+    text = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    # Guard function must exist (replaces IS_DEV_MOCK)
+    assert "_mockSignalsEnabled" in text
+    assert "if (!_mockSignalsEnabled())" in text
+    assert 'feed_status: "no_signal"' in text
+
+
+# ── Product truth: dashboard mock fallback guard ───────────────────────────────
+
+def test_dashboard_does_not_use_mock_signals_as_production_fallback():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert "|| MOCK_SIGNALS" not in text
+    assert "?? MOCK_SIGNALS" not in text
+    assert "Array.isArray(signalData?.signals)" in text
+    assert "Aktif sinyal yok, piyasa izleniyor." in text
+
+
+def test_dashboard_does_not_use_mock_causal_as_production_fallback():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert "|| MOCK_CAUSAL" not in text
+    assert "?? MOCK_CAUSAL" not in text
+    assert "CausalCard | null" in text
+    assert "Bu varlık için anlamlı hareket verisi henüz oluşmadı." in text
+
+
+def test_dashboard_active_signal_count_is_from_actionable_stages_only():
+    text = read_text(WEB_DASHBOARD_PAGE)
+    assert "ACTIONABLE_STAGES" in text
+    assert '"TRIGGER"' in text
+    assert '"SETUP"' in text
+    assert '"ACTIVE"' in text
+    assert 'ACTIONABLE_STAGES.has("WATCH")' not in text
+    assert 'ACTIONABLE_STAGES.has("NONE")' not in text
+
+
+# ── Product truth: scenario backend validation ────────────────────────────────
+
+def test_scenario_backend_rejects_out_of_range_leverage():
+    text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    assert "rawLeverage > 20" in text
+    assert "rawLeverage < 1" in text
+    assert "const leverage = clamp(rawLeverage, 1, 20)" not in text
+    assert "const leverage = rawLeverage;" in text
+    assert "Kaldıraç 1 ile 20 arasında olmalıdır." in text
+
+
+def test_scenario_backend_rejects_out_of_range_volatility():
+    text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    assert "rawVolatility > 100" in text
+    assert "const volatility = Math.max(0, rawVolatility)" not in text
+    assert "const volatility = rawVolatility;" in text
+    assert "Volatilite 0 ile 100 arasında olmalıdır." in text
+
+
+def test_scenario_analysis_fetch_errors_return_insufficient_not_fallback():
+    text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    resolve_start = text.find("async function resolveAssetDataQuality")
+    assert resolve_start != -1, "resolveAssetDataQuality not found"
+    next_fn = text.find("\nasync function ", resolve_start + 1)
+    if next_fn == -1:
+        next_fn = text.find("\nexport async function ", resolve_start + 1)
+    resolve_body = text[resolve_start:next_fn] if next_fn != -1 else text[resolve_start:]
+    assert 'return "fallback"' not in resolve_body
+    assert 'return "insufficient"' in resolve_body
+
+
+def test_scenario_fallback_data_quality_nulls_numeric_fields_to_block_fake_profit():
+    text = read_text(ROOT / "apps" / "web" / "app" / "api" / "v1" / "intelligence" / "scenario" / "route.ts")
+    assert "scenario.expectedPnlPct = null" in text
+    assert "scenario.riskReward = null" in text
+    assert "scenario.kellyFraction = null" in text
+    assert "scenario.probability = null" in text
+    assert 'scenario.resultLabel = "Tahmini";' in text

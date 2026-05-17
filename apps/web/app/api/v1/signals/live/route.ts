@@ -167,6 +167,7 @@ export async function GET(req: NextRequest) {
     return {
       ...s, cgId: undefined, yfSym: undefined, price, change_24h: +(priceData.chg).toFixed(2),
       entry_price: price, stop_loss, take_profit, created_at: now,
+      isMock: true,
     };
   });
 

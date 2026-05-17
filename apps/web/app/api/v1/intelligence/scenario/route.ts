@@ -80,12 +80,12 @@ async function resolveAssetDataQuality(
       req.url,
     );
     const response = await fetch(analysisUrl.toString(), { cache: "no-store" });
-    if (!response.ok) return "fallback";
+    if (!response.ok) return "insufficient";
     const payload = await response.json().catch(() => null);
     const rawStatus = String(payload?.dataQuality?.status || "");
     return mapQualityToScenario(rawStatus);
   } catch {
-    return "fallback";
+    return "insufficient";
   }
 }
 
@@ -205,21 +205,31 @@ export async function POST(req: NextRequest) {
   if (rawAmount == null || rawAmount <= 0) {
     return NextResponse.json({ ok: false, error: "INVALID_AMOUNT", message: "Geçerli miktar girin." }, { status: 400 });
   }
-  if (rawLeverage == null || rawLeverage <= 0) {
-    return NextResponse.json({ ok: false, error: "INVALID_LEVERAGE", message: "Kaldıraç geçerli sayı olmalıdır." }, { status: 400 });
+  if (
+    rawLeverage == null ||
+    !Number.isFinite(rawLeverage) ||
+    rawLeverage < 1 ||
+    rawLeverage > 20
+  ) {
+    return NextResponse.json({ ok: false, error: "INVALID_LEVERAGE", message: "Kaldıraç 1 ile 20 arasında olmalıdır." }, { status: 400 });
   }
   if (rawConfidence == null || rawConfidence < 0 || rawConfidence > 100) {
     return NextResponse.json({ ok: false, error: "INVALID_CONFIDENCE", message: "Güven yüzdesi 0-100 arasında olmalıdır." }, { status: 400 });
   }
-  if (rawVolatility == null || rawVolatility < 0) {
-    return NextResponse.json({ ok: false, error: "INVALID_VOLATILITY", message: "Volatilite geçerli sayı olmalıdır." }, { status: 400 });
+  if (
+    rawVolatility == null ||
+    !Number.isFinite(rawVolatility) ||
+    rawVolatility < 0 ||
+    rawVolatility > 100
+  ) {
+    return NextResponse.json({ ok: false, error: "INVALID_VOLATILITY", message: "Volatilite 0 ile 100 arasında olmalıdır." }, { status: 400 });
   }
 
   const entryPrice = Math.max(0.00000001, rawEntryPrice);
   const amount = Math.max(0.0001, rawAmount);
-  const leverage = clamp(rawLeverage, 1, 20);
+  const leverage = rawLeverage;
   const confidence = clamp(rawConfidence, 1, 100);
-  const volatility = Math.max(0, rawVolatility);
+  const volatility = rawVolatility;
   const dataQuality = await resolveAssetDataQuality(req, symbol);
 
   if (dataQuality === "insufficient") {
@@ -330,13 +340,12 @@ export async function POST(req: NextRequest) {
 
   if (dataQuality === "fallback") {
     for (const scenario of scenarios) {
+      scenario.expectedPnlPct = null;
+      scenario.expectedPnlAmount = null;
+      scenario.riskReward = null;
+      scenario.probability = null;
+      scenario.kellyFraction = null;
       scenario.resultLabel = "Tahmini";
-      if (scenario.probability != null) {
-        scenario.probability = Math.min(62, Math.max(38, scenario.probability - 10));
-      }
-      if (scenario.kellyFraction != null) {
-        scenario.kellyFraction = Math.min(0.18, scenario.kellyFraction);
-      }
     }
   }
 
