@@ -32,6 +32,9 @@ router = APIRouter(tags=["billing"])
 
 ENV_NAME = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
 IS_PRODUCTION = ENV_NAME in {"production", "prod"}
+ALLOW_INSECURE_WEBHOOKS_FOR_TESTS = (
+    os.environ.get("ALLOW_INSECURE_WEBHOOKS_FOR_TESTS", "").strip().lower() == "true"
+)
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
@@ -323,6 +326,11 @@ async def stripe_webhook(
     else:
         if IS_PRODUCTION:
             raise HTTPException(status_code=503, detail="Stripe webhook secret eksik.")
+        if not ALLOW_INSECURE_WEBHOOKS_FOR_TESTS:
+            raise HTTPException(
+                status_code=401,
+                detail="Stripe webhook secret yok. Test bypass icin ALLOW_INSECURE_WEBHOOKS_FOR_TESTS=true gerekli.",
+            )
         try:
             event = json.loads(body)
         except Exception as exc:
@@ -377,8 +385,14 @@ async def lemonsqueezy_webhook(
         expected = hmac.new(LEMON_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, x_signature):
             raise HTTPException(status_code=400, detail="Lemon webhook imzasi hatali.")
-    elif IS_PRODUCTION:
-        raise HTTPException(status_code=503, detail="Lemon webhook secret eksik.")
+    else:
+        if IS_PRODUCTION:
+            raise HTTPException(status_code=503, detail="Lemon webhook secret eksik.")
+        if not ALLOW_INSECURE_WEBHOOKS_FOR_TESTS:
+            raise HTTPException(
+                status_code=401,
+                detail="Lemon webhook secret yok. Test bypass icin ALLOW_INSECURE_WEBHOOKS_FOR_TESTS=true gerekli.",
+            )
 
     try:
         event = json.loads(body)

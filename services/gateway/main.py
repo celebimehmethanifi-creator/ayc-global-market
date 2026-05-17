@@ -1,5 +1,6 @@
 ﻿"""AYC Global Market - API Gateway v2"""
 from __future__ import annotations
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -7,6 +8,8 @@ from database import init_db
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _env = Path(__file__).parent / ".env"
 if _env.exists():
@@ -33,8 +36,20 @@ from billing_router import router as billing_router
 
 
 def _is_production() -> bool:
-    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
-    return env_name in {"production", "prod"}
+    env = (
+        os.getenv("APP_ENV")
+        or os.getenv("ENVIRONMENT")
+        or os.getenv("NODE_ENV")
+        or ""
+    ).lower()
+    return env in {"production", "prod"}
+
+
+def _mock_routes_enabled() -> bool:
+    return (
+        os.getenv("AYC_ENABLE_MOCK_ROUTES", "").lower() == "true"
+        and not _is_production()
+    )
 
 
 def _parse_cors_origins() -> list[str]:
@@ -89,7 +104,11 @@ app.add_middleware(
 PREFIX = "/api/v1"
 app.include_router(auth_router,         prefix=PREFIX)
 app.include_router(billing_router,      prefix=PREFIX)
-app.include_router(mock_router,    prefix=PREFIX)
+if _mock_routes_enabled():
+    app.include_router(mock_router, prefix=PREFIX)
+    logger.info("Mock routes ENABLED (AYC_ENABLE_MOCK_ROUTES=true, non-production)")
+else:
+    logger.info("Mock routes DISABLED — fake profile/signal/PnL endpoints not mounted")
 app.include_router(brain_router,   prefix=PREFIX)
 app.include_router(consensus_router, prefix=f"{PREFIX}/brain")
 app.include_router(copilot_router,   prefix=PREFIX)   # Real AI: GPT-4o + Claude + Gemini
@@ -205,8 +224,34 @@ async def get_ohlcv(symbol: str, tf: str = "1M"):
 
 
 @app.get("/health")
-async def health():
-    return {"status":"ok","service":"ayc-global-market","version":"2.1.0"}
+async def health(request: Request):
+    redis = getattr(request.app.state, "redis", None)
+    warnings: list[str] = []
+    persistent = False
+    storage = "memory"
+    status = "ok"
+
+    if redis is None:
+        warnings.append("Redis unavailable; using in-memory fallback. State may be lost on restart.")
+        status = "degraded"
+    else:
+        try:
+            await redis.ping()
+            persistent = True
+            storage = "redis"
+        except Exception:
+            warnings.append("Redis ping failed; using in-memory fallback. State may be lost on restart.")
+            status = "degraded"
+
+    return {
+        "status": status,
+        "service": "ayc-global-market",
+        "version": "2.1.0",
+        "persistent": persistent,
+        "storage": storage,
+        "warnings": warnings,
+        "mockRoutesEnabled": _mock_routes_enabled(),
+    }
 
 @app.get("/")
 async def root():

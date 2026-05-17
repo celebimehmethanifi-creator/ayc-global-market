@@ -2,6 +2,7 @@
 
 import importlib.util
 import re
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -20,6 +21,17 @@ WEB_PRICE_CONTEXT = ROOT / "apps" / "web" / "lib" / "prices" / "PriceContext.tsx
 WEB_BILLING_VERIFY = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "verify" / "route.ts"
 WEB_BILLING_CHECKOUT = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "checkout" / "route.ts"
 WEB_BILLING_WEBHOOK = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "webhook" / "route.ts"
+WEB_BILLING_CANCEL = ROOT / "apps" / "web" / "app" / "api" / "v1" / "billing" / "cancel" / "route.ts"
+WEB_ALARMS_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "alarms" / "route.ts"
+WEB_ALARM_ID_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "alarms" / "[id]" / "route.ts"
+WEB_PORTFOLIO_POSITIONS = ROOT / "apps" / "web" / "app" / "api" / "v1" / "portfolio" / "positions" / "route.ts"
+WEB_SOCIAL_VOTE_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "social" / "[id]" / "vote" / "route.ts"
+WEB_SIGNALS_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "route.ts"
+WEB_SIGNALS_FEATURED_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "featured" / "route.ts"
+WEB_SIGNALS_DETAIL_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "[id]" / "route.ts"
+WEB_SIGNALS_STRATEGY_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "[id]" / "strategy" / "route.ts"
+WEB_SIGNALS_LIVE_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "signals" / "live" / "route.ts"
+WEB_NEWS_GLOBAL_ROUTE = ROOT / "apps" / "web" / "app" / "api" / "v1" / "news" / "global" / "route.ts"
 WEB_SUBSCRIBE_SUCCESS = ROOT / "apps" / "web" / "app" / "(app)" / "subscribe" / "success" / "page.tsx"
 WEB_AUTH_ME = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "me" / "route.ts"
 WEB_AUTH_LOGIN = ROOT / "apps" / "web" / "app" / "api" / "v1" / "auth" / "login" / "route.ts"
@@ -60,9 +72,13 @@ AI_SERVICE_MAIN = ROOT / "services" / "ai-service" / "main.py"
 DATA_SERVICE_MAIN = ROOT / "services" / "data-service" / "main.py"
 SIGNAL_SERVICE_MAIN = ROOT / "services" / "signal-service" / "main.py"
 DATA_MARKET_PROXY = ROOT / "services" / "data-service" / "market_proxy.py"
+DATA_COINGECKO_FETCHER = ROOT / "services" / "data-service" / "fetchers" / "coingecko.py"
 
 GATEWAY_AUTH = GATEWAY_DIR / "auth_service.py"
 GATEWAY_BILLING = GATEWAY_DIR / "billing_router.py"
+GATEWAY_MAIN = GATEWAY_DIR / "main.py"
+GATEWAY_MOCK_ROUTER = GATEWAY_DIR / "mock_router.py"
+ROOT_GITIGNORE = ROOT / ".gitignore"
 
 
 def read_text(path: Path) -> str:
@@ -95,7 +111,12 @@ def test_web_login_has_no_hardcoded_master_or_test_accounts():
 
 def test_web_dev_seed_is_explicitly_non_production_only():
     text = read_text(WEB_DEV_AUTH)
-    assert 'if (process.env.NODE_ENV === "production") return null;' in text
+    assert "function isDevSeedEnabled(): boolean" in text
+    assert 'if (process.env.DEMO_SEED_ENABLED === "true") return true;' in text
+    assert 'return process.env.NODE_ENV !== "production";' in text
+    assert "DevOnlyElitePass" not in text
+    assert "DevOnlyProPass" not in text
+    assert "DevOnlyFreePass" not in text
 
 
 def test_web_jwt_secret_has_no_fallback_and_has_min_length_check():
@@ -145,6 +166,67 @@ def test_billing_webhook_signature_checks_are_enforced():
     gateway_text = read_text(GATEWAY_BILLING)
     assert "hmac.compare_digest" in gateway_text
     assert "webhook imzasi" in gateway_text
+
+
+def test_webhook_requires_secret_or_explicit_test_bypass():
+    web_text = read_text(WEB_BILLING_WEBHOOK)
+    assert "ALLOW_INSECURE_WEBHOOKS_FOR_TESTS" in web_text
+    assert "Webhook secret yok. Test bypass" in web_text
+
+    gateway_text = read_text(GATEWAY_BILLING)
+    assert "ALLOW_INSECURE_WEBHOOKS_FOR_TESTS" in gateway_text
+    assert "Test bypass icin ALLOW_INSECURE_WEBHOOKS_FOR_TESTS=true gerekli." in gateway_text
+
+
+def test_web_auth_rejects_unsigned_and_malformed_jwt_tokens():
+    text = read_text(WEB_AUTH_LIB)
+    assert 'const parts = token.split(".");' in text
+    assert "parts.length !== 3" in text
+    assert 'String(header.alg).toLowerCase() === "none"' in text
+
+
+def test_billing_cancel_has_no_fake_production_success_path():
+    text = read_text(WEB_BILLING_CANCEL)
+    assert 'const IS_PRODUCTION = process.env.NODE_ENV === "production";' in text
+    assert "ALLOW_CANCEL_INSECURE_FOR_TESTS" in text
+    assert "Canli abonelik iptali bu endpointte desteklenmiyor" in text
+    assert "Test iptal endpointi kapali" in text
+    assert "Test ortaminda abonelik iptal simule edildi" in text
+
+
+def test_market_proxy_uses_env_keys_and_has_no_hardcoded_provider_secret_assignments():
+    text = read_text(DATA_MARKET_PROXY)
+    assert "COINGECKO_KEY    =" not in text
+    assert "FINNHUB_KEY      =" not in text
+    assert "TWELVEDATA_KEY   =" not in text
+    assert "FMP_KEY          =" not in text
+    assert "CMC_KEY          =" not in text
+    assert "ALPHAVANTAGE_KEY =" not in text
+    assert '_env_api_key("COINGECKO_API_KEY")' in text
+    assert '_env_api_key("TWELVEDATA_API_KEY")' in text
+    assert '_env_api_key("FMP_API_KEY")' in text
+    assert '_env_api_key("FINNHUB_API_KEY")' in text
+
+
+def test_db_files_are_gitignored_and_not_tracked():
+    text = read_text(ROOT_GITIGNORE)
+    for marker in ["*.db", "*.sqlite", "*.sqlite3", "prisma/dev.db", "data/*.db"]:
+        assert marker in text
+
+    result = subprocess.run(
+        ["git", "ls-files", "*.db"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == ""
+
+
+def test_production_paths_do_not_depend_on_legacy_fake_payment_router():
+    main_text = read_text(GATEWAY_MAIN)
+    assert "include_router(billing_router" in main_text
+    assert "payment_router" not in main_text
 
 
 def test_billing_checkout_sends_custom_user_identity_data():
@@ -745,3 +827,226 @@ def test_professional_chart_rotate_hint_is_temporary():
     text = read_text(WEB_PROFESSIONAL_CHART)
     assert "showRotateHint" in text
     assert "setTimeout(() => setShowRotateHint(false), 2800)" in text
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# P1-H: Hardcoded static signal route must be disabled in production
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_static_signals_route_is_guarded_by_production_flag():
+    text = read_text(WEB_SIGNALS_ROUTE)
+    # Must not blindly export hardcoded SIGNALS as the response
+    assert 'const SIGNALS = [' not in text
+    # Must have production guard
+    assert 'IS_PRODUCTION' in text
+    assert 'ENABLE_DEV_SIGNALS' in text
+    # In production path returns empty items
+    assert 'source: "static_disabled"' in text
+    assert 'items: []' in text
+    # Dev array must be under a clearly-named dev variable
+    assert 'STATIC_DEV_SIGNALS' in text
+
+
+def test_static_signals_route_warns_to_use_live_endpoint():
+    text = read_text(WEB_SIGNALS_ROUTE)
+    assert '/api/v1/signals/live' in text
+    assert 'warning' in text
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# P1-J: In-memory alarm and position stores must disclose non-persistence
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_alarms_route_exposes_persistent_false_and_storage_warning():
+    text = read_text(WEB_ALARMS_ROUTE)
+    assert 'persistent: false' in text
+    assert 'storage_warning' in text
+    assert 'in-memory' in text.lower()
+
+
+def test_portfolio_positions_route_exposes_persistent_false_and_storage_warning():
+    text = read_text(WEB_PORTFOLIO_POSITIONS)
+    assert 'persistent: false' in text
+    assert 'storage_warning' in text
+    assert 'in-memory' in text.lower()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F1: mock_router MUST have production guard in gateway/main.py
+# ──────────────────────────────────────────────────────────────────────────────
+
+GATEWAY_ENV_EXAMPLE = ROOT / "services" / "gateway" / ".env.example"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def test_mock_router_not_unconditionally_mounted():
+    src = read_text(GATEWAY_MAIN)
+    # Must have the guard function
+    assert "AYC_ENABLE_MOCK_ROUTES" in src, "Missing AYC_ENABLE_MOCK_ROUTES guard in gateway/main.py"
+    assert "_mock_routes_enabled" in src, "Missing _mock_routes_enabled() in gateway/main.py"
+    # The unconditional mount pattern must not exist
+    assert "app.include_router(mock_router,    prefix=PREFIX)" not in src, \
+        "mock_router mounted unconditionally at module level"
+
+
+def test_mock_routes_disabled_in_production_by_guard_function():
+    src = read_text(GATEWAY_MAIN)
+    assert "_is_production()" in src or "_is_production" in src
+    # The guard must check both AYC_ENABLE_MOCK_ROUTES and production status
+    assert "AYC_ENABLE_MOCK_ROUTES" in src
+    assert "not _is_production()" in src
+
+
+def test_gateway_is_production_checks_app_env():
+    src = read_text(GATEWAY_MAIN)
+    assert 'APP_ENV' in src, "_is_production() must check APP_ENV"
+    assert 'ENVIRONMENT' in src
+
+
+def test_gateway_health_not_hardcoded_ok():
+    src = read_text(GATEWAY_MAIN)
+    # Must not have the bare hardcoded response
+    assert '{"status":"ok","service":"ayc-global-market","version":"2.1.0"}' not in src
+    # Must report persistent, storage, warnings
+    assert '"persistent"' in src or "persistent" in src
+    assert '"storage"' in src or "storage" in src
+    assert '"warnings"' in src or "warnings" in src
+    assert "mockRoutesEnabled" in src
+
+
+def test_gateway_health_exposes_mock_routes_enabled():
+    src = read_text(GATEWAY_MAIN)
+    assert "mockRoutesEnabled" in src
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F2: signals/live must not return SIGNALS_BASE in production
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_signals_live_production_guard_present():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert "IS_PRODUCTION" in src or "NODE_ENV" in src, "No production guard in signals/live/route.ts"
+    assert "ENABLE_DEV_SIGNALS" in src or "NEXT_PUBLIC_ENABLE_MOCK_SIGNALS" in src
+
+
+def test_signals_live_no_unconditional_signals_base():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    # Old unconditional constant name must not exist
+    assert "const SIGNALS_BASE" not in src, \
+        "SIGNALS_BASE is still the unconditional export constant — rename to DEV_MOCK_SIGNALS_BASE"
+
+
+def test_signals_live_production_path_returns_empty():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert "signals: []" in src, "Production path must return signals: []"
+    assert 'feed_status: "no_signal"' in src
+
+
+def test_signals_live_mock_mode_source_is_dev_mock():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    assert 'source: "dev-mock-signals"' in src, \
+        "Dev mock path source must be 'dev-mock-signals', not 'ayc-signal-engine-v1'"
+
+
+def test_signals_live_engine_source_not_returned_with_hardcoded_signals():
+    src = read_text(WEB_SIGNALS_LIVE_ROUTE)
+    # ayc-signal-engine-v1 should only appear in the no_signal production path
+    # It must NOT be paired with DEV_MOCK_SIGNALS_BASE returns
+    # Simplest check: if "DEV_MOCK_SIGNALS_BASE" exists, "ayc-signal-engine-v1"
+    # must not be in the mock return block — we verify via source label
+    assert 'source: "dev-mock-signals"' in src
+    # The old unconditional pairing must not exist
+    assert 'source: "ayc-signal-engine-v1"' not in src or "no_signal" in src
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F3: backend health endpoints must not be hardcoded ok
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_signal_service_health_not_hardcoded_ok():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    # Must not return the old bare dict
+    assert '{"status": "ok", "service": "neura-signal"}' not in src
+    assert "persistent" in src
+    assert "storage" in src
+    assert "warnings" in src
+
+
+def test_memory_cache_has_keys_method():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    assert "async def keys" in src, "_MemoryCache must implement async def keys()"
+
+
+def test_memory_cache_keys_supports_wildcard():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    assert "endswith" in src or "startswith" in src, \
+        "_MemoryCache.keys() must handle wildcard patterns (endswith/startswith)"
+
+
+def test_signal_service_health_reports_is_memory_degraded():
+    src = read_text(SIGNAL_SERVICE_MAIN)
+    assert "is_memory" in src or "_MemoryCache" in src, \
+        "Health must distinguish _MemoryCache from real Redis"
+    assert '"degraded"' in src or "'degraded'" in src
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# F5 / F4: CI workflow must include security branch and no plaintext creds
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_ci_includes_security_branch_trigger():
+    src = read_text(CI_WORKFLOW)
+    assert "security/p0-production-containment" in src, \
+        "CI workflow must trigger on security/p0-production-containment"
+
+
+def test_ci_has_workflow_dispatch():
+    src = read_text(CI_WORKFLOW)
+    assert "workflow_dispatch" in src, "CI workflow must have workflow_dispatch trigger"
+
+
+def test_ci_no_plaintext_jwt_secret():
+    src = read_text(CI_WORKFLOW)
+    assert "ci_jwt_secret_please_rotate" not in src, \
+        "Plaintext JWT_SECRET found in CI workflow"
+
+
+def test_ci_no_plaintext_gateway_secret():
+    src = read_text(CI_WORKFLOW)
+    assert "ci_gateway_secret_please_rotate" not in src, \
+        "Plaintext SECRET_KEY found in CI workflow"
+
+
+def test_ci_no_plaintext_exchange_key():
+    src = read_text(CI_WORKFLOW)
+    assert "ci_exchange_secret_please_rotate" not in src, \
+        "Plaintext EXCHANGE_CREDENTIALS_KEY found in CI workflow"
+
+
+def test_ci_uses_runtime_secret_generation():
+    src = read_text(CI_WORKFLOW)
+    assert "secrets.token_hex" in src or "openssl" in src or "secrets." in src, \
+        "CI must generate secrets at runtime (secrets.token_hex or openssl)"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# .env.example: no fake non-empty SECRET_KEY placeholder
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_gateway_env_example_no_fake_secret_key():
+    src = read_text(GATEWAY_ENV_EXAMPLE)
+    assert "ayc-super-secret-key-change-in-production" not in src, \
+        "services/gateway/.env.example contains a non-empty fake SECRET_KEY"
+
+
+def test_gateway_env_example_secret_key_is_empty_or_placeholder():
+    src = read_text(GATEWAY_ENV_EXAMPLE)
+    for line in src.splitlines():
+        if line.strip().startswith("SECRET_KEY="):
+            value = line.split("=", 1)[1].strip()
+            # Must be empty, a generate instruction, or a ${{ secrets.* }} reference
+            assert (
+                value == ""
+                or value.startswith("<")
+                or value.startswith("${{")
+            ), f"SECRET_KEY must be empty or a generate-instruction placeholder, got: {value!r}"
+            break

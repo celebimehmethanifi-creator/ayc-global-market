@@ -5,7 +5,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 log = logging.getLogger("signal-service")
@@ -42,6 +42,17 @@ class _MemoryCache:
 
     async def set(self, key, value, ex=None):
         self._store[key] = value
+
+    async def keys(self, pattern: str = "*") -> list:
+        if pattern == "*":
+            return list(self._store.keys())
+        if pattern.endswith("*"):
+            prefix = pattern[:-1]
+            return [k for k in self._store.keys() if k.startswith(prefix)]
+        return [k for k in self._store.keys() if k == pattern]
+
+    async def ping(self) -> bool:
+        return True
 
     async def publish(self, channel, message):
         pass
@@ -95,14 +106,42 @@ app.add_middleware(
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "service": "neura-signal"}
+async def health(request: Request):
+    redis = getattr(request.app.state, "redis", None)
+    is_memory = isinstance(redis, _MemoryCache)
+    warnings: list[str] = []
+    persistent = False
+    storage = "memory"
+    status = "ok"
+
+    if redis is None:
+        warnings.append("Cache backend unavailable.")
+        status = "degraded"
+    elif is_memory:
+        warnings.append("Redis unavailable; using in-memory fallback. State may be lost on restart.")
+        status = "degraded"
+        storage = "memory"
+    else:
+        try:
+            await redis.ping()
+            persistent = True
+            storage = "redis"
+        except Exception:
+            warnings.append("Redis ping failed; using in-memory fallback. State may be lost on restart.")
+            status = "degraded"
+
+    return {
+        "status": status,
+        "service": "neura-signal",
+        "persistent": persistent,
+        "storage": storage,
+        "warnings": warnings,
+    }
 
 
 # ── Signal endpoints (inline router) ─────────────────────────────────────────
 import json, uuid
 from datetime import datetime, timezone
-from fastapi import Request
 from pydantic import BaseModel
 
 class GenerateRequest(BaseModel):

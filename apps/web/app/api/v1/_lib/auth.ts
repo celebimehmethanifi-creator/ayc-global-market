@@ -213,6 +213,12 @@ export function revokeRefreshSession(jti?: string): void {
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const headerRaw = Buffer.from(parts[0], "base64url").toString("utf8");
+    const header = JSON.parse(headerRaw) as { alg?: string };
+    if (!header.alg || String(header.alg).toLowerCase() === "none") return null;
+
     const { payload } = await jwtVerify(token, SECRET);
     return payload as unknown as JWTPayload;
   } catch {

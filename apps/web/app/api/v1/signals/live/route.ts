@@ -69,7 +69,17 @@ async function fetchYahooBatch(symbolMap: Record<string, string>): Promise<Recor
   return out;
 }
 
-const SIGNALS_BASE = [
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const ENABLE_DEV_SIGNALS =
+  process.env.ENABLE_DEV_SIGNALS === "true" ||
+  process.env.NEXT_PUBLIC_ENABLE_MOCK_SIGNALS === "true";
+
+function _mockSignalsEnabled(): boolean {
+  return ENABLE_DEV_SIGNALS && !IS_PRODUCTION;
+}
+
+// Dev-only signal stubs — NEVER returned in production
+const DEV_MOCK_SIGNALS_BASE = [
   { id:"s1",  symbol:"BTCUSDT",  cgId:"bitcoin",      yfSym:"BTC-USD",     name:"Bitcoin",               category:"crypto",   direction:"LONG",  strength:82, reason:"Hacim artışı + direnç kırılımı. RSI 62, MACD pozitif kesişim.", confidence:78, timeframe:"4H", risk_score:35 },
   { id:"s2",  symbol:"ETHUSDT",  cgId:"ethereum",     yfSym:"ETH-USD",     name:"Ethereum",              category:"crypto",   direction:"LONG",  strength:74, reason:"Güçlü destek bölgesi + pozitif momentum. L2 hacim artışı.", confidence:71, timeframe:"1D", risk_score:42 },
   { id:"s3",  symbol:"XAUUSD",   cgId:null,           yfSym:"GC=F",        name:"Altın",                 category:"metal",    direction:"LONG",  strength:88, reason:"Jeopolitik risk yüksek, güvenli liman talebi. DXY zayıf.", confidence:85, timeframe:"1W", risk_score:28 },
@@ -86,6 +96,8 @@ const SIGNALS_BASE = [
   { id:"s14", symbol:"EURUSD",   cgId:null,           yfSym:"EURUSD=X",   name:"EUR/USD",               category:"forex",    direction:"SHORT", strength:66, reason:"Fed güçlü dolar politikası. ECB faiz indirim beklentisi artıyor.", confidence:64, timeframe:"4H", risk_score:50 },
 ];
 
+const EMPTY_STAGE_COUNTS = { TRIGGER: 0, SETUP: 0, WATCH: 0, KALKAN: 0, NONE: 0 };
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -93,20 +105,36 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const market = searchParams.get("market") || "all";
   const limit = Math.min(parseInt(searchParams.get("limit") || "14"), 20);
+  const now = new Date().toISOString();
 
+  if (!_mockSignalsEnabled()) {
+    return NextResponse.json({
+      signals: [],
+      count: 0,
+      market,
+      stage_counts: EMPTY_STAGE_COUNTS,
+      feed_status: "no_signal",
+      prices_live: false,
+      prices_found: 0,
+      updated_at: now,
+      source: "ayc-signal-engine-v1",
+      message: "Aktif sinyal üretilmedi. Gerçek sinyal motoru entegrasyonu gerekli.",
+    });
+  }
+
+  // Dev mock only — ENABLE_DEV_SIGNALS=true and NODE_ENV != production
   const catMap: Record<string, string[]> = {
     crypto: ["crypto"], turkey: ["bist"], us: ["stock"],
     precious: ["metal"], forex: ["forex"], energy: ["energy"], index: ["index"],
   };
-  let filtered = SIGNALS_BASE;
+  let filtered = DEV_MOCK_SIGNALS_BASE;
   if (market !== "all") {
     const cats = catMap[market] || [market];
-    filtered = SIGNALS_BASE.filter(s => cats.includes(s.category));
+    filtered = DEV_MOCK_SIGNALS_BASE.filter(s => cats.includes(s.category));
   }
   const slice = filtered.slice(0, limit);
 
   const cgIds = slice.filter(s => s.cgId).map(s => s.cgId as string);
-  // Non-crypto use Yahoo Finance
   const yfMap: Record<string, string> = {};
   for (const s of slice) {
     if (!s.cgId && s.yfSym) yfMap[s.symbol] = s.yfSym;
@@ -117,7 +145,6 @@ export async function GET(req: NextRequest) {
     Object.keys(yfMap).length > 0 ? fetchYahooBatch(yfMap) : Promise.resolve({}),
   ]);
 
-  const now = new Date().toISOString();
   let pricesFound = 0;
 
   const signals = slice.map(s => {
@@ -144,8 +171,15 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
-    signals, count: signals.length, market,
-    updated_at: now, source: "ayc-signal-engine-v1",
-    prices_live: pricesFound > 0, prices_found: pricesFound,
+    signals,
+    count: signals.length,
+    market,
+    stage_counts: EMPTY_STAGE_COUNTS,
+    feed_status: "demo",
+    isMock: true,
+    prices_live: pricesFound > 0,
+    prices_found: pricesFound,
+    updated_at: now,
+    source: "dev-mock-signals",
   });
 }
