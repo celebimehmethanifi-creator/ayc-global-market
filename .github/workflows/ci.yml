@@ -8,6 +8,7 @@ on:
       - hardening-production-readiness
       - security/p0-production-containment
       - feature/p0-live-truth-mobile-fix
+      - qa/product-truth-merge-check
   pull_request:
     branches:
       - main
