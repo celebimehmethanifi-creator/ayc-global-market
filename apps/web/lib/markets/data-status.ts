@@ -34,7 +34,7 @@ export type DataStatusMeta = {
 };
 
 const SOURCE_LABELS_TR: Record<string, string> = {
-  "BINANCE-WS": "Binance Canlı",
+  "BINANCE-WS": "Binance WS",
   BINANCE: "Binance",
   COINGECKO: "CoinGecko",
   FINNHUB: "Finnhub",
@@ -51,7 +51,7 @@ const SOURCE_LABELS_TR: Record<string, string> = {
 };
 
 const SOURCE_LABELS_EN: Record<string, string> = {
-  "BINANCE-WS": "Binance Live",
+  "BINANCE-WS": "Binance Stream",
   BINANCE: "Binance",
   COINGECKO: "CoinGecko",
   FINNHUB: "Finnhub",

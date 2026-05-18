@@ -391,7 +391,8 @@ def test_dashboard_uses_live_alarm_feed_and_dynamic_market_pulse():
     assert 'queryKey: ["dashboard-alarms", tick]' in text
     assert "MOCK_ALARMS.map" not in text
     assert "computeMarketPulse(signals, movers)" in text
-    assert "EMPTY_ALARM_HINT" in text
+    assert "EMPTY_ALARM_HINT" not in text
+    assert "alarms.length === 0" in text
     assert "Market Nabzı" in text
     assert "Veri: {dataStatus}" in text
 
@@ -605,7 +606,7 @@ def test_market_page_has_mobile_card_view_and_source_label_mapping():
     assert "Veri yok" in text
     assert 't("market.col.dataStatus")' in text
     assert "fmtChange" in text
-    assert '"BINANCE-WS": "Binance Canlı"' in status_text
+    assert '"BINANCE-WS": "Binance WS"' in status_text
     assert 'BACKEND: "AYC Veri"' in status_text
 
 

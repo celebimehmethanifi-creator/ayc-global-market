@@ -147,18 +147,6 @@ type AlarmItem = {
 
 
 
-const EMPTY_ALARM_HINT: AlarmItem = {
-  id: "empty",
-  time: "şimdi",
-  symbol: "SİSTEM",
-  msg: "Henüz alarm bulunmuyor. Alarm kurduğunuzda burada canlı olarak görünecek.",
-  type: "info",
-  isLive: false,
-  isDemo: true,
-};
-
-
-
 
 
 
@@ -1041,7 +1029,7 @@ export default function DashboardPage() {
 
 
 
-              Gerçek zamanlı piyasa istihbarat merkezi
+              Piyasa istihbarat merkezi
 
 
 

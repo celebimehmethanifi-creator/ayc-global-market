@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/lib/prices/PriceContext";
-import { getStatusLabel } from "@/lib/markets/data-status";
+import { getStatusLabel, type DataStatus } from "@/lib/markets/data-status";
 
 const ALL_SYMBOLS = [
   { sym:"BTC",     label:"Bitcoin",     cat:"crypto", key:"BTCUSDT"  },
@@ -84,9 +84,10 @@ export function MarketTicker() {
     const list = ALL_SYMBOLS
       .map(s => ({
         ...s,
-        price: sc(prices[s.key]?.price),
-        chg:   sc(prices[s.key]?.chg),
-        ts:    prices[s.key]?.ts ?? 0,
+        price:  sc(prices[s.key]?.price),
+        chg:    sc(prices[s.key]?.chg),
+        ts:     prices[s.key]?.ts ?? 0,
+        source: prices[s.key]?.source ?? "",
       }))
       .filter(s => s.price > 0);
 
@@ -96,9 +97,14 @@ export function MarketTicker() {
     return [...gainers, ...losers];
   }, [prices]);
 
-  const liveCount = items.filter(i => i.ts > 0 && nowTs > 0 && nowTs - i.ts < 90000).length;
-  const isLive = liveCount >= 3;
-  const statusLabel = getStatusLabel(isLive ? "live" : "delayed");
+  // Source-verified: only binance-ws items with TTL < 5 min count as live (mirrors central rule)
+  const verifiedLiveCount = items.filter(i =>
+    i.source === "binance-ws" && i.ts > 0 && nowTs > 0 && nowTs - i.ts < 300000,
+  ).length;
+  const hasRecentTs = items.filter(i => i.ts > 0 && nowTs > 0 && nowTs - i.ts < 90000).length > 0;
+  const tickerStatus: DataStatus = verifiedLiveCount >= 3 ? "live" : hasRecentTs ? "delayed" : "no_data";
+  const isLive = tickerStatus === "live";
+  const statusLabel = getStatusLabel(tickerStatus);
   const durationSec = Math.max(40, items.length * 3.8);
 
   if (!mounted) {
