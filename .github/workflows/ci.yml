@@ -17,6 +17,11 @@ on:
       - hardening-production-readiness
   workflow_dispatch:
 
+# Opt into Node.js 24 action runner runtime ahead of the June 2 2026 forced cutover.
+# Eliminates "Node.js 20 actions are deprecated" annotation warnings on all jobs.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   web-quality:
     name: Web lint + type-check + build
