@@ -2,20 +2,10 @@
 
 **Branch:** `fix/live-data-truth-mobile-shell`
 **Code commit:** `5d4c86c`
-**Report commit:** `2868c0f` (HEAD)
+**HEAD:** `27f3d4d`
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `hardening-production-readiness @ 392ae98`
 **QA date:** 2026-05-18
-
-Commit history (Phase 3):
-| Commit | Description |
-|--------|-------------|
-| `ba3ce74` | safe-area CSS, alarm feed truth, traceability, perf zero-state, CI workflow |
-| `a614605` | social radar bull+bear>100 fix |
-| `dade011` | Phase 3 v2: centralize labels, gate causal on live BTC, true alarm empty state |
-| `21cb0df` | Phase 3 v3: source label leak, MarketTicker source-verify, EMPTY_ALARM_HINT, tagline |
-| `5d4c86c` | Phase 3 v4: provider-aware dashboard aggregate status |
-| `2868c0f` | report update (HEAD) |
 
 ---
 
@@ -33,113 +23,150 @@ Commit history (Phase 3):
 
 ---
 
-## 1. CI Verification (PR #3, HEAD `2868c0f`)
+## Tool Versions (Linux sandbox)
 
-GitHub Actions run `26046686917` — all 4 CI jobs **passed**:
-
-| Job | Conclusion | Duration |
-|-----|-----------|----------|
-| Web lint + type-check + build | ✅ success | ~72s |
-| Pytest backend tests | ✅ success | ~35s |
-| Secret scan (gitleaks) | ✅ success | ~6s |
-| Docker compose config validation | ✅ success | ~7s |
-| Vercel Preview Comments | ✅ success | — |
-
-**Classification: PASS_WITH_WARNINGS** — jobs pass, two non-blocking warnings observed:
-
-### Warning 1 — `gitleaks-action@v2` unexpected input
-```yaml
-# ci.yml (current):
-- uses: gitleaks/gitleaks-action@v2
-  with:
-    gitleaks-config: .gitleaks.toml   # ← not a valid 'with' input for v2
-```
-`gitleaks-action@v2` does not accept `gitleaks-config` via the `with` block. The correct form is `env: GITLEAKS_CONFIG: .gitleaks.toml`. Action still runs and the secret scan passes; this generates the "Unexpected input(s): 'gitleaks-config'" annotation in the Actions log. **Does not cause failure.**
-
-### Warning 2 — Node.js 20 runner deprecation
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: 20   # ← GitHub Actions deprecating Node 20 runtime
-```
-GitHub Actions is deprecating Node.js 20 as the internal action runtime in favour of Node.js 22. Affects action script execution environment, not the build artefact. **Does not cause failure.**
+| Tool | Version |
+|------|---------|
+| Node.js | v22.22.2 |
+| Playwright | 1.56.1 (global) |
+| Next.js | 14.2.3 |
+| Python | 3.11 |
 
 ---
 
-## 2. API Contract Smoke (local dev, `localhost:3093`, JWT_SECRET set)
+## 1. CI — PASS_WITH_WARNINGS
+
+GitHub Actions run `26046686917` on PR #3 HEAD `2868c0f`:
+
+| Job | Conclusion |
+|-----|-----------|
+| Web lint + type-check + build | ✅ success |
+| Pytest backend tests | ✅ success |
+| Secret scan (gitleaks) | ✅ success |
+| Docker compose config validation | ✅ success |
+| Vercel Preview Comments | ✅ success |
+
+**Known warnings (non-blocking):**
+
+**Warning 1 — `gitleaks-action@v2` unexpected input**
+```yaml
+- uses: gitleaks/gitleaks-action@v2
+  with:
+    gitleaks-config: .gitleaks.toml   # not a valid with input for v2
+```
+`gitleaks-action@v2` ignores `with.gitleaks-config`; correct form is `env: GITLEAKS_CONFIG: .gitleaks.toml`. Generates "Unexpected input(s): 'gitleaks-config'" annotation. **Job passes.**
+
+**Warning 2 — Node.js 20 deprecation**
+```yaml
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20   # GitHub Actions deprecating Node 20 internal runtime
+```
+Affects action script execution runtime only, not the build artefact. **Job passes.**
+
+---
+
+## 2. API Contract Smoke — PASS_LOCAL
+
+Tested against `localhost:3093` (Next.js dev, `JWT_SECRET` set with safe dummy value):
 
 | Endpoint | HTTP | Result | Notes |
 |----------|------|--------|-------|
-| `GET /api/v1/version` | 200 | ✅ PASS | `traceabilityComplete:false` (no AYC env vars — expected in sandbox) |
+| `GET /api/v1/version` | 200 | ✅ PASS | `traceabilityComplete:false` (no AYC env vars — expected) |
 | `GET /api/v1/health` | 200 | ✅ PASS | Returns 500 without `JWT_SECRET` — correct security guard |
-| `GET /api/v1/prices/live?symbols=BTCUSDT` | 200 | ✅ PASS | `prices:{}, count:0` — empty without backend, expected |
+| `GET /api/v1/prices/live?symbols=BTCUSDT` | 200 | ✅ PASS | `prices:{}, count:0` — empty without backend |
 | `GET /api/v1/alarms` | 200 | ✅ PASS | Returns 500 without `JWT_SECRET` — correct security guard |
 | `GET /api/v1/signals/live` | 200 | ✅ PASS | `signals:[], feed_status:no_signal` |
 | `GET /dashboard` | 200 | ✅ PASS | Page compiles and renders |
 
-**Classification: PASS_LOCAL** — all 6 endpoints respond correctly when run with valid secrets. Endpoints requiring JWT correctly return 500 without it (security guard working).
-
-Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`) are blocked at the network level ("Host not in allowlist") — not testable from this sandbox.
+Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`) blocked at network level — "Host not in allowlist".
 
 ---
 
-## 3. Browser / Mobile Emulation Smoke
+## 3. Browser / Mobile Emulation — NOT_RUN
 
-**NOT RUN.**
+**All Chromium installation methods failed in Linux sandbox:**
 
-Playwright v1.56.1 is installed. Chromium binary installation fails:
+| Method | Result |
+|--------|--------|
+| `playwright install chromium` | Silent failure — no binary installed |
+| `playwright install chromium --with-deps` | Ubuntu PPA `launchpadcontent.net` returns 403 Forbidden |
+| `PLAYWRIGHT_BROWSERS_PATH=/tmp playwright install chromium` | Playwright CDN blocked — code=1 |
+| `apt-get install -y chromium-browser` | Installs snap stub only; snap daemon unavailable in sandbox |
+
+**Test infrastructure committed** (`27f3d4d`) — ready to run on Windows workspace:
+
+| File | Purpose |
+|------|---------|
+| `playwright.config.ts` | 5 viewport projects |
+| `tests/browser/smoke.spec.ts` | Full smoke suite |
+| `scripts/run-browser-smoke-windows.ps1` | Windows one-command runner |
+| `test-results/screenshots/phase3-browser-mobile-smoke/` | Output directory |
+
+### To run on `C:\Users\mhani\Desktop\NEURA`:
+
+```powershell
+git pull --ff-only
+
+# Install deps (if not done)
+pnpm install
+
+# Install Playwright Chromium
+pnpm test:browser:install
+
+# Set env and start dev server (separate terminal)
+$env:JWT_SECRET="local-test-jwt-secret-32chars-minimum"
+$env:NEXT_PUBLIC_API_URL="http://localhost:3093"
+pnpm --filter neura-web dev -- -p 3093
+
+# Run all 5 viewport smoke tests
+pnpm test:browser
 ```
-Failed to install browsers
-Error: Installation process exited with code: 100
+
+Or use the one-command script:
+```powershell
+.\scripts\run-browser-smoke-windows.ps1
 ```
-Ubuntu PPA (`launchpadcontent.net`) returns 403 Forbidden — network restricted in sandbox. The same block was present in all prior sessions.
 
-**Viewports pending** (must be verified externally):
-- `390×844` — iPhone 14 Pro
-- `393×852` — iPhone 15
-- `412×915` — Android
-- `430×932` — iPhone 15 Plus
-- `768×1024` — iPad
+**Checks the smoke verifies:**
+- No horizontal overflow at any viewport
+- No header/ticker overlap with content
+- No bottom nav overlap
+- `"Piyasa istihbarat merkezi"` neutral tagline present (not "Gerçek zamanlı")
+- No `EMPTY_ALARM_HINT` / `SİSTEM` demo row
+- No `"Binance Canlı"` in rendered HTML
+- Dashboard, market, social, performance, alarms pages render without crash
 
-**Checks pending per viewport:**
-- No header/ticker overlap with status bar
-- No bottom nav overlap with content
-- No horizontal overflow
-- Hero/demo balance readable
-- Copilot bottom area not compressed
-- Ticker not crowded or visually duplicated
+**Viewports pending:** `390×844`, `393×852`, `412×915`, `430×932`, `768×1024`
 
 ---
 
-## 4. Real Mobile
+## 4. Real Mobile — NOT_RUN
 
-**NOT RUN** — no physical device available.
-
----
-
-## 5. Production
-
-**FAIL.** All production endpoints blocked at network level from this sandbox. Prior manual testing showed `/api/v1/version` returning `not_provided_by_cli_deploy` on live domain. PROD_PASS cannot be marked until:
-1. Network access to production is available, AND
-2. Live version endpoint returns real commit SHA / branch (not `not_provided_by_cli_deploy`)
+No physical device available. Required: real iOS Safari or Android Chrome with DevTools remote debugging evidence.
 
 ---
 
-## Source Audit Summary
+## 5. Production — FAIL
 
-All source-level truth leaks resolved at code commit `5d4c86c`. Full audit detail in Phase 3 v1–v4 reports.
+All production hostnames blocked at network level from sandbox. Previous manual testing showed `/api/v1/version` returning `not_provided_by_cli_deploy` on live domain.
 
-| Check | Result | Commit |
-|-------|--------|--------|
+**Required to mark PASS:** live `/api/v1/version` must return real `commitSha` and `branch` (not `not_provided_by_cli_deploy`).
+
+---
+
+## Source Audit Summary (all PASS at code commit `5d4c86c`)
+
+| Check | Result | Fix commit |
+|-------|--------|------------|
 | "Canlı" requires provider + TTL | ✅ PASS | `dade011` |
 | Label centralization | ✅ PASS | `dade011` |
-| Source label leak ("Binance Canlı") | ✅ PASS | `21cb0df` |
-| Price/status consistency across all components | ✅ PASS | `dade011`–`5d4c86c` |
+| Source label "Binance Canlı" leak | ✅ PASS | `21cb0df` |
+| AssetDetailModal headerStatus false-live | ✅ PASS | `dade011` |
+| Dashboard causal fake values | ✅ PASS | `dade011` |
 | Dashboard aggregate provider-aware status | ✅ PASS | `5d4c86c` |
 | Dashboard "Gerçek zamanlı" claim removed | ✅ PASS | `21cb0df` |
 | MarketTicker source-verified live | ✅ PASS | `21cb0df` |
-| AssetDetailModal headerStatus false-live | ✅ PASS | `dade011` |
-| Dashboard causal fake values removed | ✅ PASS | `dade011` |
 | Alarm EMPTY_ALARM_HINT removed | ✅ PASS | `21cb0df` |
 | Social radar percentages | ✅ FIXED | `a614605` |
 | Traceability fields | ✅ PASS | `ba3ce74` |
@@ -153,40 +180,41 @@ All source-level truth leaks resolved at code commit `5d4c86c`. Full audit detai
 | # | Severity | Issue |
 |---|----------|-------|
 | 1–10 | ✅ Fixed | All source-level truth leaks |
-| 11 | ⚠️ Warning | CI: gitleaks-action `gitleaks-config` unexpected input — not a failure |
-| 12 | ⚠️ Warning | CI: Node.js 20 deprecation in `actions/setup-node@v4` — not a failure |
-| 13 | 🔴 Blocker | Browser/mobile emulation NOT_RUN — Chromium install blocked by network |
+| 11 | ⚠️ Warning | CI: gitleaks-action `gitleaks-config` unexpected input (annotation, not failure) |
+| 12 | ⚠️ Warning | CI: Node.js 20 deprecation in `actions/setup-node@v4` (annotation, not failure) |
+| 13 | 🔴 Blocker | Browser/mobile emulation NOT_RUN — infrastructure committed `27f3d4d`; run on `C:\Users\mhani\Desktop\NEURA` |
 | 14 | 🔴 Blocker | Real mobile NOT_RUN — no device |
 | 15 | 🔴 Blocker | Production FAIL — `not_provided_by_cli_deploy`; network blocked from sandbox |
 
 ---
 
-## Test Results at HEAD (`2868c0f` / code `5d4c86c`)
+## Test Results at HEAD (`27f3d4d`)
 
 | Suite | Result |
 |-------|--------|
 | `tsc --noEmit` | ✅ 0 errors |
-| `pytest` (127/129 local) | ✅ 127 passed, 2 deselected (fastapi env-only) |
+| `pytest` (127/129) | ✅ 127 passed, 2 deselected (fastapi env-only) |
 | CI: Web lint + type-check + build | ✅ PASS |
 | CI: Pytest backend tests | ✅ PASS |
 | CI: Secret scan | ✅ PASS |
 | CI: Docker compose validate | ✅ PASS |
-| API smoke (local + JWT_SECRET) | ✅ 6/6 endpoints pass |
+| API smoke local | ✅ 6/6 PASS |
+| Browser/mobile emulation | ⏳ NOT_RUN — run on Windows |
 
 ---
 
 ## Honesty Summary
 
-**SOURCE_ONLY_PASS: PASS** — no component can produce "Canlı" without verified Binance WS source + TTL.
+**SOURCE_ONLY_PASS: PASS** — no component produces "Canlı" without verified source + TTL.
 
-**CI_PASS: PASS_WITH_WARNINGS** — all 4 jobs green; two non-blocking annotation warnings noted (gitleaks input, Node 20 deprecation).
+**CI_PASS: PASS_WITH_WARNINGS** — all jobs green; two non-blocking annotation warnings.
 
-**API_CONTRACT_PASS: PASS_LOCAL** — all 6 endpoints correct with valid secrets locally. Production not reachable from sandbox.
+**API_CONTRACT_PASS: PASS_LOCAL** — 6/6 endpoints correct locally.
 
-**BROWSER_MOBILE_EMULATION_PASS: NOT_RUN** — Chromium download blocked; must be verified externally.
+**BROWSER_MOBILE_EMULATION_PASS: NOT_RUN** — infrastructure committed; Chromium network-blocked in sandbox. Run `pnpm test:browser` on `C:\Users\mhani\Desktop\NEURA`.
 
-**REAL_MOBILE_PASS: NOT_RUN** — no physical device.
+**REAL_MOBILE_PASS: NOT_RUN** — no device.
 
-**PROD_PASS: FAIL** — network blocked; previous live test returned `not_provided_by_cli_deploy`.
+**PROD_PASS: FAIL** — `not_provided_by_cli_deploy`.
 
 **Production-ready: NO.**

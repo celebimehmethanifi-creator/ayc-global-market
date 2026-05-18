@@ -1,17 +1,12 @@
 {
   "qa_session": {
     "branch": "fix/live-data-truth-mobile-shell",
-    "patch_commit": "ba3ce74",
-    "social_fix_commit": "a614605",
-    "phase3_v2_commit": "dade011",
-    "phase3_v3_commit": "21cb0df",
-    "phase3_v4_commit": "5d4c86c",
-    "head_commit": "2868c0f",
     "code_commit": "5d4c86c",
-    "base": "hardening-production-readiness @ 392ae98",
-    "qa_date": "2026-05-18",
+    "head_commit": "27f3d4d",
     "pr_number": 3,
-    "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3"
+    "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3",
+    "base": "hardening-production-readiness @ 392ae98",
+    "qa_date": "2026-05-18"
   },
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
@@ -22,15 +17,22 @@
     "PROD_PASS": "FAIL",
     "production_ready": false
   },
+  "tool_versions": {
+    "node": "v22.22.2",
+    "playwright_global": "1.56.1",
+    "next": "14.2.3",
+    "python": "3.11",
+    "platform": "linux (sandbox)"
+  },
   "ci_verification": {
     "pr": 3,
     "head_sha": "2868c0f7e2db4c87b7971b58fd87aef475da81e4",
     "run_id": "26046686917",
     "jobs": [
-      {"name": "Web lint + type-check + build", "conclusion": "success", "started_at": "2026-05-18T16:34:52Z", "completed_at": "2026-05-18T16:36:04Z"},
-      {"name": "Pytest backend tests",           "conclusion": "success", "started_at": "2026-05-18T16:34:53Z", "completed_at": "2026-05-18T16:35:28Z"},
-      {"name": "Secret scan",                    "conclusion": "success", "started_at": "2026-05-18T16:34:53Z", "completed_at": "2026-05-18T16:34:59Z"},
-      {"name": "Docker compose config validation","conclusion": "success", "started_at": "2026-05-18T16:34:53Z", "completed_at": "2026-05-18T16:35:00Z"},
+      {"name": "Web lint + type-check + build", "conclusion": "success"},
+      {"name": "Pytest backend tests",           "conclusion": "success"},
+      {"name": "Secret scan",                    "conclusion": "success"},
+      {"name": "Docker compose config validation","conclusion": "success"},
       {"name": "Vercel Preview Comments",         "conclusion": "success"}
     ],
     "overall": "success",
@@ -38,35 +40,64 @@
       {
         "source": "gitleaks/gitleaks-action@v2",
         "warning": "Unexpected input(s): 'gitleaks-config'",
-        "detail": "ci.yml passes gitleaks-config as a 'with' input; gitleaks-action@v2 expects GITLEAKS_CONFIG as an env var instead. Job still passes — warning only.",
-        "fix": "Move to env: GITLEAKS_CONFIG: .gitleaks.toml"
+        "detail": "ci.yml passes gitleaks-config as 'with' input; v2 expects GITLEAKS_CONFIG as env var. Job passes — annotation warning only.",
+        "fix_needed": "Move to env: GITLEAKS_CONFIG: .gitleaks.toml"
       },
       {
         "source": "actions/setup-node@v4",
-        "warning": "Node.js 20 runner deprecation",
-        "detail": "Workflow specifies node-version: 20. GitHub Actions is deprecating Node.js 20 as the internal action runtime in favour of Node.js 22. Affects internal action script execution, not the build output.",
-        "fix": "Upgrade to node-version: 22 when ready"
+        "warning": "Node.js 20 deprecation",
+        "detail": "node-version: 20 in workflow. GitHub Actions deprecating Node 20 runtime in favour of Node 22. Build artefact unaffected.",
+        "fix_needed": "Upgrade to node-version: 22 when ready"
       }
     ]
   },
   "api_contract_smoke": {
-    "server": "localhost:3093 (Next.js dev with JWT_SECRET set)",
+    "server": "localhost:3093 (Next.js dev, JWT_SECRET set)",
     "result": "PASS_LOCAL",
-    "note": "Production endpoints (aycmarket.com, app.aycmarket.com, www.aycmarket.com) blocked at network level — 'Host not in allowlist'",
     "endpoints": [
-      {"path": "/api/v1/version",                   "status": 200, "result": "PASS", "notes": "traceabilityComplete:false (no AYC env vars set); expected"},
-      {"path": "/api/v1/health",                    "status": 200, "result": "PASS", "notes": "Requires JWT_SECRET — 500 without it (correct security guard)"},
-      {"path": "/api/v1/prices/live?symbols=BTCUSDT","status": 200, "result": "PASS", "notes": "prices:{}, count:0 — empty without backend, expected"},
-      {"path": "/api/v1/alarms",                    "status": 200, "result": "PASS", "notes": "Requires JWT_SECRET — 500 without it (correct security guard)"},
-      {"path": "/api/v1/signals/live",              "status": 200, "result": "PASS", "notes": "signals:[], feed_status:no_signal"},
-      {"path": "/dashboard",                        "status": 200, "result": "PASS"}
-    ]
+      {"path": "/api/v1/version",                    "status": 200, "result": "PASS", "notes": "traceabilityComplete:false — no AYC env vars (expected in sandbox)"},
+      {"path": "/api/v1/health",                     "status": 200, "result": "PASS", "notes": "200 with JWT_SECRET; 500 without (correct security guard)"},
+      {"path": "/api/v1/prices/live?symbols=BTCUSDT", "status": 200, "result": "PASS", "notes": "prices:{}, count:0 — empty without backend"},
+      {"path": "/api/v1/alarms",                     "status": 200, "result": "PASS", "notes": "200 with JWT_SECRET; 500 without (correct security guard)"},
+      {"path": "/api/v1/signals/live",               "status": 200, "result": "PASS", "notes": "signals:[], feed_status:no_signal"},
+      {"path": "/dashboard",                         "status": 200, "result": "PASS"}
+    ],
+    "production_endpoints": {
+      "aycmarket.com/api/v1/version":     "BLOCKED (Host not in allowlist)",
+      "app.aycmarket.com/api/v1/version": "BLOCKED (Host not in allowlist)",
+      "www.aycmarket.com/api/v1/version": "BLOCKED (Host not in allowlist)"
+    }
   },
   "browser_mobile_smoke": {
     "result": "NOT_RUN",
-    "reason": "Playwright v1.56.1 installed but Chromium binary download fails — Ubuntu package repo returns 403 Forbidden for launchpadcontent.net PPAs. Network restricted in sandbox.",
+    "reason": "Chromium download is network-blocked in Linux sandbox. System chromium-browser is a snap stub — snap daemon unavailable. apt install chromium fails (PPA 403). Playwright binary download fails (CDN blocked, code=1).",
     "playwright_version": "1.56.1",
-    "chromium_install_error": "Failed to install browsers — Installation process exited with code: 100",
+    "chromium_install_attempts": [
+      "playwright install chromium — silent failure (no binary)",
+      "playwright install chromium --with-deps — apt PPA 403",
+      "PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers playwright install chromium — CDN blocked, code=1",
+      "apt-get install -y chromium-browser — installs snap stub only, snap daemon not available"
+    ],
+    "test_infrastructure_committed": {
+      "playwright_config": "playwright.config.ts",
+      "smoke_spec": "tests/browser/smoke.spec.ts",
+      "windows_runner": "scripts/run-browser-smoke-windows.ps1",
+      "screenshot_dir": "test-results/screenshots/phase3-browser-mobile-smoke/",
+      "commit": "27f3d4d"
+    },
+    "windows_run_instructions": {
+      "workspace": "C:\\Users\\mhani\\Desktop\\NEURA",
+      "steps": [
+        "git pull --ff-only",
+        "pnpm install",
+        "pnpm test:browser:install",
+        "$env:JWT_SECRET='local-test-jwt-secret-32chars-minimum'",
+        "$env:NEXT_PUBLIC_API_URL='http://localhost:3093'",
+        "pnpm --filter neura-web dev -- -p 3093  (in separate terminal)",
+        "pnpm test:browser"
+      ],
+      "or_use_script": ".\\scripts\\run-browser-smoke-windows.ps1"
+    },
     "viewports_pending": ["390x844","393x852","412x915","430x932","768x1024"],
     "checks_pending": [
       "no header/ticker overlap",
@@ -74,7 +105,11 @@
       "no horizontal overflow",
       "hero/demo balance visible",
       "copilot bottom area not compressed",
-      "ticker not crowded/duplicated visually"
+      "ticker not crowded/duplicated visually",
+      "dashboard neutral tagline ('Piyasa istihbarat merkezi')",
+      "no EMPTY_ALARM_HINT / SİSTEM row",
+      "no 'Gerçek zamanlı piyasa istihbarat merkezi' claim",
+      "no 'Binance Canlı' in rendered HTML"
     ]
   },
   "real_mobile": {
@@ -83,55 +118,23 @@
   },
   "production": {
     "result": "FAIL",
-    "reason": "All production endpoints blocked at network level (Host not in allowlist). Previous manual tests showed not_provided_by_cli_deploy at /api/v1/version.",
-    "endpoints_checked": ["aycmarket.com/api/v1/version", "app.aycmarket.com/api/v1/version", "www.aycmarket.com/api/v1/version"],
-    "network_result": "Host not in allowlist"
+    "reason": "Production hostnames blocked at network level in sandbox. Prior manual evidence: /api/v1/version returns not_provided_by_cli_deploy. PROD_PASS cannot be granted.",
+    "required_to_pass": "Live /api/v1/version must return real commitSha/branch (not not_provided_by_cli_deploy)"
   },
-  "source_audit": {
-    "live_status_gate":            {"result": "PASS",  "commit": "dade011"},
-    "label_centralization":        {"result": "PASS",  "commit": "dade011"},
-    "source_label_leak":           {"result": "PASS",  "commit": "21cb0df"},
-    "price_display_consistency":   {"result": "PASS",  "commits": ["dade011","21cb0df","5d4c86c"]},
-    "dashboard_aggregate_status":  {"result": "PASS",  "commit": "5d4c86c"},
-    "dashboard_realtime_claim":    {"result": "PASS",  "commit": "21cb0df"},
-    "market_ticker_source_verify": {"result": "PASS",  "commit": "21cb0df"},
-    "analysis_gating":             {"result": "PASS",  "commit": "dade011"},
-    "dashboard_causal_truth":      {"result": "PASS",  "commit": "dade011"},
-    "dashboard_mock_removal":      {"result": "PASS"},
-    "alarm_truth":                 {"result": "PASS",  "commit": "21cb0df"},
-    "traceability":                {"result": "PASS",  "commit": "ba3ce74"},
-    "performance_zero_state":      {"result": "PASS",  "commit": "ba3ce74"},
-    "social_radar_percentages":    {"result": "FIXED", "commit": "a614605"},
-    "mobile_safe_area_css":        {"result": "PASS_SOURCE_ONLY"},
-    "ticker_duplicates":           {"result": "PASS"}
-  },
+  "source_audit_summary": "All source-level truth leaks resolved at code commit 5d4c86c. See Phase 3 v1-v4 reports.",
   "test_results": {
-    "type_check": "PASS",
+    "tsc_noEmit": "PASS (0 errors)",
     "pytest_127_of_129": "PASS",
     "ci_web_build": "PASS",
     "ci_pytest": "PASS",
     "ci_secret_scan": "PASS",
-    "ci_docker_compose_validate": "PASS",
-    "deselected": [
-      "test_gateway_auth_service_fails_when_secret_missing_in_production",
-      "test_gateway_invalid_token_is_rejected"
-    ],
-    "deselected_reason": "fastapi not in sandbox; pass in CI Ubuntu runner"
+    "ci_docker_compose": "PASS"
   },
   "open_issues": [
-    {"id": 1,  "severity": "fixed",   "issue": "Social Radar bull+bear>100",                                 "fix": "a614605"},
-    {"id": 2,  "severity": "fixed",   "issue": "Label centralization gaps",                                   "fix": "dade011"},
-    {"id": 3,  "severity": "fixed",   "issue": "Dashboard/ticker threshold inconsistency",                    "fix": "dade011"},
-    {"id": 4,  "severity": "fixed",   "issue": "AssetDetailModal headerStatus false-live",                    "fix": "dade011"},
-    {"id": 5,  "severity": "fixed",   "issue": "Dashboard causal fake values",                                "fix": "dade011"},
-    {"id": 6,  "severity": "fixed",   "issue": "EMPTY_ALARM_HINT demo row",                                   "fix": "21cb0df"},
-    {"id": 7,  "severity": "fixed",   "issue": "Source label Binance Canlı leak",                             "fix": "21cb0df"},
-    {"id": 8,  "severity": "fixed",   "issue": "MarketTicker unverified live threshold",                      "fix": "21cb0df"},
-    {"id": 9,  "severity": "fixed",   "issue": "Gerçek zamanlı unverified dashboard claim",                   "fix": "21cb0df"},
-    {"id": 10, "severity": "fixed",   "issue": "Dashboard freshPriceCount timestamp-only Canlı claim",        "fix": "5d4c86c"},
-    {"id": 11, "severity": "warning", "issue": "CI: gitleaks-action @v2 'gitleaks-config' unexpected input — warning, not failure"},
-    {"id": 12, "severity": "warning", "issue": "CI: Node.js 20 deprecation warning in actions/setup-node@v4"},
-    {"id": 13, "severity": "blocker", "issue": "Browser/mobile smoke NOT_RUN — Playwright Chromium install blocked by network"},
+    {"id": 1,  "severity": "fixed",   "issue": "All source-level truth leaks (1-10)",            "commits": ["dade011","21cb0df","5d4c86c"]},
+    {"id": 11, "severity": "warning", "issue": "CI: gitleaks-action 'gitleaks-config' unexpected input — annotation, not failure"},
+    {"id": 12, "severity": "warning", "issue": "CI: Node.js 20 deprecation in setup-node@v4 — not a failure"},
+    {"id": 13, "severity": "blocker", "issue": "Browser/mobile emulation NOT_RUN — test infrastructure committed (27f3d4d); run on Windows workspace"},
     {"id": 14, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
     {"id": 15, "severity": "blocker", "issue": "Production FAIL — not_provided_by_cli_deploy; network blocked from sandbox"}
   ]
