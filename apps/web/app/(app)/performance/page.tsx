@@ -156,11 +156,15 @@ export default function PerformancePage() {
             {stats.hit_rate}% Hit Rate
           </span>
         </div>
+        {stats.total === 0 ? (
+          <div style={{height:12,borderRadius:6,background:"var(--b1)"}}/>
+        ) : (
         <div style={{height:12,borderRadius:6,overflow:"hidden",display:"flex",gap:2}}>
           <div style={{width:`${(stats.hits/Math.max(stats.closed,1))*100}%`,background:"var(--up)",borderRadius:"6px 0 0 6px",transition:"width 0.5s"}}/>
           <div style={{width:`${(stats.stops/Math.max(stats.closed,1))*100}%`,background:"var(--down)"}}/>
-          <div style={{flex:1,background:"var(--gold)",borderRadius:"0 6px 6px 0"}}/>
+          {stats.pending > 0 && <div style={{flex:1,background:"var(--gold)",borderRadius:"0 6px 6px 0"}}/>}
         </div>
+        )}
         <div style={{display:"flex",gap:16,marginTop:8}}>
           {[
             {label:`HIT (${stats.hits})`,color:"var(--up)"},

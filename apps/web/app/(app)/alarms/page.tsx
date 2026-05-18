@@ -12,11 +12,6 @@ const ALARM_TYPES = [
   {value:"contrarian",label:"Contrarian Uyari", icon:Activity,     color:"var(--warn)",    dim:"var(--warn-dim)",         border:"rgba(245,158,11,0.25)"},
 ];
 
-const MOCK_ALARMS = [
-  {id:"a1",alarm_type:"price",   is_active:true,  created_at:"2026-05-10",condition:{symbol:"BTCUSDT",direction:"above",threshold:82000}},
-  {id:"a2",alarm_type:"signal",  is_active:true,  created_at:"2026-05-09",condition:{symbol:"ETHUSDT",min_confidence:80}},
-  {id:"a3",alarm_type:"drawdown",is_active:true,  created_at:"2026-05-08",condition:{max_drawdown_pct:10}},
-];
 
 function condSummary(alarm:any) {
   const c = alarm.condition||{};
@@ -67,7 +62,7 @@ export default function AlarmsPage() {
     onSuccess:()=>{qc.invalidateQueries({queryKey:["alarms"]});setShowAdd(false);setStep(1);},
   });
 
-  const alarms = [...MOCK_ALARMS,...alarmsApi];
+  const alarms = Array.isArray(alarmsApi) ? alarmsApi : [];
   const active = alarms.filter(a=>a.is_active).length;
   const kblocks = kalkan?.active_kalkan_blocks||[];
 

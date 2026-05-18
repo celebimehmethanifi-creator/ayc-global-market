@@ -22,6 +22,12 @@ export type DataStatusMeta = {
   volumeStatus: DataStatus;
   volumeStatusLabel: string;
   provider: string;
+  isLive: boolean;
+  isDelayed: boolean;
+  isDemo: boolean;
+  isFallback: boolean;
+  isStale: boolean;
+  confidence: "high" | "medium" | "low" | "none";
 };
 
 const SOURCE_LABELS_TR: Record<string, string> = {
@@ -156,6 +162,18 @@ export function buildDataStatusMeta(args: {
     : "—";
   const finalUpdatedAt = args.hasPrice ? (args.updatedAt || null) : null;
 
+  const isLive = dataStatus === "live";
+  const isDelayed = dataStatus === "delayed";
+  const isFallback = dataStatus === "fallback" || dataStatus === "license_required";
+  const isStale = delayMinutes != null && delayMinutes >= 15;
+  const isDemo = !args.hasPrice || dataStatus === "no_data" || dataStatus === "api_error";
+
+  const confidence: DataStatusMeta["confidence"] =
+    isLive && !isStale ? "high"
+    : isDelayed && !isStale ? "medium"
+    : isFallback || isStale ? "low"
+    : "none";
+
   return {
     source,
     sourceLabel: finalSourceLabel,
@@ -167,5 +185,11 @@ export function buildDataStatusMeta(args: {
     volumeStatus,
     volumeStatusLabel: getStatusLabel(volumeStatus, locale),
     provider: source,
+    isLive,
+    isDelayed,
+    isDemo,
+    isFallback,
+    isStale,
+    confidence,
   };
 }

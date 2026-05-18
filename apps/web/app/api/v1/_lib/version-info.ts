@@ -5,6 +5,9 @@ export type VersionInfo = {
   environment: string;
   deploymentUrl: string;
   deploymentId: string;
+  traceabilityComplete: boolean;
+  traceabilityStatus: "complete" | "incomplete";
+  missing: string[];
 };
 
 const CLI_FALLBACK = "not_provided_by_cli_deploy";
@@ -74,5 +77,14 @@ export function getVersionInfo(): VersionInfo {
     normalizeEnvValue(process.env.VERCEL_URL) ||
     CLI_FALLBACK;
 
-  return { commitSha, branch, buildTime, environment, deploymentUrl, deploymentId };
+  const missing: string[] = [];
+  if (commitSha === CLI_FALLBACK) missing.push("commitSha");
+  if (branch === CLI_FALLBACK) missing.push("branch");
+  if (buildTime === CLI_FALLBACK) missing.push("buildTime");
+  if (deploymentId === CLI_FALLBACK) missing.push("deploymentId");
+
+  const traceabilityComplete = missing.length === 0;
+  const traceabilityStatus: "complete" | "incomplete" = traceabilityComplete ? "complete" : "incomplete";
+
+  return { commitSha, branch, buildTime, environment, deploymentUrl, deploymentId, traceabilityComplete, traceabilityStatus, missing };
 }

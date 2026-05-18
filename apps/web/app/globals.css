@@ -882,6 +882,11 @@ body.asset-modal-open .app-main {
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
   }
+  /* Ticker is the topmost element; push it below the iOS status bar */
+  .app-ticker {
+    padding-top: env(safe-area-inset-top, 0px);
+    box-sizing: content-box;
+  }
 }
 /* ── Mobile hamburger + search btn ───────────────────────────── */
 @media (max-width: 767px) {

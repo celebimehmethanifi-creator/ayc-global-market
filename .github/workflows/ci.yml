@@ -9,6 +9,7 @@ on:
       - security/p0-production-containment
       - feature/p0-live-truth-mobile-fix
       - qa/product-truth-merge-check
+      - fix/live-data-truth-mobile-shell
   pull_request:
     branches:
       - main

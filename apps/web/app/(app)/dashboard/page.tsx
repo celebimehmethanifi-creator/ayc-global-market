@@ -122,35 +122,6 @@ type AlarmItem = {
 
 
 
-const MOCK_SIGNALS: Signal[] = [
-
-
-
-  {id:"s1",symbol:"BTCUSDT",name:"Bitcoin",   direction:"LONG",  confidence:88,price:81000, change_24h:1.82,market:"crypto",  reason:"Hacim patlaması + momentum kırılımı. 5/6 motor LONG.",  age:"2dk"},
-
-
-
-  {id:"s2",symbol:"XAUUSD", name:"Altın",     direction:"LONG",  confidence:79,price:4700,  change_24h:0.28,market:"precious",reason:"Fed belirsizliği + güvenli liman talebi. RSI 58.",        age:"8dk"},
-
-
-
-  {id:"s3",symbol:"NVDA",   name:"NVIDIA",    direction:"LONG",  confidence:83,price:220,  change_24h:3.15,market:"us",      reason:"Kurumsal birikim + AI chip döngüsü. Bollinger kırılımı.", age:"15dk"},
-
-
-
-  {id:"s4",symbol:"ETHUSDT",name:"Ethereum",  direction:"LONG",  confidence:72,price:2500,  change_24h:2.41,market:"crypto",  reason:"DeFi büyümesi + L2 aktivite artışı.",                   age:"22dk"},
-
-
-
-  {id:"s5",symbol:"TSLA",   name:"Tesla",     direction:"SHORT", confidence:76,price:445,  change_24h:-2.84,market:"us",     reason:"Direnç kırılamadı + zayıf momentum + hacim düşüşü.",    age:"35dk"},
-
-
-
-  {id:"s6",symbol:"THYAO",  name:"THY",       direction:"LONG",  confidence:71,price:290, change_24h:1.20,market:"turkey", reason:"Turizm sezonu + teknik destek bölgesi.",                 age:"51dk"},
-
-
-
-];
 
 
 
@@ -158,18 +129,6 @@ const MOCK_SIGNALS: Signal[] = [
 
 
 
-const MOVER_SEEDS: Array<Pick<Mover, "sym" | "name" | "cat">> = [
-  { sym:"BTC",   name:"Bitcoin",  cat:"Kripto" },
-  { sym:"ETH",   name:"Ethereum", cat:"Kripto" },
-  { sym:"SOL",   name:"Solana",   cat:"Kripto" },
-  { sym:"XAUUSD",name:"Altın",    cat:"Emtia"  },
-  { sym:"USDTRY",name:"Dolar/TL", cat:"Forex"  },
-  { sym:"AAPL",  name:"Apple",    cat:"ABD"    },
-  { sym:"NVDA",  name:"NVIDIA",   cat:"ABD"    },
-  { sym:"TSLA",  name:"Tesla",    cat:"ABD"    },
-  { sym:"THYAO", name:"THYAO",    cat:"BIST"   },
-  { sym:"XU100", name:"BIST 100", cat:"Endeks" },
-];
 
 
 
@@ -177,31 +136,9 @@ const MOVER_SEEDS: Array<Pick<Mover, "sym" | "name" | "cat">> = [
 
 
 
-const MOCK_CAUSAL: CausalCard = {
 
 
 
-  symbol:"BTCUSDT",
-
-
-
-  primary_cause:"VOLUME_ANOMALY",
-
-
-
-  primary_conf:78,
-
-
-
-  narrative:"Bitcoin'deki %1.82 günlük yükseliş hareketinin birincil nedeni **hacim anomalisi** (YÜKSEK güven, %78). 5.2x ortalama hacim -> kurumsal alım isareti. Teknik kirilim (68/100) ikincil faktör olarak destekliyor. Manipülasyon riski düşük.",
-
-
-
-  manipulation_risk:12,
-
-
-
-};
 
 
 
@@ -971,23 +908,7 @@ export default function DashboardPage() {
 
 
 
-  // Apply live prices to movers  
-
   const movers: Mover[] = useMemo(() => {
-    const fromSeeds = MOVER_SEEDS.map((m) => {
-      const keys = [
-        m.sym,
-        m.sym.replace("/", ""),
-        m.sym + "USDT",
-        m.sym.replace("USDT", ""),
-      ].map((k) => k.toUpperCase());
-      for (const key of keys) {
-        const lp = livePrices[key];
-        if (lp && lp.price > 0) return { ...m, price: lp.price, chg: lp.chg };
-      }
-      return { ...m, price: 0, chg: 0 };
-    }).filter((m) => m.price > 0);
-
     const fromSignals = signals
       .filter((s) => Number.isFinite(s.price) && s.price > 0)
       .map((s) => ({
@@ -998,9 +919,8 @@ export default function DashboardPage() {
         cat: s.market || "Piyasa",
       }));
 
-    const merged = [...fromSeeds, ...fromSignals];
     const unique = new Map<string, Mover>();
-    for (const item of merged) {
+    for (const item of fromSignals) {
       const key = item.sym.toUpperCase();
       if (!unique.has(key) || Math.abs(item.chg) > Math.abs(unique.get(key)!.chg)) {
         unique.set(key, item);
@@ -1009,7 +929,7 @@ export default function DashboardPage() {
     return Array.from(unique.values())
       .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
       .slice(0, 8);
-  }, [livePrices, signals]);
+  }, [signals]);
 
   const alarms: AlarmItem[] = useMemo(() => {
     const raw = Array.isArray(alarmData?.alarms) ? alarmData.alarms : [];
@@ -1180,7 +1100,7 @@ export default function DashboardPage() {
 
 
 
-            <span style={{fontSize:10,fontWeight:700,color:"var(--up)"}}>3 AI MOTOR AKTİF</span>
+            <span style={{fontSize:10,fontWeight:700,color:"var(--up)"}}>{actionableCount > 0 ? `${actionableCount} AKTİF SİNYAL` : "Sinyal bekleniyor"}</span>
 
 
 
