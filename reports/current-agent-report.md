@@ -2,7 +2,7 @@
 
 **Branch:** `fix/live-data-truth-mobile-shell`
 **Code commit:** `5d4c86c`
-**HEAD:** (post-selector-fix commit — see git log)
+**HEAD:** `aec7828`
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `hardening-production-readiness @ 392ae98`
 **QA date:** 2026-05-18
@@ -14,7 +14,7 @@
 | Gate | Result |
 |------|--------|
 | SOURCE_ONLY_PASS | **PASS** |
-| CI_PASS | **PASS_WITH_WARNINGS** |
+| CI_PASS | **PASS** |
 | API_CONTRACT_PASS | **PASS_LOCAL** |
 | BROWSER_MOBILE_EMULATION_PASS | **PASS** |
 | REAL_MOBILE_PASS | **NOT_RUN** |
@@ -35,35 +35,24 @@
 
 ---
 
-## 1. CI — PASS_WITH_WARNINGS
+## 1. CI — PASS
 
-GitHub Actions run `26046686917` on PR #3 HEAD `2868c0f`:
+GitHub Actions runs on HEAD `aec7828` (branch push run `26053961913`, PR run `26053962213`):
 
-| Job | Conclusion |
-|-----|-----------|
-| Web lint + type-check + build | ✅ success |
-| Pytest backend tests | ✅ success |
-| Secret scan (gitleaks) | ✅ success |
-| Docker compose config validation | ✅ success |
-| Vercel Preview Comments | ✅ success |
+| Job | Run 26053961913 | Run 26053962213 |
+|-----|----------------|----------------|
+| Web lint + type-check + build | ✅ success | ✅ success |
+| Pytest backend tests | ✅ success | ✅ success |
+| Secret scan (gitleaks) | ✅ success | ✅ success |
+| Docker compose config validation | ✅ success | ✅ success |
+| Vercel Preview Comments | ✅ success | — |
 
-**Known warnings (non-blocking):**
+**No annotation warnings.** Both previously reported warnings are resolved:
 
-**Warning 1 — `gitleaks-action@v2` unexpected input**
-```yaml
-- uses: gitleaks/gitleaks-action@v2
-  with:
-    gitleaks-config: .gitleaks.toml   # not a valid with input for v2
-```
-`gitleaks-action@v2` ignores `with.gitleaks-config`; correct form is `env: GITLEAKS_CONFIG: .gitleaks.toml`. Generates "Unexpected input(s): 'gitleaks-config'" annotation. **Job passes.**
-
-**Warning 2 — Node.js 20 deprecation**
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: 20   # GitHub Actions deprecating Node 20 internal runtime
-```
-Affects action script execution runtime only, not the build artefact. **Job passes.**
+| Warning | Fix | Status |
+|---------|-----|--------|
+| `gitleaks-action@v2` unexpected input `gitleaks-config` | Moved to `env: GITLEAKS_CONFIG: .gitleaks.toml` | ✅ Fixed at `aec7828` |
+| `actions/setup-node@v4` Node 20 deprecation | Upgraded to `node-version: 22` | ✅ Fixed at `aec7828` |
 
 ---
 
@@ -112,12 +101,10 @@ Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`)
 | No "Binance Canlı" in rendered HTML | ✅ PASS |
 | No `SİSTEM` / `EMPTY_ALARM_HINT` demo row in alarm widget | ✅ PASS |
 | No `MOCK_ALARM` on alarms page | ✅ PASS |
-| Ticker does not overlap bottom nav (`.bottom-nav`) on mobile | ✅ PASS |
+| Ticker (`.app-ticker`) does not overlap bottom nav (`.bottom-nav`) | ✅ PASS |
 | Dashboard, Market, Social, Performance, Alarms render without crash | ✅ PASS |
 
-**Selector note:** Initial test run (35/45 pass) had a selector bug in `checkTickerNotOverlapping` — `"nav, ..."` matched the top sidebar `<nav>` at y=0 instead of `.bottom-nav` at y≈786. Fixed selector to `.bottom-nav`. Re-run: 45/45 pass.
-
-**Screenshots:** `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files — 45 tests × 2 shots each).
+**Screenshots:** `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files — 45 tests × 2 shots each). Committed at `7a9f57f`.
 
 ---
 
@@ -160,24 +147,24 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 | # | Severity | Issue |
 |---|----------|-------|
 | 1–10 | ✅ Fixed | All source-level truth leaks |
-| 11 | ⚠️ Warning | CI: gitleaks-action `gitleaks-config` unexpected input (annotation, not failure) |
-| 12 | ⚠️ Warning | CI: Node.js 20 deprecation in `actions/setup-node@v4` (annotation, not failure) |
-| 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (Linux sandbox with pre-installed Chromium build 1194) |
+| 11 | ✅ Fixed | CI: gitleaks-action `gitleaks-config` — moved to env var (`aec7828`) |
+| 12 | ✅ Fixed | CI: Node.js 20 → 22 upgrade (`aec7828`) |
+| 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (`7a9f57f`) |
 | 14 | 🔴 Blocker | Real mobile NOT_RUN — no device |
 | 15 | 🔴 Blocker | Production FAIL — `not_provided_by_cli_deploy`; network blocked from sandbox |
 
 ---
 
-## Test Results at HEAD
+## Test Results at HEAD (`aec7828`)
 
 | Suite | Result |
 |-------|--------|
 | `tsc --noEmit` | ✅ 0 errors |
 | `pytest` (127/129) | ✅ 127 passed, 2 deselected (fastapi env-only) |
-| CI: Web lint + type-check + build | ✅ PASS |
-| CI: Pytest backend tests | ✅ PASS |
-| CI: Secret scan | ✅ PASS |
-| CI: Docker compose validate | ✅ PASS |
+| CI: Web lint + type-check + build | ✅ PASS (both runs) |
+| CI: Pytest backend tests | ✅ PASS (both runs) |
+| CI: Secret scan | ✅ PASS (no annotation warnings) |
+| CI: Docker compose validate | ✅ PASS (both runs) |
 | API smoke local | ✅ 6/6 PASS |
 | Browser/mobile emulation | ✅ **45/45 PASS** (5 viewports) |
 
@@ -187,11 +174,11 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 
 **SOURCE_ONLY_PASS: PASS** — no component produces "Canlı" without verified source + TTL.
 
-**CI_PASS: PASS_WITH_WARNINGS** — all jobs green; two non-blocking annotation warnings.
+**CI_PASS: PASS** — all jobs green on both runs; no annotation warnings (gitleaks-config and Node 20 issues fixed at `aec7828`).
 
 **API_CONTRACT_PASS: PASS_LOCAL** — 6/6 endpoints correct locally.
 
-**BROWSER_MOBILE_EMULATION_PASS: PASS** — 45/45 tests pass across 5 viewports (390×844, 393×852, 412×915, 430×932, 768×1024). No overlap, no overflow, no fake live claims in rendered HTML. Chromium build 1194 on Linux sandbox.
+**BROWSER_MOBILE_EMULATION_PASS: PASS** — 45/45 tests pass across 5 viewports (390×844, 393×852, 412×915, 430×932, 768×1024). No overlap, no overflow, no fake live claims in rendered HTML.
 
 **REAL_MOBILE_PASS: NOT_RUN** — no device.
 

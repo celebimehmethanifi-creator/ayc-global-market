@@ -2,6 +2,7 @@
   "qa_session": {
     "branch": "fix/live-data-truth-mobile-shell",
     "code_commit": "5d4c86c",
+    "head_commit": "aec7828",
     "pr_number": 3,
     "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3",
     "base": "hardening-production-readiness @ 392ae98",
@@ -9,7 +10,7 @@
   },
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
-    "CI_PASS": "PASS_WITH_WARNINGS",
+    "CI_PASS": "PASS",
     "API_CONTRACT_PASS": "PASS_LOCAL",
     "BROWSER_MOBILE_EMULATION_PASS": "PASS",
     "REAL_MOBILE_PASS": "NOT_RUN",
@@ -27,28 +28,27 @@
   },
   "ci_verification": {
     "pr": 3,
-    "head_sha": "2868c0f7e2db4c87b7971b58fd87aef475da81e4",
-    "run_id": "26046686917",
+    "head_sha": "aec7828",
+    "run_ids": ["26053961913", "26053962213"],
     "jobs": [
-      {"name": "Web lint + type-check + build", "conclusion": "success"},
-      {"name": "Pytest backend tests",           "conclusion": "success"},
-      {"name": "Secret scan",                    "conclusion": "success"},
-      {"name": "Docker compose config validation","conclusion": "success"},
-      {"name": "Vercel Preview Comments",         "conclusion": "success"}
+      {"name": "Web lint + type-check + build", "conclusion": "success", "runs": ["26053961913", "26053962213"]},
+      {"name": "Pytest backend tests",           "conclusion": "success", "runs": ["26053961913", "26053962213"]},
+      {"name": "Secret scan",                    "conclusion": "success", "runs": ["26053961913", "26053962213"]},
+      {"name": "Docker compose config validation","conclusion": "success", "runs": ["26053961913", "26053962213"]},
+      {"name": "Vercel Preview Comments",         "conclusion": "success", "runs": ["26053961913"]}
     ],
     "overall": "success",
-    "known_warnings": [
+    "annotation_warnings": [],
+    "ci_fixes_applied": [
       {
-        "source": "gitleaks/gitleaks-action@v2",
-        "warning": "Unexpected input(s): 'gitleaks-config'",
-        "detail": "ci.yml passes gitleaks-config as 'with' input; v2 expects GITLEAKS_CONFIG as env var. Job passes — annotation warning only.",
-        "fix_needed": "Move to env: GITLEAKS_CONFIG: .gitleaks.toml"
+        "issue": "gitleaks-action@v2 unexpected input 'gitleaks-config'",
+        "fix": "Moved from with: gitleaks-config to env: GITLEAKS_CONFIG",
+        "commit": "aec7828"
       },
       {
-        "source": "actions/setup-node@v4",
-        "warning": "Node.js 20 deprecation",
-        "detail": "node-version: 20 in workflow. GitHub Actions deprecating Node 20 runtime in favour of Node 22. Build artefact unaffected.",
-        "fix_needed": "Upgrade to node-version: 22 when ready"
+        "issue": "setup-node@v4 Node 20 deprecation",
+        "fix": "Upgraded node-version: 20 to node-version: 22",
+        "commit": "aec7828"
       }
     ]
   },
@@ -78,6 +78,7 @@
     "chromium_build": "1194",
     "chromium_executable": "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
     "dev_server": "localhost:3093",
+    "commit": "7a9f57f",
     "viewports": [
       {"name": "mobile-390x844",  "tests": 9, "passed": 9, "failed": 0},
       {"name": "mobile-393x852",  "tests": 9, "passed": 9, "failed": 0},
@@ -95,7 +96,6 @@
       "ticker (.app-ticker) does not overlap bottom nav (.bottom-nav) on mobile",
       "Dashboard, Market, Social, Performance, Alarms render without crash"
     ],
-    "selector_fix_note": "Initial run (35/45): checkTickerNotOverlapping used 'nav, [class*=bottom-nav], ...' which matched top sidebar nav at y=0, not .bottom-nav at y≈786. Fixed to '.bottom-nav'. Re-run: 45/45 pass.",
     "screenshots_dir": "test-results/screenshots/phase3-browser-mobile-smoke/",
     "screenshots_count": 90
   },
@@ -114,15 +114,15 @@
     "pytest_127_of_129": "PASS",
     "ci_web_build": "PASS",
     "ci_pytest": "PASS",
-    "ci_secret_scan": "PASS",
+    "ci_secret_scan": "PASS (no warnings)",
     "ci_docker_compose": "PASS",
     "browser_mobile_smoke": "PASS (45/45)"
   },
   "open_issues": [
-    {"id": 1,  "severity": "fixed",   "issue": "All source-level truth leaks (1-10)",            "commits": ["dade011","21cb0df","5d4c86c"]},
-    {"id": 11, "severity": "warning", "issue": "CI: gitleaks-action 'gitleaks-config' unexpected input — annotation, not failure"},
-    {"id": 12, "severity": "warning", "issue": "CI: Node.js 20 deprecation in setup-node@v4 — not a failure"},
-    {"id": 13, "severity": "fixed",   "issue": "Browser/mobile emulation — 45/45 PASS (Linux sandbox, Chromium build 1194)"},
+    {"id": 1,  "severity": "fixed",   "issue": "All source-level truth leaks (1-10)", "commits": ["dade011","21cb0df","5d4c86c"]},
+    {"id": 11, "severity": "fixed",   "issue": "CI: gitleaks-action gitleaks-config moved to env var", "commit": "aec7828"},
+    {"id": 12, "severity": "fixed",   "issue": "CI: Node.js upgraded 20 → 22", "commit": "aec7828"},
+    {"id": 13, "severity": "fixed",   "issue": "Browser/mobile emulation — 45/45 PASS", "commit": "7a9f57f"},
     {"id": 14, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
     {"id": 15, "severity": "blocker", "issue": "Production FAIL — not_provided_by_cli_deploy; network blocked from sandbox"}
   ]
