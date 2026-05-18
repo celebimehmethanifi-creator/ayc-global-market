@@ -1,0 +1,63 @@
+{
+  "task": "Deploy Version Metadata Traceability Patch",
+  "date": "2026-05-18",
+  "branch_before": {
+    "name": "hardening-production-readiness",
+    "head": "8b3fff4",
+    "ancestor_check": "PASS",
+    "working_tree": "clean"
+  },
+  "work_branch": {
+    "name": "fix/deploy-version-metadata",
+    "commit": "c500ecb",
+    "base": "8b3fff4"
+  },
+  "changed_files": [
+    "apps/web/app/api/v1/_lib/version-info.ts",
+    "tests/hardening/test_production_guards.py"
+  ],
+  "version_route_path": "apps/web/app/api/v1/version/route.ts",
+  "version_lib_path": "apps/web/app/api/v1/_lib/version-info.ts",
+  "version_metadata_support": {
+    "commitSha_chain": ["VERCEL_GIT_COMMIT_SHA", "AYC_COMMIT_SHA", "NEXT_PUBLIC_COMMIT_SHA", "GIT_COMMIT_SHA", "CLI_FALLBACK"],
+    "branch_chain": ["VERCEL_GIT_COMMIT_REF", "AYC_BRANCH", "NEXT_PUBLIC_BRANCH", "GIT_BRANCH", "CLI_FALLBACK"],
+    "buildTime_chain": ["AYC_BUILD_TIME", "BUILD_TIME", "VERCEL_GIT_COMMIT_TIMESTAMP", "NEXT_PUBLIC_BUILD_TIME", "CLI_FALLBACK"],
+    "deploymentUrl_chain": ["DEPLOYMENT_URL", "VERCEL_URL", "AYC_DEPLOYMENT_URL", "NEXT_PUBLIC_SITE_URL", "CLI_FALLBACK"],
+    "deploymentId_chain": ["VERCEL_DEPLOYMENT_ID", "AYC_DEPLOYMENT_ID", "VERCEL_URL", "CLI_FALLBACK"],
+    "new_fields": ["deploymentId"]
+  },
+  "hardening_tests_added": [
+    "test_version_route_supports_ayc_commit_metadata",
+    "test_version_route_prefers_vercel_git_metadata",
+    "test_version_route_safe_fallback_only_when_metadata_missing",
+    "test_version_route_does_not_expose_secrets"
+  ],
+  "test_results": {
+    "pytest": { "passed": 111, "deselected": 2, "status": "PASS" },
+    "lint": "PASS",
+    "type_check": "PASS",
+    "build": "PASS"
+  },
+  "runtime_test": {
+    "with_ayc_vars": {
+      "commitSha": "test-sha-123",
+      "branch": "hardening-production-readiness",
+      "buildTime": "2026-05-18T00:00:00.000Z",
+      "deploymentId": "fix-deploy-version-metadata",
+      "status": "PASS"
+    },
+    "without_vars": {
+      "commitSha": "not_provided_by_cli_deploy",
+      "branch": "not_provided_by_cli_deploy",
+      "buildTime": "not_provided_by_cli_deploy",
+      "deploymentId": "not_provided_by_cli_deploy",
+      "status": "PASS"
+    }
+  },
+  "security_regression": "PASS",
+  "secrets_in_version_files": false,
+  "remaining_p0_blockers": [],
+  "recommendation": "VERSION_METADATA_PATCH_READY",
+  "production_ready": false,
+  "production_ready_note": "Codex QA + controlled merge into hardening-production-readiness + deploy smoke at /api/v1/version with AYC env vars set required"
+}
