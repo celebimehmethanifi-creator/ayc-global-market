@@ -1,10 +1,10 @@
 # Phase 3 QA Report — fix/live-data-truth-mobile-shell
 
 **Branch:** `fix/live-data-truth-mobile-shell`
-**Code commit:** `5d4c86c`
-**HEAD:** `a878330`
+**Code commit:** `dc73940` (auth: lazy JWT SECRET — last source change)
+**HEAD:** `3c085a4` (chore: report metadata)
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
-**Base:** `main @ 18f4699`
+**Base:** `main @ 18f4699` / merge-base hardening-production-readiness `392ae98`
 **QA date:** 2026-05-18
 
 ---
@@ -37,7 +37,7 @@
 
 ## 1. CI — PASS_WITH_WARNINGS
 
-**HEAD `a878330` — latest runs `26054697357` + `26054704996`:**
+**HEAD `3c085a4` — latest CI run `26061335132`:**
 
 | Job | Conclusion |
 |-----|-----------|
@@ -203,11 +203,15 @@ Open on real phone: `http://<LAN_IP>:3093` — phone must be on same Wi-Fi.
 
 **Local verification:** `pnpm --filter neura-web build` (no `JWT_SECRET`) → success, all routes collected.
 
-### Vercel preview deploy: FAILED (fix committed, awaiting redeploy)
+### Vercel preview deploy: STILL FAILED after auth.ts fix
 
-Previous state: PR #3 Vercel bot comment: `nextCommitStatus: FAILED`, `previewUrl: ""`. Root cause was the auth.ts build crash above. Fix is now committed — after push, Vercel should redeploy successfully.
+PR #3 redeployed at `3c085a4` (21:25 UTC). Vercel bot comment updated: `nextCommitStatus: FAILED`, `previewUrl: ""`. **New inspector URL** (different from the previous failure): `https://vercel.com/celebimehmethanifi-creators-projects/web/FWny56Gdw8u6pwew4hiGpguGPdvJ`
 
-**Inspector URL:** `https://vercel.com/celebimehmethanifi-creators-projects/web/6R9GtEe3BfKFuL4pFvfcKi3jhSEG`
+The auth.ts lazy-SECRET fix resolved the previous `JWT_SECRET environment variable is required` build crash (confirmed: `next build` without any env vars passes locally). The new failure is a **different error** that cannot be diagnosed from this sandbox (Vercel inspector returns 403). Inspector URL must be checked in the Vercel dashboard.
+
+**Decoded Vercel bot metadata:** `isMonorepo: true`, `rootDirectory: null` (repo root, not `apps/web`). This differs from `VERCEL_ENV_SETUP.txt` which documents "Root Directory: apps/web". If the Vercel project dashboard does not have the build command configured, Vercel may be running the root `package.json` `build` script (`turbo run build`) rather than `pnpm --filter neura-web build`, or failing on pnpm workspace setup.
+
+**Cannot fix without Vercel dashboard access.** Operator must check the inspector URL above to see the exact build error.
 
 ### Live version endpoint: `not_provided_by_cli_deploy`
 
@@ -266,13 +270,13 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | 12 | ✅ Fixed | CI: node-version 20 → 22 (`aec7828`) |
 | 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (`7a9f57f`) |
 | 16 | ⚠️ Warning | CI: 4 node20→node24 informational annotations. FORCE flag applied (`b2a555b`). Permanent fix: action maintainers update action.yml. Enforced June 2 2026. |
-| 14 | 🔴 Blocker | **REAL_MOBILE_PASS: NOT_RUN** — Vercel preview build fix pushed; awaiting redeploy. LAN fallback requires Windows PC. Manual steps in `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
-| 17 | ✅ Fixed | **Vercel preview build crash** — `auth.ts` module-level `readJwtSecret()` threw when `JWT_SECRET` unset at build time. Fixed: lazy `getSecret()`. Local build without `JWT_SECRET` confirmed clean. Awaiting Vercel redeploy after push. |
+| 17 | ⚠️ Partial | **Vercel preview STILL FAILED** — auth.ts JWT_SECRET crash fixed (`dc73940`). New failure with different inspector URL `FWny56Gdw8u6pwew4hiGpguGPdvJ`. New error unknown (inspector 403 from sandbox). Likely Vercel project config issue (`rootDirectory: null` vs intended `apps/web`). Operator must check inspector. |
+| 14 | 🔴 Blocker | **REAL_MOBILE_PASS: NOT_RUN** — Vercel preview still FAILED (new error). LAN requires Windows PC. Manual steps in `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
 | 15 | 🔴 Blocker | **PROD_PASS: FAIL** — `not_provided_by_cli_deploy`. Fix: enable Vercel Git integration OR set `AYC_*` env vars before CLI deploy. Sandbox cannot deploy. |
 
 ---
 
-## Test Results at HEAD (`a878330`)
+## Test Results at HEAD (`3c085a4`)
 
 | Suite | Result |
 |-------|--------|

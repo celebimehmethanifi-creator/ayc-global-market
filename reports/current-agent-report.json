@@ -2,10 +2,11 @@
   "qa_session": {
     "branch": "fix/live-data-truth-mobile-shell",
     "code_commit": "dc73940",
-    "head_commit": "dc73940",
+    "head_commit": "3c085a4",
     "pr_number": 3,
     "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3",
     "base": "main @ 18f4699",
+    "merge_base_hardening": "392ae98",
     "qa_date": "2026-05-18"
   },
   "classification": {
@@ -27,8 +28,8 @@
   },
   "ci_verification": {
     "pr": 3,
-    "head_sha": "a878330",
-    "run_ids": ["26054697357", "26054704996"],
+    "head_sha": "3c085a4",
+    "run_ids": ["26061335132", "26061333075"],
     "jobs": [
       {"name": "Web lint + type-check + build", "conclusion": "success"},
       {"name": "Pytest backend tests",           "conclusion": "success"},
@@ -101,8 +102,8 @@
     "options_attempted": [
       {
         "option": "A — Vercel preview",
-        "status": "FIX_COMMITTED_AWAITING_REDEPLOY",
-        "detail": "auth.ts lazy-SECRET fix committed. Previous PR #3 Vercel deploy FAILED (JWT_SECRET not set at build time). After push, Vercel should redeploy without this error. Inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/6R9GtEe3BfKFuL4pFvfcKi3jhSEG"
+        "status": "STILL_FAILED_NEW_ERROR",
+        "detail": "PR #3 redeployed at 3c085a4 (21:25 UTC). New FAILED: nextCommitStatus: FAILED, previewUrl empty. New inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/FWny56Gdw8u6pwew4hiGpguGPdvJ. auth.ts JWT_SECRET crash is fixed (local build clean). New error unknown — inspector 403 from sandbox. Likely Vercel project config issue (rootDirectory null vs intended apps/web). Operator must check inspector."
       },
       {
         "option": "B — LAN server",
@@ -139,7 +140,7 @@
   },
   "production": {
     "result": "FAIL",
-    "vercel_preview_deploy": "Was FAILED. Root cause fixed (lazy SECRET). Awaiting Vercel redeploy after push. Inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/6R9GtEe3BfKFuL4pFvfcKi3jhSEG",
+    "vercel_preview_deploy": "STILL FAILED after auth.ts fix. Re-deployed at 3c085a4. New inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/FWny56Gdw8u6pwew4hiGpguGPdvJ. Confirmed different error from JWT_SECRET crash (local build clean without JWT_SECRET). New root cause unknown — sandbox cannot access inspector (403). Vercel project rootDirectory:null vs VERCEL_ENV_SETUP.txt documented apps/web.",
     "live_version_observed": "not_provided_by_cli_deploy (prior manual evidence; sandbox blocked 403)",
     "root_cause": "Vercel CLI deploy does not inject VERCEL_GIT_COMMIT_SHA/REF. All version-info.ts fields fall to CLI_FALLBACK.",
     "fix_option_a": "Enable Vercel Git integration → auto-injects VERCEL_GIT_COMMIT_SHA, VERCEL_GIT_COMMIT_REF, VERCEL_DEPLOYMENT_ID, VERCEL_URL",
@@ -153,8 +154,8 @@
     {"id": 12,    "severity": "fixed",   "issue": "CI: node-version 20→22", "commit": "aec7828"},
     {"id": 13,    "severity": "fixed",   "issue": "Browser/mobile emulation 45/45 PASS", "commit": "7a9f57f"},
     {"id": 16,    "severity": "warning", "issue": "CI: 4 node20→24 informational annotations. FORCE flag applied. Permanent fix: action maintainers update action.yml.", "commit": "b2a555b"},
-    {"id": 17,    "severity": "fixed",   "issue": "Vercel preview build crash: auth.ts module-level readJwtSecret() threw when JWT_SECRET unset. Fixed: lazy getSecret() — JWT_SECRET only read at request time.", "commit": "dc73940"},
-    {"id": 14,    "severity": "blocker", "issue": "REAL_MOBILE_PASS: NOT_RUN — Vercel preview fix pushed; awaiting redeploy. LAN fallback requires Windows PC. Manual steps in test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md"},
+    {"id": 17,    "severity": "warning", "issue": "Vercel preview STILL FAILED after auth.ts fix (dc73940). JWT_SECRET crash resolved (local build clean). New failure — different inspector URL FWny56Gdw8u6pwew4hiGpguGPdvJ. New error unknown (sandbox 403). Likely Vercel project config: rootDirectory:null vs intended apps/web. Operator must check inspector."},
+    {"id": 14,    "severity": "blocker", "issue": "REAL_MOBILE_PASS: NOT_RUN — Vercel preview still FAILED (new error). LAN requires Windows PC. Manual steps in test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md"},
     {"id": 15,    "severity": "blocker", "issue": "PROD_PASS: FAIL — not_provided_by_cli_deploy. Fix: Vercel Git integration or AYC_* env vars in Vercel dashboard."}
   ]
 }
