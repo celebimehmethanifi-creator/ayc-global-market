@@ -195,9 +195,17 @@ Open on real phone: `http://<LAN_IP>:3093` — phone must be on same Wi-Fi.
 
 ## 5. Production — FAIL
 
-### Vercel preview deploy: FAILED
+### Vercel preview build fix (Issue #17) — FIXED
 
-PR #3 Vercel bot comment: `nextCommitStatus: FAILED`, `previewUrl: ""`. The preview deploy errored — there is no working preview URL for this branch.
+**Root cause:** `apps/web/app/api/v1/_lib/auth.ts` called `readJwtSecret()` at **module initialization time** (`const SECRET = new TextEncoder().encode(readJwtSecret())`). During `next build`'s "Collecting page data" phase, Next.js executes module-level code for every route — including `/api/v1/alarms` which imports `auth.ts`. With no `JWT_SECRET` set in Vercel's build environment, it threw immediately and failed the build.
+
+**Fix:** Made `SECRET` lazy — `getSecret()` function computes it on first request, not at import. No behaviour change at runtime. Local `next build` without `JWT_SECRET` now produces 37 static pages cleanly.
+
+**Local verification:** `pnpm --filter neura-web build` (no `JWT_SECRET`) → success, all routes collected.
+
+### Vercel preview deploy: FAILED (fix committed, awaiting redeploy)
+
+Previous state: PR #3 Vercel bot comment: `nextCommitStatus: FAILED`, `previewUrl: ""`. Root cause was the auth.ts build crash above. Fix is now committed — after push, Vercel should redeploy successfully.
 
 **Inspector URL:** `https://vercel.com/celebimehmethanifi-creators-projects/web/6R9GtEe3BfKFuL4pFvfcKi3jhSEG`
 
@@ -245,6 +253,7 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | Traceability fields | ✅ PASS | `ba3ce74` |
 | Performance zero-state bar | ✅ PASS | `ba3ce74` |
 | Mobile safe-area CSS | ✅ PASS (source-only) | `ba3ce74` |
+| Vercel preview build crash (auth.ts lazy SECRET) | ✅ FIXED | this commit |
 
 ---
 
@@ -257,8 +266,8 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | 12 | ✅ Fixed | CI: node-version 20 → 22 (`aec7828`) |
 | 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (`7a9f57f`) |
 | 16 | ⚠️ Warning | CI: 4 node20→node24 informational annotations. FORCE flag applied (`b2a555b`). Permanent fix: action maintainers update action.yml. Enforced June 2 2026. |
-| 14 | 🔴 Blocker | **REAL_MOBILE_PASS: NOT_RUN** — Vercel preview FAILED; no LAN access from sandbox. Manual steps in `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
-| 17 | 🔴 Blocker | **Vercel preview deploy FAILED** — PR #3 preview build error. Check inspector: `https://vercel.com/celebimehmethanifi-creators-projects/web/6R9GtEe3BfKFuL4pFvfcKi3jhSEG` |
+| 14 | 🔴 Blocker | **REAL_MOBILE_PASS: NOT_RUN** — Vercel preview build fix pushed; awaiting redeploy. LAN fallback requires Windows PC. Manual steps in `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
+| 17 | ✅ Fixed | **Vercel preview build crash** — `auth.ts` module-level `readJwtSecret()` threw when `JWT_SECRET` unset at build time. Fixed: lazy `getSecret()`. Local build without `JWT_SECRET` confirmed clean. Awaiting Vercel redeploy after push. |
 | 15 | 🔴 Blocker | **PROD_PASS: FAIL** — `not_provided_by_cli_deploy`. Fix: enable Vercel Git integration OR set `AYC_*` env vars before CLI deploy. Sandbox cannot deploy. |
 
 ---

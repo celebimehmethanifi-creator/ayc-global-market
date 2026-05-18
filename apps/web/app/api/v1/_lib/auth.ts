@@ -29,7 +29,11 @@ function readJwtSecret(): string {
   return raw;
 }
 
-const SECRET = new TextEncoder().encode(readJwtSecret());
+let _secret: Uint8Array | null = null;
+function getSecret(): Uint8Array {
+  if (!_secret) _secret = new TextEncoder().encode(readJwtSecret());
+  return _secret;
+}
 
 export interface UserRecord {
   id: string;
@@ -184,7 +188,7 @@ export async function signAccess(user: UserRecord): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(exp)
-    .sign(SECRET);
+    .sign(getSecret());
 }
 
 export async function signRefresh(user: UserRecord): Promise<string> {
@@ -201,7 +205,7 @@ export async function signRefresh(user: UserRecord): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(exp)
-    .sign(SECRET);
+    .sign(getSecret());
   REFRESH_SESSIONS.set(jti, { userId: user.id, exp });
   return token;
 }
@@ -219,7 +223,7 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
     const header = JSON.parse(headerRaw) as { alg?: string };
     if (!header.alg || String(header.alg).toLowerCase() === "none") return null;
 
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload as unknown as JWTPayload;
   } catch {
     return null;
