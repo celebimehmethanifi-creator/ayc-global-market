@@ -5,7 +5,8 @@
     "social_fix_commit": "a614605",
     "phase3_v2_commit": "dade011",
     "phase3_v3_commit": "21cb0df",
-    "head_commit": "21cb0df",
+    "phase3_v4_commit": "5d4c86c",
+    "head_commit": "5d4c86c",
     "base": "hardening-production-readiness @ 392ae98",
     "qa_date": "2026-05-18"
   },
@@ -26,38 +27,42 @@
     },
     "label_centralization": {
       "result": "PASS",
-      "detail": "Canonical 6-value DataStatus. All labels via getStatusLabel/getStatusColor from data-status.ts. mapLegacyStatus() normalizes old API values. Local statusLabel/statusColor removed from AssetDetailModal.",
-      "commit": "dade011",
-      "gaps": []
+      "detail": "Canonical 6-value DataStatus. All labels via getStatusLabel/getStatusColor from data-status.ts. mapLegacyStatus() normalizes old API values.",
+      "commit": "dade011"
     },
     "source_label_leak": {
       "result": "PASS",
-      "detail": "BINANCE-WS sourceLabel TR 'Binance Canlı' → 'Binance WS'. EN 'Binance Live' → 'Binance Stream'. The word Canlı now appears only in dataStatusLabel when TTL/provider rules pass.",
+      "detail": "BINANCE-WS sourceLabel TR 'Binance WS', EN 'Binance Stream'. 'Canlı' appears only in dataStatusLabel when TTL/provider rules pass.",
       "commit": "21cb0df"
     },
     "price_display_consistency": {
       "result": "PASS",
-      "detail": "Market page: buildDataStatusMeta. Dashboard: getStatusLabel() for label output. MarketTicker: source===binance-ws + TTL<5min for live; falls to delayed/no_data. AssetDetailModal: mapLegacyStatus(status)||(livePrice?'delayed':'no_data').",
-      "commit": "21cb0df"
+      "detail": "Market page: buildDataStatusMeta. Dashboard: provider-aware wsLiveCount/backendFresh/anyFresh logic, labels from getStatusLabel(). MarketTicker: source===binance-ws + TTL<5min for live. AssetDetailModal: mapLegacyStatus(status)||(livePrice?'delayed':'no_data').",
+      "commits": ["dade011", "21cb0df", "5d4c86c"]
+    },
+    "dashboard_aggregate_status": {
+      "result": "PASS",
+      "detail": "Provider-aware aggregate: wsLiveCount (source==='binance-ws' + TTL<5min) >= 3 → 'live'; wsLiveCount>0 → 'delayed'; backendFresh (source==='backend' + TTL<2min) → 'ayc_data'; anyFresh → 'delayed'; else 'no_data'. Timestamp-only threshold removed. Backend/stooq/coingecko/finnhub sources cannot produce 'Canlı'.",
+      "commit": "5d4c86c"
     },
     "dashboard_realtime_claim": {
       "result": "PASS",
-      "detail": "'Gerçek zamanlı piyasa istihbarat merkezi' removed. Replaced with neutral 'Piyasa istihbarat merkezi'.",
+      "detail": "'Gerçek zamanlı piyasa istihbarat merkezi' replaced with neutral 'Piyasa istihbarat merkezi'.",
       "commit": "21cb0df"
     },
     "market_ticker_source_verify": {
       "result": "PASS",
-      "detail": "MarketTicker now maps PriceEntry.source into items. verifiedLiveCount counts only source==='binance-ws' items with TTL<5min. tickerStatus: live only with 3+ verified items; otherwise delayed or no_data.",
+      "detail": "MarketTicker maps PriceEntry.source. verifiedLiveCount: source==='binance-ws' + TTL<5min. tickerStatus: live only with 3+ verified items.",
       "commit": "21cb0df"
     },
     "analysis_gating": {
       "result": "PASS",
-      "detail": "hasSufficientData gates target/stop/RR in AssetDetailModal. Uses mappedQualityStatus (post-mapLegacyStatus) to catch both 'insufficient' and 'no_data' from legacy API values.",
+      "detail": "hasSufficientData uses mappedQualityStatus (post-mapLegacyStatus) to gate target/stop/RR.",
       "commit": "dade011"
     },
     "dashboard_causal_truth": {
       "result": "PASS",
-      "detail": "Causal query gated on btcLiveFresh (nowTs-btcEntry.ts<60000 AND price>0). Fake values removed: ||80000, volume_ratio:2.1, indicators:{rsi:62,macd_hist:0.0012}. UI shows 'Causal analiz için güvenilir veri yok.' when not fresh.",
+      "detail": "Causal query gated on btcLiveFresh. Fake values ||80000/volume_ratio:2.1/rsi:62/macd_hist:0.0012 removed.",
       "commit": "dade011"
     },
     "dashboard_mock_removal": {
@@ -91,7 +96,7 @@
     },
     "mobile_safe_area_css": {
       "result": "PASS_SOURCE_ONLY",
-      "detail": "env(safe-area-inset-top) applied to .app-ticker. viewport-fit:cover and black-translucent set. Real device verification not done."
+      "detail": "env(safe-area-inset-top) applied to .app-ticker. Real device verification not done."
     },
     "ticker_duplicates": {
       "result": "PASS",
@@ -103,12 +108,12 @@
     "server": "localhost:3092 (Next.js dev)",
     "note": "PARTIAL_LOCAL_ONLY — live domain returns not_provided_by_cli_deploy",
     "endpoints": [
-      {"path": "/api/v1/version", "status": 200, "result": "PASS", "notes": "traceability fields present, cache-control no-store"},
-      {"path": "/api/v1/health", "status": 200, "result": "PASS"},
-      {"path": "/api/v1/prices/live?symbols=BTCUSDT", "status": 200, "result": "PASS", "notes": "empty without backend (expected)"},
-      {"path": "/api/v1/alarms", "status": 200, "result": "PASS", "notes": "alarms:[], count:0"},
-      {"path": "/api/v1/signals/live", "status": 200, "result": "PASS", "notes": "signals:[], feed_status:no_signal"},
-      {"path": "/dashboard", "status": 200, "result": "PASS"}
+      {"path": "/api/v1/version",                  "status": 200, "result": "PASS"},
+      {"path": "/api/v1/health",                   "status": 200, "result": "PASS"},
+      {"path": "/api/v1/prices/live?symbols=BTCUSDT","status": 200, "result": "PASS", "notes": "empty without backend"},
+      {"path": "/api/v1/alarms",                   "status": 200, "result": "PASS", "notes": "alarms:[], count:0"},
+      {"path": "/api/v1/signals/live",             "status": 200, "result": "PASS", "notes": "signals:[], feed_status:no_signal"},
+      {"path": "/dashboard",                       "status": 200, "result": "PASS"}
     ]
   },
   "browser_mobile_smoke": {
@@ -126,7 +131,7 @@
   },
   "test_results": {
     "type_check": "PASS",
-    "type_check_commit": "21cb0df",
+    "type_check_commit": "5d4c86c",
     "pytest_127_of_129": "PASS",
     "social_math_verification": "PASS",
     "api_smoke_local": "PASS",
@@ -137,18 +142,19 @@
     "deselected_reason": "fastapi not in sandbox; pass in CI Ubuntu runner"
   },
   "open_issues": [
-    {"id": 1, "severity": "fixed", "issue": "Social Radar bull+bear>100", "fix": "a614605"},
-    {"id": 2, "severity": "fixed", "issue": "Label centralization gaps", "fix": "dade011"},
-    {"id": 3, "severity": "fixed", "issue": "Dashboard/ticker threshold inconsistency — labels now from getStatusLabel()", "fix": "dade011"},
-    {"id": 4, "severity": "fixed", "issue": "AssetDetailModal headerStatus false-live", "fix": "dade011"},
-    {"id": 5, "severity": "fixed", "issue": "Dashboard causal fake values", "fix": "dade011"},
-    {"id": 6, "severity": "fixed", "issue": "EMPTY_ALARM_HINT demo row", "fix": "dade011/21cb0df"},
-    {"id": 7, "severity": "fixed", "issue": "Source label 'Binance Canlı' leak", "fix": "21cb0df"},
-    {"id": 8, "severity": "fixed", "issue": "MarketTicker unverified live threshold", "fix": "21cb0df"},
-    {"id": 9, "severity": "fixed", "issue": "Gerçek zamanlı unverified dashboard claim", "fix": "21cb0df"},
-    {"id": 10, "severity": "blocker", "issue": "CI not run on HEAD (21cb0df) — awaiting GitHub Actions"},
-    {"id": 11, "severity": "blocker", "issue": "Browser/mobile smoke NOT_RUN — network blocked"},
-    {"id": 12, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
-    {"id": 13, "severity": "blocker", "issue": "Production FAIL — not_provided_by_cli_deploy"}
+    {"id": 1,  "severity": "fixed",   "issue": "Social Radar bull+bear>100",                                     "fix": "a614605"},
+    {"id": 2,  "severity": "fixed",   "issue": "Label centralization gaps",                                       "fix": "dade011"},
+    {"id": 3,  "severity": "fixed",   "issue": "Dashboard/ticker threshold inconsistency",                        "fix": "dade011"},
+    {"id": 4,  "severity": "fixed",   "issue": "AssetDetailModal headerStatus false-live",                        "fix": "dade011"},
+    {"id": 5,  "severity": "fixed",   "issue": "Dashboard causal fake values",                                    "fix": "dade011"},
+    {"id": 6,  "severity": "fixed",   "issue": "EMPTY_ALARM_HINT demo row",                                       "fix": "21cb0df"},
+    {"id": 7,  "severity": "fixed",   "issue": "Source label 'Binance Canlı' leak",                               "fix": "21cb0df"},
+    {"id": 8,  "severity": "fixed",   "issue": "MarketTicker unverified live threshold",                          "fix": "21cb0df"},
+    {"id": 9,  "severity": "fixed",   "issue": "Gerçek zamanlı unverified dashboard claim",                       "fix": "21cb0df"},
+    {"id": 10, "severity": "fixed",   "issue": "Dashboard freshPriceCount timestamp-only 'Canlı' claim",          "fix": "5d4c86c"},
+    {"id": 11, "severity": "blocker", "issue": "CI not run on HEAD (5d4c86c) — awaiting GitHub Actions"},
+    {"id": 12, "severity": "blocker", "issue": "Browser/mobile smoke NOT_RUN — network blocked"},
+    {"id": 13, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
+    {"id": 14, "severity": "blocker", "issue": "Production FAIL — not_provided_by_cli_deploy"}
   ]
 }
