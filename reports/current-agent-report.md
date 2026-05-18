@@ -2,7 +2,7 @@
 
 **Branch:** `fix/live-data-truth-mobile-shell`
 **Code commit:** `5d4c86c`
-**HEAD:** `27f3d4d`
+**HEAD:** (post-selector-fix commit — see git log)
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `hardening-production-readiness @ 392ae98`
 **QA date:** 2026-05-18
@@ -16,7 +16,7 @@
 | SOURCE_ONLY_PASS | **PASS** |
 | CI_PASS | **PASS_WITH_WARNINGS** |
 | API_CONTRACT_PASS | **PASS_LOCAL** |
-| BROWSER_MOBILE_EMULATION_PASS | **NOT_RUN** |
+| BROWSER_MOBILE_EMULATION_PASS | **PASS** |
 | REAL_MOBILE_PASS | **NOT_RUN** |
 | PROD_PASS | **FAIL** |
 | **Production-ready** | **NO** |
@@ -28,7 +28,8 @@
 | Tool | Version |
 |------|---------|
 | Node.js | v22.22.2 |
-| Playwright | 1.56.1 (global) |
+| Playwright | 1.56.1 |
+| Chromium | build 1194 (pre-installed at `/opt/pw-browsers/`) |
 | Next.js | 14.2.3 |
 | Python | 3.11 |
 
@@ -83,61 +84,40 @@ Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`)
 
 ---
 
-## 3. Browser / Mobile Emulation — NOT_RUN
+## 3. Browser / Mobile Emulation — PASS
 
-**All Chromium installation methods failed in Linux sandbox:**
+**45/45 tests passed** across 5 viewport projects.
 
-| Method | Result |
-|--------|--------|
-| `playwright install chromium` | Silent failure — no binary installed |
-| `playwright install chromium --with-deps` | Ubuntu PPA `launchpadcontent.net` returns 403 Forbidden |
-| `PLAYWRIGHT_BROWSERS_PATH=/tmp playwright install chromium` | Playwright CDN blocked — code=1 |
-| `apt-get install -y chromium-browser` | Installs snap stub only; snap daemon unavailable in sandbox |
+| Viewport | Tests | Result |
+|----------|-------|--------|
+| mobile-390x844 | 9 | ✅ all pass |
+| mobile-393x852 | 9 | ✅ all pass |
+| mobile-412x915 | 9 | ✅ all pass |
+| mobile-430x932 | 9 | ✅ all pass |
+| tablet-768x1024 | 9 | ✅ all pass |
 
-**Test infrastructure committed** (`27f3d4d`) — ready to run on Windows workspace:
+**Execution environment:**
+- Chromium build 1194 at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`
+- `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`
+- Dev server: `localhost:3093` (Next.js dev, `JWT_SECRET` set)
+- Playwright 1.56.1 (pinned exact in package.json)
 
-| File | Purpose |
-|------|---------|
-| `playwright.config.ts` | 5 viewport projects |
-| `tests/browser/smoke.spec.ts` | Full smoke suite |
-| `scripts/run-browser-smoke-windows.ps1` | Windows one-command runner |
-| `test-results/screenshots/phase3-browser-mobile-smoke/` | Output directory |
+**Tests verified:**
 
-### To run on `C:\Users\mhani\Desktop\NEURA`:
+| Check | Result |
+|-------|--------|
+| No horizontal overflow (all 5 viewports × all pages) | ✅ PASS |
+| Dashboard neutral tagline "Piyasa istihbarat merkezi" | ✅ PASS |
+| No "Gerçek zamanlı piyasa istihbarat merkezi" in body | ✅ PASS |
+| No "Binance Canlı" in rendered HTML | ✅ PASS |
+| No `SİSTEM` / `EMPTY_ALARM_HINT` demo row in alarm widget | ✅ PASS |
+| No `MOCK_ALARM` on alarms page | ✅ PASS |
+| Ticker does not overlap bottom nav (`.bottom-nav`) on mobile | ✅ PASS |
+| Dashboard, Market, Social, Performance, Alarms render without crash | ✅ PASS |
 
-```powershell
-git pull --ff-only
+**Selector note:** Initial test run (35/45 pass) had a selector bug in `checkTickerNotOverlapping` — `"nav, ..."` matched the top sidebar `<nav>` at y=0 instead of `.bottom-nav` at y≈786. Fixed selector to `.bottom-nav`. Re-run: 45/45 pass.
 
-# Install deps (if not done)
-pnpm install
-
-# Install Playwright Chromium
-pnpm test:browser:install
-
-# Set env and start dev server (separate terminal)
-$env:JWT_SECRET="local-test-jwt-secret-32chars-minimum"
-$env:NEXT_PUBLIC_API_URL="http://localhost:3093"
-pnpm --filter neura-web dev -- -p 3093
-
-# Run all 5 viewport smoke tests
-pnpm test:browser
-```
-
-Or use the one-command script:
-```powershell
-.\scripts\run-browser-smoke-windows.ps1
-```
-
-**Checks the smoke verifies:**
-- No horizontal overflow at any viewport
-- No header/ticker overlap with content
-- No bottom nav overlap
-- `"Piyasa istihbarat merkezi"` neutral tagline present (not "Gerçek zamanlı")
-- No `EMPTY_ALARM_HINT` / `SİSTEM` demo row
-- No `"Binance Canlı"` in rendered HTML
-- Dashboard, market, social, performance, alarms pages render without crash
-
-**Viewports pending:** `390×844`, `393×852`, `412×915`, `430×932`, `768×1024`
+**Screenshots:** `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files — 45 tests × 2 shots each).
 
 ---
 
@@ -182,13 +162,13 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 | 1–10 | ✅ Fixed | All source-level truth leaks |
 | 11 | ⚠️ Warning | CI: gitleaks-action `gitleaks-config` unexpected input (annotation, not failure) |
 | 12 | ⚠️ Warning | CI: Node.js 20 deprecation in `actions/setup-node@v4` (annotation, not failure) |
-| 13 | 🔴 Blocker | Browser/mobile emulation NOT_RUN — infrastructure committed `27f3d4d`; run on `C:\Users\mhani\Desktop\NEURA` |
+| 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (Linux sandbox with pre-installed Chromium build 1194) |
 | 14 | 🔴 Blocker | Real mobile NOT_RUN — no device |
 | 15 | 🔴 Blocker | Production FAIL — `not_provided_by_cli_deploy`; network blocked from sandbox |
 
 ---
 
-## Test Results at HEAD (`27f3d4d`)
+## Test Results at HEAD
 
 | Suite | Result |
 |-------|--------|
@@ -199,7 +179,7 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 | CI: Secret scan | ✅ PASS |
 | CI: Docker compose validate | ✅ PASS |
 | API smoke local | ✅ 6/6 PASS |
-| Browser/mobile emulation | ⏳ NOT_RUN — run on Windows |
+| Browser/mobile emulation | ✅ **45/45 PASS** (5 viewports) |
 
 ---
 
@@ -211,7 +191,7 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 
 **API_CONTRACT_PASS: PASS_LOCAL** — 6/6 endpoints correct locally.
 
-**BROWSER_MOBILE_EMULATION_PASS: NOT_RUN** — infrastructure committed; Chromium network-blocked in sandbox. Run `pnpm test:browser` on `C:\Users\mhani\Desktop\NEURA`.
+**BROWSER_MOBILE_EMULATION_PASS: PASS** — 45/45 tests pass across 5 viewports (390×844, 393×852, 412×915, 430×932, 768×1024). No overlap, no overflow, no fake live claims in rendered HTML. Chromium build 1194 on Linux sandbox.
 
 **REAL_MOBILE_PASS: NOT_RUN** — no device.
 

@@ -34,13 +34,13 @@ async function checkNoHorizontalOverflow(page: Page) {
 }
 
 async function checkTickerNotOverlapping(page: Page) {
-  const ticker = page.locator(".app-ticker, [class*='ticker']").first();
-  const nav    = page.locator("nav, [class*='bottom-nav'], [class*='app-nav']").first();
-  const tickerBox = await ticker.boundingBox().catch(() => null);
-  const navBox    = await nav.boundingBox().catch(() => null);
-  if (tickerBox && navBox) {
-    // ticker bottom must not overlap nav top
-    expect(tickerBox.y + tickerBox.height, "ticker overlaps nav").toBeLessThanOrEqual(navBox.y + 2);
+  const ticker    = page.locator(".app-ticker").first();
+  const bottomNav = page.locator(".bottom-nav").first();
+  const tickerBox    = await ticker.boundingBox().catch(() => null);
+  const bottomNavBox = await bottomNav.boundingBox().catch(() => null);
+  // bottomNavBox is null on tablet (display:none); skip when not rendered
+  if (tickerBox && bottomNavBox) {
+    expect(tickerBox.y + tickerBox.height, "ticker overlaps bottom nav").toBeLessThanOrEqual(bottomNavBox.y + 2);
   }
 }
 
