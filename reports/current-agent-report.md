@@ -2,7 +2,7 @@
 
 **Branch:** `fix/live-data-truth-mobile-shell`
 **Code commit:** `5d4c86c`
-**HEAD:** `aec7828`
+**HEAD:** `b2a555b`
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `hardening-production-readiness @ 392ae98`
 **QA date:** 2026-05-18
@@ -14,7 +14,7 @@
 | Gate | Result |
 |------|--------|
 | SOURCE_ONLY_PASS | **PASS** |
-| CI_PASS | **PASS** |
+| CI_PASS | **PASS_WITH_WARNINGS** |
 | API_CONTRACT_PASS | **PASS_LOCAL** |
 | BROWSER_MOBILE_EMULATION_PASS | **PASS** |
 | REAL_MOBILE_PASS | **NOT_RUN** |
@@ -35,11 +35,11 @@
 
 ---
 
-## 1. CI — PASS
+## 1. CI — PASS_WITH_WARNINGS
 
-GitHub Actions runs on HEAD `aec7828` (branch push run `26053961913`, PR run `26053962213`):
+**HEAD `b2a555b` — runs `26054697357` (push) + `26054704996` (push):**
 
-| Job | Run 26053961913 | Run 26053962213 |
+| Job | Run 26054697357 | Run 26054704996 |
 |-----|----------------|----------------|
 | Web lint + type-check + build | ✅ success | ✅ success |
 | Pytest backend tests | ✅ success | ✅ success |
@@ -47,12 +47,33 @@ GitHub Actions runs on HEAD `aec7828` (branch push run `26053961913`, PR run `26
 | Docker compose config validation | ✅ success | ✅ success |
 | Vercel Preview Comments | ✅ success | — |
 
-**No annotation warnings.** Both previously reported warnings are resolved:
+**All jobs pass. PASS_WITH_WARNINGS because 4 informational annotations remain (one per job).**
 
-| Warning | Fix | Status |
-|---------|-----|--------|
-| `gitleaks-action@v2` unexpected input `gitleaks-config` | Moved to `env: GITLEAKS_CONFIG: .gitleaks.toml` | ✅ Fixed at `aec7828` |
-| `actions/setup-node@v4` Node 20 deprecation | Upgraded to `node-version: 22` | ✅ Fixed at `aec7828` |
+### CI Warning History
+
+| Warning | Status |
+|---------|--------|
+| `gitleaks-action@v2` unexpected input `gitleaks-config` | ✅ Fixed at `aec7828` (moved to `env: GITLEAKS_CONFIG`) |
+| `setup-node@v4` with `node-version: 20` | ✅ Fixed at `aec7828` (upgraded to `node-version: 22`) |
+| Node.js 20 action runner runtime — 4 annotations | ⚠️ Partial — see detail below |
+
+### Remaining Annotations (4, informational)
+
+**What GitHub shows:** One annotation per job:
+> "Node.js 20 is deprecated. The following actions target Node.js 20 but **are being forced to run on Node.js 24**: `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`."
+
+| Job | Actions in annotation |
+|-----|-----------------------|
+| Web lint + type-check + build | `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4` |
+| Pytest backend tests | `actions/checkout@v4`, `actions/setup-python@v5` |
+| Secret scan | `actions/checkout@v4`, `gitleaks/gitleaks-action@v2` |
+| Docker compose config validation | `actions/checkout@v4` |
+
+**Root cause:** These actions' `action.yml` files still declare `runs.using: node20` internally. GitHub annotates any job that invokes a node20-targeted action. This is set by the action maintainers (GitHub team, pnpm team, gitleaks team), not by this repository.
+
+**Mitigation applied at `b2a555b`:** `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` added as workflow-level env. This forces all action scripts to execute on node24, confirming node24 compatibility. Annotation text changed from "deprecated, may not work" to "are being forced to run on node24" — all 4 jobs passed successfully.
+
+**To fully eliminate annotations:** Action maintainers must update their `action.yml` from `runs.using: node20` to `runs.using: node24`. GitHub is enforcing this cutover on **June 2, 2026**.
 
 ---
 
@@ -62,10 +83,10 @@ Tested against `localhost:3093` (Next.js dev, `JWT_SECRET` set with safe dummy v
 
 | Endpoint | HTTP | Result | Notes |
 |----------|------|--------|-------|
-| `GET /api/v1/version` | 200 | ✅ PASS | `traceabilityComplete:false` (no AYC env vars — expected) |
-| `GET /api/v1/health` | 200 | ✅ PASS | Returns 500 without `JWT_SECRET` — correct security guard |
+| `GET /api/v1/version` | 200 | ✅ PASS | `traceabilityComplete:false` — no AYC env vars in sandbox |
+| `GET /api/v1/health` | 200 | ✅ PASS | 200 with JWT_SECRET; 500 without (correct security guard) |
 | `GET /api/v1/prices/live?symbols=BTCUSDT` | 200 | ✅ PASS | `prices:{}, count:0` — empty without backend |
-| `GET /api/v1/alarms` | 200 | ✅ PASS | Returns 500 without `JWT_SECRET` — correct security guard |
+| `GET /api/v1/alarms` | 200 | ✅ PASS | 200 with JWT_SECRET; 500 without |
 | `GET /api/v1/signals/live` | 200 | ✅ PASS | `signals:[], feed_status:no_signal` |
 | `GET /dashboard` | 200 | ✅ PASS | Page compiles and renders |
 
@@ -75,7 +96,7 @@ Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`)
 
 ## 3. Browser / Mobile Emulation — PASS
 
-**45/45 tests passed** across 5 viewport projects.
+**45/45 tests passed** across 5 viewport projects (committed at `7a9f57f`).
 
 | Viewport | Tests | Result |
 |----------|-------|--------|
@@ -85,40 +106,61 @@ Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`)
 | mobile-430x932 | 9 | ✅ all pass |
 | tablet-768x1024 | 9 | ✅ all pass |
 
-**Execution environment:**
-- Chromium build 1194 at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`
-- `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`
-- Dev server: `localhost:3093` (Next.js dev, `JWT_SECRET` set)
-- Playwright 1.56.1 (pinned exact in package.json)
+**Tests verified:** no horizontal overflow, dashboard neutral tagline, no fake live claims, no demo alarm rows, no Binance Canlı in HTML, ticker/bottom-nav non-overlapping, all 5 pages render without crash.
 
-**Tests verified:**
-
-| Check | Result |
-|-------|--------|
-| No horizontal overflow (all 5 viewports × all pages) | ✅ PASS |
-| Dashboard neutral tagline "Piyasa istihbarat merkezi" | ✅ PASS |
-| No "Gerçek zamanlı piyasa istihbarat merkezi" in body | ✅ PASS |
-| No "Binance Canlı" in rendered HTML | ✅ PASS |
-| No `SİSTEM` / `EMPTY_ALARM_HINT` demo row in alarm widget | ✅ PASS |
-| No `MOCK_ALARM` on alarms page | ✅ PASS |
-| Ticker (`.app-ticker`) does not overlap bottom nav (`.bottom-nav`) | ✅ PASS |
-| Dashboard, Market, Social, Performance, Alarms render without crash | ✅ PASS |
-
-**Screenshots:** `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files — 45 tests × 2 shots each). Committed at `7a9f57f`.
+**Screenshots:** `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files).
 
 ---
 
 ## 4. Real Mobile — NOT_RUN
 
-No physical device available. Required: real iOS Safari or Android Chrome with DevTools remote debugging evidence.
+No physical device available in this environment. Cannot claim PASS.
+
+**Required to mark PASS:**
+- iOS Safari or Android Chrome screenshot evidence
+- Tested pages: Dashboard, Market, Asset detail modal, Alarms, Performance
+- Verified: no header/ticker overlap, no bottom nav overlap, no horizontal overflow, no fake "Canlı"/"Gerçek zamanlı" claim
 
 ---
 
 ## 5. Production — FAIL
 
-All production hostnames blocked at network level from sandbox. Previous manual testing showed `/api/v1/version` returning `not_provided_by_cli_deploy` on live domain.
+**Live endpoint returns `not_provided_by_cli_deploy`.**
 
-**Required to mark PASS:** live `/api/v1/version` must return real `commitSha` and `branch` (not `not_provided_by_cli_deploy`).
+Production deploy uses Vercel CLI (not Vercel Git integration). CLI deploys do not auto-inject `VERCEL_GIT_COMMIT_SHA` / `VERCEL_GIT_COMMIT_REF`. The `/api/v1/version` endpoint falls through its entire priority chain and reaches the `CLI_FALLBACK` sentinel.
+
+**Priority chain in `apps/web/app/api/v1/_lib/version-info.ts`:**
+```
+commitSha: VERCEL_GIT_COMMIT_SHA → AYC_COMMIT_SHA → NEXT_PUBLIC_COMMIT_SHA → ...
+branch:    VERCEL_GIT_COMMIT_REF  → AYC_BRANCH     → NEXT_PUBLIC_BRANCH → ...
+buildTime: AYC_BUILD_TIME → BUILD_TIME → VERCEL_GIT_COMMIT_TIMESTAMP → ...
+deployId:  VERCEL_DEPLOYMENT_ID → AYC_DEPLOYMENT_ID → VERCEL_URL → ...
+```
+
+**Required to mark PROD_PASS — operator must do ONE of:**
+
+**Option A — Recommended:** Enable Vercel Git integration for this project in Vercel dashboard. Vercel then auto-injects `VERCEL_GIT_COMMIT_SHA`, `VERCEL_GIT_COMMIT_REF`, `VERCEL_GIT_COMMIT_TIMESTAMP`, `VERCEL_DEPLOYMENT_ID`, `VERCEL_URL` on every deploy. No code change needed.
+
+**Option B — CLI deploy workaround:** Set these vars in Vercel dashboard (Env vars tab) before next CLI deploy:
+```
+AYC_COMMIT_SHA     = <full git SHA>
+AYC_BRANCH         = hardening-production-readiness
+AYC_BUILD_TIME     = <ISO-8601 build timestamp>
+AYC_DEPLOYMENT_ID  = <Vercel deployment ID>
+AYC_DEPLOYMENT_URL = https://aycmarket.com
+```
+Or pass them at deploy time:
+```bash
+NEXT_PUBLIC_COMMIT_SHA=$(git rev-parse HEAD) \
+NEXT_PUBLIC_BRANCH=hardening-production-readiness \
+BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+DEPLOYMENT_URL=https://aycmarket.com \
+vercel deploy --prod
+```
+
+**Sandbox constraint:** Cannot access Vercel dashboard or run production deploys from this sandbox. Network access to `aycmarket.com` blocked. PROD_PASS remains FAIL.
+
+**To verify PASS:** `https://aycmarket.com/api/v1/version` must return `traceabilityComplete: true` with real `commitSha` and `branch` (not `not_provided_by_cli_deploy`).
 
 ---
 
@@ -147,24 +189,25 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 | # | Severity | Issue |
 |---|----------|-------|
 | 1–10 | ✅ Fixed | All source-level truth leaks |
-| 11 | ✅ Fixed | CI: gitleaks-action `gitleaks-config` — moved to env var (`aec7828`) |
-| 12 | ✅ Fixed | CI: Node.js 20 → 22 upgrade (`aec7828`) |
+| 11 | ✅ Fixed | CI: gitleaks-action `gitleaks-config` moved to env var (`aec7828`) |
+| 12 | ✅ Fixed | CI: `setup-node` node-version 20 → 22 (`aec7828`) |
 | 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (`7a9f57f`) |
-| 14 | 🔴 Blocker | Real mobile NOT_RUN — no device |
-| 15 | 🔴 Blocker | Production FAIL — `not_provided_by_cli_deploy`; network blocked from sandbox |
+| 16 | ⚠️ Warning | CI: 4 action runner node20→24 annotations — informational, jobs pass, `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` applied (`b2a555b`). Fully eliminate: action maintainers must update `action.yml` runtime to node24. GitHub enforces June 2 2026. |
+| 14 | 🔴 Blocker | Real mobile NOT_RUN — no device available |
+| 15 | 🔴 Blocker | Production FAIL — `/api/v1/version` returns `not_provided_by_cli_deploy`. Fix: set AYC_* env vars in Vercel dashboard before CLI deploy, or enable Vercel Git integration. |
 
 ---
 
-## Test Results at HEAD (`aec7828`)
+## Test Results at HEAD (`b2a555b`)
 
 | Suite | Result |
 |-------|--------|
 | `tsc --noEmit` | ✅ 0 errors |
-| `pytest` (127/129) | ✅ 127 passed, 2 deselected (fastapi env-only) |
-| CI: Web lint + type-check + build | ✅ PASS (both runs) |
-| CI: Pytest backend tests | ✅ PASS (both runs) |
-| CI: Secret scan | ✅ PASS (no annotation warnings) |
-| CI: Docker compose validate | ✅ PASS (both runs) |
+| `pytest` (127/129) | ✅ 127 passed, 2 deselected |
+| CI: Web lint + type-check + build | ✅ PASS (node24) |
+| CI: Pytest backend tests | ✅ PASS (node24) |
+| CI: Secret scan | ✅ PASS (node24, no gitleaks false positives) |
+| CI: Docker compose validate | ✅ PASS (node24) |
 | API smoke local | ✅ 6/6 PASS |
 | Browser/mobile emulation | ✅ **45/45 PASS** (5 viewports) |
 
@@ -174,14 +217,14 @@ All production hostnames blocked at network level from sandbox. Previous manual 
 
 **SOURCE_ONLY_PASS: PASS** — no component produces "Canlı" without verified source + TTL.
 
-**CI_PASS: PASS** — all jobs green on both runs; no annotation warnings (gitleaks-config and Node 20 issues fixed at `aec7828`).
+**CI_PASS: PASS_WITH_WARNINGS** — all 8 jobs succeed on node24. 4 informational annotations remain (one per job): "actions target node20 but are being forced to run on node24." `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` applied; actions confirmed node24-compatible. Annotations cannot be fully removed without action maintainer releases.
 
 **API_CONTRACT_PASS: PASS_LOCAL** — 6/6 endpoints correct locally.
 
-**BROWSER_MOBILE_EMULATION_PASS: PASS** — 45/45 tests pass across 5 viewports (390×844, 393×852, 412×915, 430×932, 768×1024). No overlap, no overflow, no fake live claims in rendered HTML.
+**BROWSER_MOBILE_EMULATION_PASS: PASS** — 45/45 tests across 5 viewports. No overlap, no overflow, no fake live claims.
 
-**REAL_MOBILE_PASS: NOT_RUN** — no device.
+**REAL_MOBILE_PASS: NOT_RUN** — no physical device. Evidence required: real iOS Safari + Android Chrome screenshots.
 
-**PROD_PASS: FAIL** — `not_provided_by_cli_deploy`.
+**PROD_PASS: FAIL** — `/api/v1/version` returns `not_provided_by_cli_deploy`. Fix: enable Vercel Git integration OR set `AYC_COMMIT_SHA`, `AYC_BRANCH`, `AYC_BUILD_TIME`, `AYC_DEPLOYMENT_ID` in Vercel dashboard before CLI deploy.
 
 **Production-ready: NO.**

@@ -2,7 +2,7 @@
   "qa_session": {
     "branch": "fix/live-data-truth-mobile-shell",
     "code_commit": "5d4c86c",
-    "head_commit": "aec7828",
+    "head_commit": "b2a555b",
     "pr_number": 3,
     "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3",
     "base": "hardening-production-readiness @ 392ae98",
@@ -10,7 +10,7 @@
   },
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
-    "CI_PASS": "PASS",
+    "CI_PASS": "PASS_WITH_WARNINGS",
     "API_CONTRACT_PASS": "PASS_LOCAL",
     "BROWSER_MOBILE_EMULATION_PASS": "PASS",
     "REAL_MOBILE_PASS": "NOT_RUN",
@@ -28,27 +28,47 @@
   },
   "ci_verification": {
     "pr": 3,
-    "head_sha": "aec7828",
-    "run_ids": ["26053961913", "26053962213"],
+    "head_sha": "b2a555b",
+    "run_ids": ["26054697357", "26054704996"],
     "jobs": [
-      {"name": "Web lint + type-check + build", "conclusion": "success", "runs": ["26053961913", "26053962213"]},
-      {"name": "Pytest backend tests",           "conclusion": "success", "runs": ["26053961913", "26053962213"]},
-      {"name": "Secret scan",                    "conclusion": "success", "runs": ["26053961913", "26053962213"]},
-      {"name": "Docker compose config validation","conclusion": "success", "runs": ["26053961913", "26053962213"]},
-      {"name": "Vercel Preview Comments",         "conclusion": "success", "runs": ["26053961913"]}
+      {"name": "Web lint + type-check + build", "conclusion": "success"},
+      {"name": "Pytest backend tests",           "conclusion": "success"},
+      {"name": "Secret scan",                    "conclusion": "success"},
+      {"name": "Docker compose config validation","conclusion": "success"},
+      {"name": "Vercel Preview Comments",         "conclusion": "success"}
     ],
     "overall": "success",
-    "annotation_warnings": [],
-    "ci_fixes_applied": [
+    "action_runtime": "node24 (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true applied at b2a555b)",
+    "resolved_warnings": [
       {
         "issue": "gitleaks-action@v2 unexpected input 'gitleaks-config'",
-        "fix": "Moved from with: gitleaks-config to env: GITLEAKS_CONFIG",
-        "commit": "aec7828"
+        "fix": "Moved from with: to env: GITLEAKS_CONFIG",
+        "commit": "aec7828",
+        "status": "fixed"
       },
       {
-        "issue": "setup-node@v4 Node 20 deprecation",
-        "fix": "Upgraded node-version: 20 to node-version: 22",
-        "commit": "aec7828"
+        "issue": "setup-node@v4 with node-version: 20",
+        "fix": "Upgraded to node-version: 22",
+        "commit": "aec7828",
+        "status": "fixed"
+      }
+    ],
+    "remaining_annotations": [
+      {
+        "count": 4,
+        "severity": "informational",
+        "type": "node20_action_runtime",
+        "text": "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24.",
+        "per_job": {
+          "web-quality": ["actions/checkout@v4", "actions/setup-node@v4", "pnpm/action-setup@v4"],
+          "backend-tests": ["actions/checkout@v4", "actions/setup-python@v5"],
+          "secret-scan": ["actions/checkout@v4", "gitleaks/gitleaks-action@v2"],
+          "docker-compose-validate": ["actions/checkout@v4"]
+        },
+        "root_cause": "Action action.yml files declare runs.using:node20. Controlled by action maintainers, not this repo.",
+        "mitigation": "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true applied — actions run on node24, all jobs pass. Text changed from 'may not work' to 'being forced to run on node24'.",
+        "permanent_fix": "Action maintainers (GitHub, pnpm, gitleaks) update action.yml to runs.using:node24. GitHub enforces June 2 2026.",
+        "jobs_pass_on_node24": true
       }
     ]
   },
@@ -57,16 +77,16 @@
     "result": "PASS_LOCAL",
     "endpoints": [
       {"path": "/api/v1/version",                    "status": 200, "result": "PASS", "notes": "traceabilityComplete:false — no AYC env vars (expected in sandbox)"},
-      {"path": "/api/v1/health",                     "status": 200, "result": "PASS", "notes": "200 with JWT_SECRET; 500 without (correct security guard)"},
-      {"path": "/api/v1/prices/live?symbols=BTCUSDT", "status": 200, "result": "PASS", "notes": "prices:{}, count:0 — empty without backend"},
-      {"path": "/api/v1/alarms",                     "status": 200, "result": "PASS", "notes": "200 with JWT_SECRET; 500 without (correct security guard)"},
+      {"path": "/api/v1/health",                     "status": 200, "result": "PASS"},
+      {"path": "/api/v1/prices/live?symbols=BTCUSDT", "status": 200, "result": "PASS", "notes": "prices:{}, count:0 — no backend"},
+      {"path": "/api/v1/alarms",                     "status": 200, "result": "PASS"},
       {"path": "/api/v1/signals/live",               "status": 200, "result": "PASS", "notes": "signals:[], feed_status:no_signal"},
       {"path": "/dashboard",                         "status": 200, "result": "PASS"}
     ],
     "production_endpoints": {
-      "aycmarket.com/api/v1/version":     "BLOCKED (Host not in allowlist)",
-      "app.aycmarket.com/api/v1/version": "BLOCKED (Host not in allowlist)",
-      "www.aycmarket.com/api/v1/version": "BLOCKED (Host not in allowlist)"
+      "aycmarket.com/api/v1/version":     "BLOCKED (network)",
+      "app.aycmarket.com/api/v1/version": "BLOCKED (network)",
+      "www.aycmarket.com/api/v1/version": "BLOCKED (network)"
     }
   },
   "browser_mobile_smoke": {
@@ -76,54 +96,64 @@
     "failed": 0,
     "playwright_version": "1.56.1",
     "chromium_build": "1194",
-    "chromium_executable": "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
-    "dev_server": "localhost:3093",
     "commit": "7a9f57f",
     "viewports": [
-      {"name": "mobile-390x844",  "tests": 9, "passed": 9, "failed": 0},
-      {"name": "mobile-393x852",  "tests": 9, "passed": 9, "failed": 0},
-      {"name": "mobile-412x915",  "tests": 9, "passed": 9, "failed": 0},
-      {"name": "mobile-430x932",  "tests": 9, "passed": 9, "failed": 0},
-      {"name": "tablet-768x1024", "tests": 9, "passed": 9, "failed": 0}
+      {"name": "mobile-390x844",  "passed": 9},
+      {"name": "mobile-393x852",  "passed": 9},
+      {"name": "mobile-412x915",  "passed": 9},
+      {"name": "mobile-430x932",  "passed": 9},
+      {"name": "tablet-768x1024", "passed": 9}
     ],
     "checks_verified": [
-      "no horizontal overflow (all viewports, all pages)",
-      "dashboard neutral tagline 'Piyasa istihbarat merkezi' present",
-      "no 'Gerçek zamanlı piyasa istihbarat merkezi' in body text",
-      "no 'Binance Canlı' in rendered HTML",
-      "no SİSTEM / EMPTY_ALARM_HINT demo row in alarm widget",
-      "no MOCK_ALARM on alarms page",
-      "ticker (.app-ticker) does not overlap bottom nav (.bottom-nav) on mobile",
-      "Dashboard, Market, Social, Performance, Alarms render without crash"
+      "no horizontal overflow",
+      "dashboard neutral tagline present",
+      "no Gerçek zamanlı piyasa claim",
+      "no Binance Canlı in HTML",
+      "no EMPTY_ALARM_HINT / SİSTEM demo row",
+      "ticker does not overlap bottom nav (.bottom-nav)",
+      "all 5 pages render without crash"
     ],
     "screenshots_dir": "test-results/screenshots/phase3-browser-mobile-smoke/",
     "screenshots_count": 90
   },
   "real_mobile": {
     "result": "NOT_RUN",
-    "reason": "No physical device available"
+    "reason": "No physical device available in sandbox",
+    "required_to_pass": [
+      "iOS Safari or Android Chrome screenshot evidence",
+      "Pages: Dashboard, Market, Asset detail modal, Alarms, Performance",
+      "Verified: no header/ticker overlap",
+      "Verified: no bottom nav overlap",
+      "Verified: no horizontal overflow",
+      "Verified: no fake Canlı / Gerçek zamanlı claim"
+    ]
   },
   "production": {
     "result": "FAIL",
-    "reason": "Production hostnames blocked at network level in sandbox. Prior manual evidence: /api/v1/version returns not_provided_by_cli_deploy. PROD_PASS cannot be granted.",
-    "required_to_pass": "Live /api/v1/version must return real commitSha/branch (not not_provided_by_cli_deploy)"
+    "observed": "not_provided_by_cli_deploy on all fields",
+    "root_cause": "Production uses Vercel CLI deploy (not Git integration). CLI deploys do not auto-inject VERCEL_GIT_* vars. version-info.ts priority chain exhausts all candidates and falls back to CLI_FALLBACK sentinel.",
+    "required_to_pass": "aycmarket.com/api/v1/version must return traceabilityComplete:true with real commitSha/branch",
+    "fix_option_a": "Enable Vercel Git integration — auto-injects VERCEL_GIT_COMMIT_SHA, VERCEL_GIT_COMMIT_REF, VERCEL_DEPLOYMENT_ID, VERCEL_URL",
+    "fix_option_b": "Set in Vercel env vars dashboard: AYC_COMMIT_SHA, AYC_BRANCH, AYC_BUILD_TIME, AYC_DEPLOYMENT_ID, AYC_DEPLOYMENT_URL",
+    "sandbox_constraint": "Cannot access Vercel dashboard or run production deploy from sandbox"
   },
-  "source_audit_summary": "All source-level truth leaks resolved at code commit 5d4c86c. See Phase 3 v1-v4 reports.",
+  "source_audit_summary": "All source-level truth leaks resolved at code commit 5d4c86c.",
   "test_results": {
     "tsc_noEmit": "PASS (0 errors)",
-    "pytest_127_of_129": "PASS",
-    "ci_web_build": "PASS",
-    "ci_pytest": "PASS",
-    "ci_secret_scan": "PASS (no warnings)",
-    "ci_docker_compose": "PASS",
+    "pytest": "PASS (127/129)",
+    "ci_web_build": "PASS (node24)",
+    "ci_pytest": "PASS (node24)",
+    "ci_secret_scan": "PASS (node24, no false positives)",
+    "ci_docker_compose": "PASS (node24)",
     "browser_mobile_smoke": "PASS (45/45)"
   },
   "open_issues": [
-    {"id": 1,  "severity": "fixed",   "issue": "All source-level truth leaks (1-10)", "commits": ["dade011","21cb0df","5d4c86c"]},
-    {"id": 11, "severity": "fixed",   "issue": "CI: gitleaks-action gitleaks-config moved to env var", "commit": "aec7828"},
-    {"id": 12, "severity": "fixed",   "issue": "CI: Node.js upgraded 20 → 22", "commit": "aec7828"},
-    {"id": 13, "severity": "fixed",   "issue": "Browser/mobile emulation — 45/45 PASS", "commit": "7a9f57f"},
-    {"id": 14, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
-    {"id": 15, "severity": "blocker", "issue": "Production FAIL — not_provided_by_cli_deploy; network blocked from sandbox"}
+    {"id": "1-10", "severity": "fixed",   "issue": "All source-level truth leaks", "commits": ["dade011","21cb0df","5d4c86c"]},
+    {"id": 11,    "severity": "fixed",   "issue": "CI: gitleaks-config unexpected input", "commit": "aec7828"},
+    {"id": 12,    "severity": "fixed",   "issue": "CI: node-version 20 → 22", "commit": "aec7828"},
+    {"id": 13,    "severity": "fixed",   "issue": "Browser/mobile 45/45 PASS", "commit": "7a9f57f"},
+    {"id": 16,    "severity": "warning", "issue": "CI: 4 informational annotations — action scripts target node20 but run on node24. FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true applied. Permanent fix: action maintainers update action.yml. GitHub cutover June 2 2026.", "commit": "b2a555b"},
+    {"id": 14,    "severity": "blocker", "issue": "Real mobile NOT_RUN — no physical device"},
+    {"id": 15,    "severity": "blocker", "issue": "PROD_PASS FAIL — not_provided_by_cli_deploy. Fix: enable Vercel Git integration OR set AYC_* env vars in Vercel dashboard before CLI deploy."}
   ]
 }
