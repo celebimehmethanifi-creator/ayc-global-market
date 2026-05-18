@@ -4,6 +4,7 @@ export type VersionInfo = {
   buildTime: string;
   environment: string;
   deploymentUrl: string;
+  deploymentId: string;
 };
 
 const CLI_FALLBACK = "not_provided_by_cli_deploy";
@@ -23,8 +24,10 @@ function toIsoMaybe(value?: string): string {
 }
 
 export function getVersionInfo(): VersionInfo {
+  // Vercel Git vars take priority; AYC_* vars are the CLI-deploy fallback.
   const commitSha =
     normalizeEnvValue(process.env.VERCEL_GIT_COMMIT_SHA) ||
+    normalizeEnvValue(process.env.AYC_COMMIT_SHA) ||
     normalizeEnvValue(process.env.NEXT_PUBLIC_COMMIT_SHA) ||
     normalizeEnvValue(process.env.GIT_COMMIT_SHA) ||
     normalizeEnvValue(process.env.NEXT_PUBLIC_GIT_COMMIT_SHA) ||
@@ -32,13 +35,15 @@ export function getVersionInfo(): VersionInfo {
 
   const branch =
     normalizeEnvValue(process.env.VERCEL_GIT_COMMIT_REF) ||
+    normalizeEnvValue(process.env.AYC_BRANCH) ||
     normalizeEnvValue(process.env.NEXT_PUBLIC_BRANCH) ||
     normalizeEnvValue(process.env.GIT_BRANCH) ||
     normalizeEnvValue(process.env.NEXT_PUBLIC_GIT_BRANCH) ||
     CLI_FALLBACK;
 
   const buildTime = toIsoMaybe(
-    normalizeEnvValue(process.env.BUILD_TIME) ||
+    normalizeEnvValue(process.env.AYC_BUILD_TIME) ||
+      normalizeEnvValue(process.env.BUILD_TIME) ||
       normalizeEnvValue(process.env.VERCEL_GIT_COMMIT_TIMESTAMP) ||
       normalizeEnvValue(process.env.NEXT_PUBLIC_BUILD_TIME) ||
       CLI_FALLBACK,
@@ -52,6 +57,7 @@ export function getVersionInfo(): VersionInfo {
   const deploymentHost =
     normalizeEnvValue(process.env.DEPLOYMENT_URL) ||
     normalizeEnvValue(process.env.VERCEL_URL) ||
+    normalizeEnvValue(process.env.AYC_DEPLOYMENT_URL) ||
     normalizeEnvValue(process.env.NEXT_PUBLIC_SITE_URL)?.replace(/^https?:\/\//, "") ||
     CLI_FALLBACK;
 
@@ -62,5 +68,11 @@ export function getVersionInfo(): VersionInfo {
         ? deploymentHost
         : `https://${deploymentHost}`;
 
-  return { commitSha, branch, buildTime, environment, deploymentUrl };
+  const deploymentId =
+    normalizeEnvValue(process.env.VERCEL_DEPLOYMENT_ID) ||
+    normalizeEnvValue(process.env.AYC_DEPLOYMENT_ID) ||
+    normalizeEnvValue(process.env.VERCEL_URL) ||
+    CLI_FALLBACK;
+
+  return { commitSha, branch, buildTime, environment, deploymentUrl, deploymentId };
 }

@@ -1225,3 +1225,69 @@ def test_scenario_fallback_data_quality_nulls_numeric_fields_to_block_fake_profi
     assert "scenario.kellyFraction = null" in text
     assert "scenario.probability = null" in text
     assert 'scenario.resultLabel = "Tahmini";' in text
+
+
+# ── Deploy version metadata traceability ─────────────────────────────────────
+
+def test_version_route_supports_ayc_commit_metadata():
+    """AYC_COMMIT_SHA, AYC_BRANCH, AYC_BUILD_TIME must be read by version-info."""
+    text = read_text(WEB_VERSION_LIB)
+    assert "AYC_COMMIT_SHA" in text, "version-info.ts must read AYC_COMMIT_SHA for CLI deploys"
+    assert "AYC_BRANCH" in text, "version-info.ts must read AYC_BRANCH for CLI deploys"
+    assert "AYC_BUILD_TIME" in text, "version-info.ts must read AYC_BUILD_TIME for CLI deploys"
+
+
+def test_version_route_prefers_vercel_git_metadata():
+    """VERCEL_GIT_COMMIT_SHA and VERCEL_GIT_COMMIT_REF must still be read."""
+    text = read_text(WEB_VERSION_LIB)
+    assert "VERCEL_GIT_COMMIT_SHA" in text, "VERCEL_GIT_COMMIT_SHA must remain in version-info.ts"
+    assert "VERCEL_GIT_COMMIT_REF" in text, "VERCEL_GIT_COMMIT_REF must remain in version-info.ts"
+    # Vercel var must appear before AYC var in source (priority order)
+    sha_vercel_pos = text.index("VERCEL_GIT_COMMIT_SHA")
+    sha_ayc_pos = text.index("AYC_COMMIT_SHA")
+    assert sha_vercel_pos < sha_ayc_pos, \
+        "VERCEL_GIT_COMMIT_SHA must be checked before AYC_COMMIT_SHA"
+    ref_vercel_pos = text.index("VERCEL_GIT_COMMIT_REF")
+    ref_ayc_pos = text.index("AYC_BRANCH")
+    assert ref_vercel_pos < ref_ayc_pos, \
+        "VERCEL_GIT_COMMIT_REF must be checked before AYC_BRANCH"
+
+
+def test_version_route_safe_fallback_only_when_metadata_missing():
+    """CLI_FALLBACK must exist and be the last resort, not the primary value."""
+    text = read_text(WEB_VERSION_LIB)
+    assert 'CLI_FALLBACK = "not_provided_by_cli_deploy"' in text, \
+        "CLI_FALLBACK constant must be defined"
+    # The literal must appear exactly once (the CLI_FALLBACK = "..." definition).
+    # Any additional occurrence means someone hardcoded it directly in a chain.
+    import re
+    literal_occurrences = re.findall(r'"not_provided_by_cli_deploy"', text)
+    assert len(literal_occurrences) == 1, (
+        f'"not_provided_by_cli_deploy" literal appears {len(literal_occurrences)} times; '
+        "it must appear exactly once (the CLI_FALLBACK constant definition). "
+        "Use CLI_FALLBACK everywhere else."
+    )
+    # CLI_FALLBACK must appear multiple times (used in chains)
+    assert text.count("CLI_FALLBACK") >= 5, \
+        "CLI_FALLBACK must be used as fallback in multiple metadata chains"
+
+
+def test_version_route_does_not_expose_secrets():
+    """Version route and helper must not read or return secret env vars."""
+    version_text = read_text(WEB_VERSION_ROUTE)
+    lib_text = read_text(WEB_VERSION_LIB)
+    combined = version_text + lib_text
+    forbidden = [
+        "JWT_SECRET",
+        "SECRET_KEY",
+        "EXCHANGE_CREDENTIALS_KEY",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "COINGECKO_API_KEY",
+        "FINNHUB_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+    ]
+    for var in forbidden:
+        assert var not in combined, \
+            f"Secret env var {var!r} must not appear in the version route or helper"
