@@ -48,3 +48,10 @@ data/*.db
 .DS_Store
 Thumbs.db
 .vercel
+
+# Keep screenshot output dir tracked but not contents
+!test-results/
+!test-results/screenshots/
+!test-results/screenshots/**
+test-results/playwright-output/
+test-results/playwright-results.json
