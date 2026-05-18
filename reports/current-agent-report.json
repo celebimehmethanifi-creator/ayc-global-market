@@ -1,47 +1,125 @@
 {
-  "phase": 3,
-  "title": "Live Data Truth + Mobile Browser Shell",
-  "branch": "fix/live-data-truth-mobile-shell",
-  "base": "hardening-production-readiness",
-  "baseCommit": "392ae98",
-  "patchCommit": "ba3ce74",
-  "date": "2026-05-18",
-  "objectives": [
-    {"id": 1, "desc": "Central market truth model in data-status.ts", "status": "done"},
-    {"id": 2, "desc": "Price consistency via central helpers", "status": "no_change_needed"},
-    {"id": 3, "desc": "Analysis gating when data insufficient", "status": "no_change_needed"},
-    {"id": 4, "desc": "Dashboard truth: remove MOCK_SIGNALS/MOVER_SEEDS/MOCK_CAUSAL/hardcoded AI motor count", "status": "done"},
-    {"id": 5, "desc": "Alarm truth: remove MOCK_ALARMS merge", "status": "done"},
-    {"id": 6, "desc": "Traceability: add traceabilityComplete/traceabilityStatus/missing to version endpoint", "status": "done"},
-    {"id": 7, "desc": "Stale fallback mismatch: isStale field in DataStatusMeta", "status": "done"},
-    {"id": 8, "desc": "Mobile shell safe-area: iOS Safari ticker/header overlap", "status": "done_source_only"},
-    {"id": 9, "desc": "Social Radar Demo label + bull+bear+neutral <= 100", "status": "already_correct"},
-    {"id": 10, "desc": "Performance zero-state: no fake yellow bar", "status": "done"}
-  ],
-  "changedFiles": [
-    "apps/web/app/(app)/alarms/page.tsx",
-    "apps/web/app/(app)/dashboard/page.tsx",
-    "apps/web/app/(app)/performance/page.tsx",
-    "apps/web/app/api/v1/_lib/version-info.ts",
-    "apps/web/lib/markets/data-status.ts",
-    "apps/web/app/globals.css",
-    ".github/workflows/ci.yml"
-  ],
-  "testResults": {
-    "typeCheck": "pass",
-    "lint": "warnings_only_preexisting",
-    "build": "pass",
-    "pytest_111_of_113": "pass",
+  "qa_session": {
+    "branch": "fix/live-data-truth-mobile-shell",
+    "patch_commit": "ba3ce74",
+    "social_fix_commit": "a614605",
+    "head_commit": "a614605",
+    "base": "hardening-production-readiness @ 392ae98",
+    "qa_date": "2026-05-18"
+  },
+  "classification": {
+    "SOURCE_ONLY_PASS": "PARTIAL",
+    "CI_PASS": "NOT_RUN",
+    "API_CONTRACT_PASS": "PARTIAL",
+    "BROWSER_MOBILE_SMOKE": "NOT_RUN",
+    "REAL_MOBILE_PASS": "NOT_RUN",
+    "PROD_PASS": "NOT_RUN",
+    "production_ready": false
+  },
+  "source_audit": {
+    "live_status_gate": {
+      "result": "PASS",
+      "detail": "inferBaseStatus() requires hasPrice=true AND Binance source. Unknown sources get fallback. Live downgrades to delayed at 5min. Verified by logic simulation."
+    },
+    "label_centralization": {
+      "result": "PARTIAL",
+      "detail": "data-status.ts covers Canlı/Gecikmeli/AYC Veri/Veri yok. Missing from module: 'Veri yetersiz' (in AssetDetailModal local fn), 'Demo' (hardcoded in social/page.tsx). No runtime truth failure, but two separate label paths.",
+      "gaps": ["Veri yetersiz", "Demo"]
+    },
+    "price_display_consistency": {
+      "result": "PARTIAL",
+      "detail": "Market page uses buildDataStatusMeta. Dashboard uses freshPriceCount/45s own logic. MarketTicker uses 90s own logic. AssetDetailModal assigns 'live' on price response without TTL.",
+      "consistent_path": "/market page",
+      "inconsistent_paths": ["dashboard", "MarketTicker", "AssetDetailModal headerStatus"]
+    },
+    "analysis_gating": {
+      "result": "PASS",
+      "detail": "hasSufficientData gates target/stop/RR in AssetDetailModal. Scenario route nulls Kelly/probability/RR/PnL for fallback, returns empty for insufficient."
+    },
+    "dashboard_mock_removal": {
+      "result": "PASS",
+      "MOCK_SIGNALS": "absent",
+      "MOVER_SEEDS": "absent",
+      "MOCK_CAUSAL": "absent",
+      "hardcoded_ai_claim": "replaced with runtime actionableCount"
+    },
+    "alarm_truth": {
+      "result": "PASS",
+      "MOCK_ALARMS": "absent",
+      "assignment": "Array.isArray(alarmsApi) ? alarmsApi : []",
+      "empty_state": "renders when alarms.length === 0"
+    },
+    "traceability": {
+      "result": "PASS",
+      "fields_added": ["traceabilityComplete", "traceabilityStatus", "missing"],
+      "smoke_without_vars": "traceabilityComplete:false, missing:[commitSha,branch,buildTime,deploymentId]",
+      "smoke_with_vars": "traceabilityComplete:true, missing:[]",
+      "cache_control": "no-store, max-age=0"
+    },
+    "performance_zero_state": {
+      "result": "PASS",
+      "detail": "No gold bar when stats.total===0. Gold segment only when stats.pending>0."
+    },
+    "social_radar_percentages": {
+      "result": "FIXED",
+      "agent_claim": "already correct",
+      "qa_finding": "INCORRECT — bull+bear exceeded 100 in 351/1610 combinations (max sum=126)",
+      "fix_commit": "a614605",
+      "fix_detail": "proportional scaling when bull+bear>100; all 1610 combinations verified to sum to 100"
+    },
+    "mobile_safe_area_css": {
+      "result": "PASS_SOURCE_ONLY",
+      "detail": "env(safe-area-inset-top) applied to .app-ticker with box-sizing:content-box. viewport-fit:cover and black-translucent already set. Real device verification not done."
+    },
+    "ticker_duplicates": {
+      "result": "PASS",
+      "duplicate_symbols": false,
+      "double_render_note": "intentional for seamless CSS scroll animation"
+    }
+  },
+  "api_contract_smoke": {
+    "server": "localhost:3092 (Next.js dev)",
+    "endpoints": [
+      {"path": "/api/v1/version", "status": 200, "result": "PASS", "notes": "traceability fields present, cache-control no-store"},
+      {"path": "/api/v1/health", "status": 200, "result": "PASS"},
+      {"path": "/api/v1/prices/live?symbols=BTCUSDT", "status": 200, "result": "PASS", "notes": "empty without backend (expected)"},
+      {"path": "/api/v1/alarms", "status": 200, "result": "PASS", "notes": "alarms:[], count:0"},
+      {"path": "/api/v1/signals/live", "status": 200, "result": "PASS", "notes": "signals:[], feed_status:no_signal"},
+      {"path": "/dashboard", "status": 200, "result": "PASS"}
+    ]
+  },
+  "browser_mobile_smoke": {
+    "result": "NOT_RUN",
+    "reason": "Playwright Chromium download blocked by network restrictions in sandbox",
+    "viewports_pending": ["390x844","393x852","412x915","430x932","768x1024"]
+  },
+  "real_mobile": {
+    "result": "NOT_RUN",
+    "reason": "No physical device available"
+  },
+  "production": {
+    "result": "NOT_RUN",
+    "reason": "No live domain accessible from this environment"
+  },
+  "test_results": {
+    "type_check": "PASS",
+    "pytest_111_of_113": "PASS",
+    "social_math_verification": "PASS",
+    "api_smoke_local": "PASS",
     "deselected": [
       "test_gateway_auth_service_fails_when_secret_missing_in_production",
       "test_gateway_invalid_token_is_rejected"
     ],
-    "deselectedReason": "fastapi not installed in sandbox; pass in CI Ubuntu runner"
+    "deselected_reason": "fastapi not in sandbox; pass in CI Ubuntu runner"
   },
-  "honestyClaims": {
-    "productionReady": false,
-    "realMobilePass": false,
-    "mobileTestMethod": "source_level_only",
-    "fakeDataRemoved": true
-  }
+  "open_issues": [
+    {"id": 1, "severity": "fixed", "issue": "Social Radar bull+bear sum exceeded 100 (351/1610 combinations)", "fix": "a614605"},
+    {"id": 2, "severity": "minor", "issue": "Veri yetersiz and Demo labels not in data-status.ts — dual label paths"},
+    {"id": 3, "severity": "minor", "issue": "Dashboard/ticker live threshold differs from buildDataStatusMeta (45s/90s vs 5min)"},
+    {"id": 4, "severity": "minor", "issue": "AssetDetailModal headerStatus assigns live on price arrival without TTL check"},
+    {"id": 5, "severity": "blocker", "issue": "CI not run on HEAD (a614605) — no PR opened"},
+    {"id": 6, "severity": "blocker", "issue": "Browser/mobile smoke NOT_RUN — network blocked"},
+    {"id": 7, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
+    {"id": 8, "severity": "blocker", "issue": "Production NOT_RUN — no live domain access"}
+  ]
 }

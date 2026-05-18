@@ -1,88 +1,167 @@
-# Phase 3: Live Data Truth + Mobile Browser Shell — Agent Report
+# Phase 3 QA Report — fix/live-data-truth-mobile-shell
 
 **Branch:** `fix/live-data-truth-mobile-shell`
+**Patch commit:** `ba3ce74`
+**Social fix commit:** `a614605` (QA-found bug fixed during this session)
 **Base:** `hardening-production-readiness @ 392ae98`
-**Commit:** `ba3ce74`
-**Date:** 2026-05-18
+**QA date:** 2026-05-18
 
 ---
 
-## Objectives & Status
+## Classification
 
-| # | Objective | Status |
-|---|-----------|--------|
-| 1 | Central market truth model (`data-status.ts`) — add `isLive/isDelayed/isDemo/isFallback/isStale/confidence` | ✅ Done |
-| 2 | Price consistency — all price display uses central helpers | ✅ Existing (no regression) |
-| 3 | Analysis gating — hide target/stop/RR/Kelly/probability when data insufficient | ✅ Existing (no regression) |
-| 4 | Dashboard truth — remove `MOCK_SIGNALS`, `MOVER_SEEDS`, `MOCK_CAUSAL`, hardcoded "3 AI MOTOR AKTİF" | ✅ Done |
-| 5 | Alarm truth — remove `MOCK_ALARMS` merge, empty state when no real alarms | ✅ Done |
-| 6 | Traceability P0 — version endpoint add `traceabilityComplete`/`traceabilityStatus`/`missing` | ✅ Done |
-| 7 | Stale fallback mismatch — BTCUSDT/SOLUSDT stale labeled correctly via `isStale` in `DataStatusMeta` | ✅ Done |
-| 8 | Mobile shell safe-area — iOS Safari header/ticker/bottom-nav overlap | ✅ Done |
-| 9 | Social Radar — bull+neutral+bear ≤100 already ensured; Demo label already present | ✅ Already correct |
-| 10 | Performance zero-state — no fake yellow bar when data empty | ✅ Done |
+| Gate | Result |
+|------|--------|
+| SOURCE_ONLY_PASS | **PARTIAL** (see findings below) |
+| CI_PASS | **NOT_RUN** — no PR; no Actions results at HEAD |
+| API_CONTRACT_PASS | **PARTIAL** — version/health/alarms/signals verified locally; live domain not accessible |
+| Browser/mobile smoke | **NOT_RUN** — Chromium download blocked in sandbox |
+| REAL_MOBILE_PASS | **NOT_RUN** — no physical device |
+| PROD_PASS | **NOT_RUN** — no live domain access |
+| **Production-ready** | **NO** |
 
 ---
 
-## Changes Made
+## Source Audit Findings
 
-### `apps/web/app/(app)/alarms/page.tsx`
-- Removed `MOCK_ALARMS` constant (3 hardcoded alarms: price/signal/drawdown)
-- Changed `const alarms = [...MOCK_ALARMS,...alarmsApi]` → `const alarms = Array.isArray(alarmsApi) ? alarmsApi : []`
-- Empty state shown when API returns no alarms (existing empty state render at bottom of list)
+### ✅ PASS — "Canlı" cannot appear without real provider + valid TTL
+`inferBaseStatus()` in `data-status.ts` requires:
+- `hasPrice = true`
+- Source must be `BINANCE-WS` (live) or `BINANCE` with `delayMinutes ≤ 2`
+- Any unknown source with `hasPrice=true` → "fallback", never "live"
+- Additional gate: `live` downgrades to `delayed` if `delayMinutes >= 5`
 
-### `apps/web/app/(app)/dashboard/page.tsx`
-- Removed `MOCK_SIGNALS` constant (6 hardcoded signals: BTCUSDT/XAUUSD/NVDA/ETHUSDT/TSLA/THYAO)
-- Removed `MOCK_CAUSAL` constant (hardcoded Bitcoin narrative) — causal was already `null` on API failure
-- Removed `MOVER_SEEDS` constant (10 hardcoded instruments) and simplified `movers` useMemo to derive exclusively from live signals (no seed anchor)
-- Replaced hardcoded `"3 AI MOTOR AKTİF"` with runtime `actionableCount > 0 ? \`${actionableCount} AKTİF SİNYAL\` : "Sinyal bekleniyor"`
+Verified by logic simulation: UNKNOWN/COINGECKO/STOOQ sources cannot produce "live" status.
 
-### `apps/web/app/(app)/performance/page.tsx`
-- Fixed "Sinyal Dağılımı" bar: when `stats.total === 0`, show a plain empty bar instead of the gold `flex:1` segment that created a fake yellow pending bar with zero data
-- When data exists, gold segment only renders if `stats.pending > 0`
+### ⚠️ PARTIAL — Label centralization
+Required labels: `Canlı / Gecikmeli / AYC Veri / Veri yok / Veri yetersiz / Demo`
 
-### `apps/web/app/api/v1/_lib/version-info.ts`
-- Added to `VersionInfo` type: `traceabilityComplete: boolean`, `traceabilityStatus: "complete"|"incomplete"`, `missing: string[]`
-- Logic: checks which of commitSha/branch/buildTime/deploymentId equal `CLI_FALLBACK`; if any do, `missing` lists them and `traceabilityComplete` is false
+`data-status.ts` centralizes: Canlı, Gecikmeli, AYC Veri ("BACKEND" source label), Veri yok
 
-### `apps/web/lib/markets/data-status.ts`
-- Added to `DataStatusMeta` type: `isLive`, `isDelayed`, `isDemo`, `isFallback`, `isStale` (booleans), `confidence` (`"high"|"medium"|"low"|"none"`)
-- `isStale`: true when `delayMinutes >= 15`
-- `isDemo`: true when no price or `no_data`/`api_error` status
-- `confidence`: "high" for live+fresh, "medium" for delayed+fresh, "low" for fallback/stale, "none" for no data
+**Gaps:**
+- `"Veri yetersiz"` — defined only in `AssetDetailModal.tsx:111` as a local fallback in `statusLabel()`, not exported from `data-status.ts`
+- `"Demo"` — hardcoded string in `social/page.tsx:243`, not from `data-status.ts`
 
-### `apps/web/app/globals.css`
-- Added to `@supports (padding: max(0px))` block:
-  ```css
-  .app-ticker {
-    padding-top: env(safe-area-inset-top, 0px);
-    box-sizing: content-box;
-  }
-  ```
-- The ticker is the topmost element in `app-root` (column flex). `viewport-fit: cover` + `status-bar-style: black-translucent` are already set, so `env(safe-area-inset-top)` returns the notch height on supported iOS devices
+Both labels exist in the UI but are not centralized through the single module. Minor — not a runtime truth failure, but a maintainability gap.
 
-### `.github/workflows/ci.yml`
-- Added `fix/live-data-truth-mobile-shell` to `on.push.branches` list so CI triggers on direct pushes
+### ⚠️ PARTIAL — Price display consistency
+- **Market page** (`/market`): uses `buildDataStatusMeta()` from `data-status.ts` ✅
+- **Dashboard**: uses its own `freshPriceCount >= 8` / 45s TTL logic — NOT `buildDataStatusMeta` ⚠️
+- **MarketTicker**: uses 90s TTL / `liveCount >= 3` threshold — NOT `buildDataStatusMeta` ⚠️
+- **AssetDetailModal**: uses local `statusLabel()` function; `headerStatus` derived as `analysis?.dataQuality?.status || (livePrice ? "live" : "fallback")` — assigns "live" solely because a price response arrived, no TTL verification ⚠️
+
+Price values themselves all originate from `usePrices()` (PriceContext WebSocket) which is a single source. The *status labels* are computed by three different paths with different thresholds.
+
+### ✅ PASS — Analysis gating (target/stop/RR/Kelly/probability)
+- `AssetDetailModal`: `hasSufficientData = analysis?.dataQuality?.status !== "insufficient"` gates Hedef/Stop Loss/RR display — shows "Veri yetersiz" when false ✅
+- Scenario API route: returns empty scenarios + message when `dataQuality === "insufficient"` ✅; nulls `probability`, `kellyFraction`, `expectedPnlPct`, `riskReward` when `dataQuality === "fallback"` ✅
+
+### ✅ PASS — Dashboard fake data fully removed
+- `MOCK_SIGNALS`: **absent** (grep confirmed)
+- `MOVER_SEEDS`: **absent** (grep confirmed)
+- `MOCK_CAUSAL`: **absent** (grep confirmed)
+- `"3 AI MOTOR AKTİF"`: replaced with runtime `actionableCount > 0 ? \`${actionableCount} AKTİF SİNYAL\` : "Sinyal bekleniyor"` ✅
+- `signals` derived from `signalData?.signals` (API) only ✅
+- `movers` derived from live signals only (no seed anchor) ✅
+
+### ✅ PASS — Alarm truth
+- `MOCK_ALARMS`: **absent** ✅
+- Assignment: `const alarms = Array.isArray(alarmsApi) ? alarmsApi : []` ✅
+- Empty state renders when `alarms.length === 0` ✅
+- API confirmed: `/api/v1/alarms` returns `{"alarms":[],"count":0}` when no alarms stored
+
+### ✅ PASS — Traceability
+- `VersionInfo` now has: `traceabilityComplete: boolean`, `traceabilityStatus: "complete"|"incomplete"`, `missing: string[]`
+- Smoke test with AYC vars: returns `traceabilityComplete: true, missing: []` ✅
+- Smoke test without AYC vars: returns `traceabilityComplete: false, missing: ["commitSha","branch","buildTime","deploymentId"]` ✅
+- Cache-Control: `no-store, max-age=0` confirmed ✅
+
+### ✅ PASS — Performance zero-state bar
+- When `stats.total === 0`: plain grey bar rendered, no gold segment ✅
+- Gold segment only renders when `stats.pending > 0` ✅
+
+### ❌ BUG FOUND AND FIXED — Social Radar percentages
+**Agent claimed "already correct" — INCORRECT.**
+
+`seededSentiment()` formula: `bull = 35+(hash%46)`, `bear = 12+((hash*3)%35)`. When `bull+bear > 100`, neutral is clamped to 0 but the displayed text percentages (bull%, neutral%, bear%) still summed to >100 (up to 126 for some symbols). Confirmed: 351 of 1610 possible value combinations produced sum > 100.
+
+**Fix applied** (`a614605`): proportional scaling when `bull+bear > 100`. All 1610 combinations now produce exactly 100.
+
+### ✅ PASS — Mobile shell safe-area CSS
+- `@supports (padding: max(0px))` block now includes `.app-ticker { padding-top: env(safe-area-inset-top, 0px); box-sizing: content-box; }`
+- `viewport-fit: cover` and `status-bar-style: black-translucent` already set in root layout
+- `app-root` is `height:100dvh` flex-column with `overflow:hidden` — ticker height expansion pushes other elements down correctly
+- Bottom nav and app-main already handle `env(safe-area-inset-bottom)` at multiple breakpoints
+- **NOT verified on real device** — source-level only
+
+### ✅ PASS — MarketTicker no duplicates
+- 38 unique symbols (no key duplicates confirmed by audit)
+- Double-render in JSX (`[0,1].map`) is intentional for seamless CSS scroll loop, not a bug
 
 ---
 
-## Test Results
+## API Contract Smoke (local dev server)
+
+All tests against `http://localhost:3092` with Next.js dev server:
+
+| Endpoint | Result | Notes |
+|----------|--------|-------|
+| `GET /api/v1/version` (no AYC vars) | ✅ 200, `traceabilityComplete:false`, `missing:[4 fields]` | Correct fallback |
+| `GET /api/v1/version` (AYC vars set) | ✅ 200, `traceabilityComplete:true`, `missing:[]` | Correct |
+| `GET /api/v1/health` | ✅ 200, `status:"ok"` | |
+| `GET /api/v1/prices/live?symbols=BTCUSDT` | ✅ 200, `prices:{},count:0` | Empty without backend (expected) |
+| `GET /api/v1/alarms` | ✅ 200, `alarms:[],count:0` | Correct empty state |
+| `GET /api/v1/signals/live` | ✅ 200, `signals:[],feed_status:"no_signal"` | Correct |
+| `GET /dashboard` (page) | ✅ 200 | |
+
+---
+
+## Browser / Mobile Smoke
+
+**NOT RUN** — Playwright Chromium download blocked (network restricted in sandbox).
+
+Required viewports for future verification:
+- 390×844 (iPhone 14 Pro)
+- 393×852 (iPhone 15)
+- 412×915 (Android)
+- 430×932 (iPhone 15 Plus)
+- 768×1024 (iPad)
+
+Checks needed when browser access available:
+- Ticker not overlapping status bar
+- Bottom nav not overlapping content
+- No horizontal overflow
+- Demo balance readable alongside nav
+
+---
+
+## Open Issues After QA
+
+| # | Severity | Issue | Action |
+|---|----------|-------|--------|
+| 1 | Fixed | Social Radar bull+bear sum could exceed 100 (351/1610 combinations) | Fixed in `a614605` |
+| 2 | Minor | "Veri yetersiz" and "Demo" labels not in `data-status.ts` — two separate paths | Accept as-is: no runtime truth failure |
+| 3 | Minor | Dashboard & ticker "live" threshold differs from `buildDataStatusMeta` (45s/90s vs 5min) | Accept as-is: different freshness granularity, not false-positive "live" |
+| 4 | Minor | AssetDetailModal assigns `headerStatus:"live"` based on price response arrival, no TTL | Low risk: only shown in modal header |
+| 5 | Blocker | CI not run on branch HEAD (`a614605`) — no PR opened | Create PR or push triggers CI on next push |
+| 6 | Blocker | Browser/mobile smoke not run | Requires network access for Playwright |
+| 7 | Blocker | Real mobile not tested | Requires physical device |
+| 8 | Blocker | Production not verified | No live domain access |
+
+---
+
+## Test Results at HEAD (a614605)
 
 | Suite | Result |
 |-------|--------|
-| `pnpm --filter neura-web type-check` | ✅ Clean (0 errors) |
-| `pnpm --filter neura-web lint` | ✅ Warnings only (all pre-existing) |
-| `pnpm --filter neura-web build` | ✅ Build successful |
-| `pytest tests/hardening/test_production_guards.py` (111 deselecting 2 env-only) | ✅ 111 passed |
-
-**2 deselected tests** (`test_gateway_auth_service_fails_when_secret_missing_in_production`, `test_gateway_invalid_token_is_rejected`) require FastAPI which is not installed in this sandbox. Both pass in CI (Ubuntu runner with `pip install -r requirements.txt`).
+| `pnpm --filter neura-web type-check` | ✅ Clean |
+| `pytest tests/hardening/...` (111/113) | ✅ 111 passed, 2 deselected (fastapi env-only) |
+| Social radar math verification | ✅ All 1610 combinations sum to 100 |
+| API smoke (local dev server) | ✅ Key endpoints respond correctly |
 
 ---
 
-## Honesty Constraints
+## Honesty Summary
 
-- No claim of production-readiness
-- No claim of real iOS Safari pass (not tested on real device; Playwright emulation NOT used)
-- Mobile safe-area fix is source-level only — real device verification required before production deploy
-- Social Radar Demo label was already present (no change needed)
-- `isDemo` in `DataStatusMeta` reflects data absence, not user-facing demo mode
+- **SOURCE_ONLY_PASS: PARTIAL** — mock data removed, gating correct, social fixed; label centralization and multi-path price status are gaps
+- **Production-ready: NO** — CI not run, browser smoke not run, real mobile not tested, live domain not accessible
