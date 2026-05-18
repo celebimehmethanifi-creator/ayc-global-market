@@ -49,8 +49,14 @@ const CATEGORY_COLORS: Record<CategoryKey, string> = {
 
 function seededSentiment(symbol: string): SentimentPoint {
   const hash = symbol.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const bull = 35 + (hash % 46);
-  const bear = 12 + ((hash * 3) % 35);
+  let bull = 35 + (hash % 46);
+  let bear = 12 + ((hash * 3) % 35);
+  const rawSum = bull + bear;
+  if (rawSum > 100) {
+    const scale = 100 / rawSum;
+    bull = Math.round(bull * scale);
+    bear = 100 - bull;
+  }
   const neutral = Math.max(0, 100 - bull - bear);
   const votes = 120 + (hash % 1800);
   return {
