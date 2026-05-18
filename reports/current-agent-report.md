@@ -2,15 +2,20 @@
 
 **Branch:** `fix/live-data-truth-mobile-shell`
 **Code commit:** `5d4c86c`
+**Report commit:** `2868c0f` (HEAD)
+**PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `hardening-production-readiness @ 392ae98`
 **QA date:** 2026-05-18
 
-Commit history on this branch (Phase 3):
-- `ba3ce74` — safe-area CSS, alarm feed truth, traceability, perf zero-state, CI workflow
-- `a614605` — social radar bull+bear>100 fix
-- `dade011` — Phase 3 v2: centralize labels, gate causal on live BTC, true alarm empty state
-- `21cb0df` — Phase 3 v3: source label leak, MarketTicker source-verify, drop EMPTY_ALARM_HINT, neutral dashboard tagline
-- `5d4c86c` — Phase 3 v4: provider-aware aggregate status in dashboard
+Commit history (Phase 3):
+| Commit | Description |
+|--------|-------------|
+| `ba3ce74` | safe-area CSS, alarm feed truth, traceability, perf zero-state, CI workflow |
+| `a614605` | social radar bull+bear>100 fix |
+| `dade011` | Phase 3 v2: centralize labels, gate causal on live BTC, true alarm empty state |
+| `21cb0df` | Phase 3 v3: source label leak, MarketTicker source-verify, EMPTY_ALARM_HINT, tagline |
+| `5d4c86c` | Phase 3 v4: provider-aware dashboard aggregate status |
+| `2868c0f` | report update (HEAD) |
 
 ---
 
@@ -19,128 +24,127 @@ Commit history on this branch (Phase 3):
 | Gate | Result |
 |------|--------|
 | SOURCE_ONLY_PASS | **PASS** |
-| CI_PASS | **NOT_RUN** — awaiting GitHub Actions on HEAD `5d4c86c` |
-| API_CONTRACT_PASS | **PARTIAL_LOCAL_ONLY** — local dev only; live domain returns `not_provided_by_cli_deploy` |
-| BROWSER_MOBILE_EMULATION_PASS | **NOT_RUN** — Chromium download blocked in sandbox |
-| REAL_MOBILE_PASS | **NOT_RUN** — no physical device |
-| PROD_PASS | **FAIL** — `not_provided_by_cli_deploy` |
+| CI_PASS | **PASS_WITH_WARNINGS** |
+| API_CONTRACT_PASS | **PASS_LOCAL** |
+| BROWSER_MOBILE_EMULATION_PASS | **NOT_RUN** |
+| REAL_MOBILE_PASS | **NOT_RUN** |
+| PROD_PASS | **FAIL** |
 | **Production-ready** | **NO** |
 
 ---
 
-## Source Audit Findings
+## 1. CI Verification (PR #3, HEAD `2868c0f`)
 
-### ✅ PASS — "Canlı" status cannot appear without real provider + valid TTL
+GitHub Actions run `26046686917` — all 4 CI jobs **passed**:
 
-`inferBaseStatus()` in `data-status.ts`:
-- `BINANCE-WS`: `delayMinutes !== null` AND `< 5` → "live"
-- `BINANCE`: `delayMinutes !== null` AND `<= 2` → "live"
-- Null `delayMinutes` (missing `updatedAt`) → "delayed", never "live"
-- All other sources → "delayed"
-- Additional guard: live downgrades to delayed at `delayMinutes >= 5`
+| Job | Conclusion | Duration |
+|-----|-----------|----------|
+| Web lint + type-check + build | ✅ success | ~72s |
+| Pytest backend tests | ✅ success | ~35s |
+| Secret scan (gitleaks) | ✅ success | ~6s |
+| Docker compose config validation | ✅ success | ~7s |
+| Vercel Preview Comments | ✅ success | — |
 
-### ✅ PASS — Label centralization
+**Classification: PASS_WITH_WARNINGS** — jobs pass, two non-blocking warnings observed:
 
-All status labels from `getStatusLabel()` / `getStatusColor()` in `data-status.ts`.
-`mapLegacyStatus()` normalizes old API values: `fallback→delayed`, `no_volume→insufficient`, `license_required→insufficient`, `api_error→no_data`.
-Local `AnalysisStatus` / `statusLabel()` / `statusColor()` removed from `AssetDetailModal` (`dade011`).
-
-### ✅ PASS — Source label leak fixed
-
-`BINANCE-WS` source label: TR `"Binance WS"`, EN `"Binance Stream"` (`21cb0df`).
-"Canlı" appears **only** in `dataStatusLabel` when TTL/provider rules pass.
-
-### ✅ PASS — Dashboard aggregate status (Phase 3 v4)
-
-Replaced timestamp-only `freshPriceCount >= 8` threshold with provider-aware logic (`5d4c86c`):
-
+### Warning 1 — `gitleaks-action@v2` unexpected input
+```yaml
+# ci.yml (current):
+- uses: gitleaks/gitleaks-action@v2
+  with:
+    gitleaks-config: .gitleaks.toml   # ← not a valid 'with' input for v2
 ```
-wsLiveCount   = source==="binance-ws" AND TTL < 5 min
-backendFresh  = source==="backend"    AND TTL < 2 min
-anyFresh      = any entry             AND TTL < 90 s
+`gitleaks-action@v2` does not accept `gitleaks-config` via the `with` block. The correct form is `env: GITLEAKS_CONFIG: .gitleaks.toml`. Action still runs and the secret scan passes; this generates the "Unexpected input(s): 'gitleaks-config'" annotation in the Actions log. **Does not cause failure.**
 
-dashStatus:
-  wsLiveCount >= 3   → "live"    (Canlı)
-  wsLiveCount > 0    → "delayed" (Gecikmeli)
-  backendFresh > 0   → "ayc_data" (AYC Veri)
-  anyFresh > 0       → "delayed" (Gecikmeli)
-  else               → "no_data" (Veri yok)
+### Warning 2 — Node.js 20 runner deprecation
+```yaml
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20   # ← GitHub Actions deprecating Node 20 runtime
 ```
-
-Backend / stooq / coingecko / finnhub timestamps can no longer produce "Canlı".
-
-### ✅ PASS — MarketTicker source-verified status
-
-`source === "binance-ws"` + TTL < 5 min required for live count. `tickerStatus`: live only with 3+ verified items; otherwise delayed or no_data (`21cb0df`).
-
-### ✅ PASS — Dashboard realtime claim removed
-
-`"Gerçek zamanlı piyasa istihbarat merkezi"` → `"Piyasa istihbarat merkezi"` (`21cb0df`).
-
-### ✅ PASS — AssetDetailModal header status
-
-`mapLegacyStatus(analysis.dataQuality.status) || (livePrice ? "delayed" : "no_data")` — no longer claims "live" on price arrival without TTL (`dade011`).
-
-### ✅ PASS — Dashboard causal truth
-
-Causal query gated on `btcLiveFresh` (`nowTs - btcEntry.ts < 60000` AND `price > 0`). Fake values removed: `||80000`, `volume_ratio:2.1`, `indicators:{rsi:62,macd_hist:0.0012}` (`dade011`).
-
-### ✅ PASS — Dashboard fake data fully removed
-
-`MOCK_SIGNALS`, `MOVER_SEEDS`, `MOCK_CAUSAL`: absent. Hardcoded "3 AI MOTOR AKTİF" replaced with runtime `actionableCount`.
-
-### ✅ PASS — Alarm truth
-
-`EMPTY_ALARM_HINT` constant removed entirely (`21cb0df`). True empty state when `alarms.length === 0`.
-
-### ✅ PASS — Traceability
-
-`traceabilityComplete`, `traceabilityStatus`, `missing` fields in `/api/v1/version`. Cache-Control: `no-store, max-age=0`.
-
-### ✅ PASS — Performance zero-state bar
-
-No gold segment when `stats.total === 0`. Gold only when `stats.pending > 0`.
-
-### ✅ FIXED — Social Radar percentages
-
-Proportional scaling when `bull+bear > 100`. All 1610 combinations sum to exactly 100 (`a614605`).
-
-### ✅ PASS (source-only) — Mobile shell safe-area CSS
-
-`.app-ticker { padding-top: env(safe-area-inset-top, 0px); box-sizing: content-box; }` — not verified on real device.
-
-### ✅ PASS — MarketTicker no duplicate symbols
-
-38 unique symbols. Double-render intentional for seamless CSS scroll loop.
+GitHub Actions is deprecating Node.js 20 as the internal action runtime in favour of Node.js 22. Affects action script execution environment, not the build artefact. **Does not cause failure.**
 
 ---
 
-## API Contract Smoke (local dev server, `localhost:3092`)
+## 2. API Contract Smoke (local dev, `localhost:3093`, JWT_SECRET set)
 
-| Endpoint | Result | Notes |
-|----------|--------|-------|
-| `GET /api/v1/version` | ✅ 200 | `traceabilityComplete` present |
-| `GET /api/v1/health` | ✅ 200 | `status:"ok"` |
-| `GET /api/v1/prices/live?symbols=BTCUSDT` | ✅ 200 | Empty without backend (expected) |
-| `GET /api/v1/alarms` | ✅ 200 | `alarms:[], count:0` |
-| `GET /api/v1/signals/live` | ✅ 200 | `signals:[], feed_status:"no_signal"` |
-| `GET /dashboard` | ✅ 200 | |
+| Endpoint | HTTP | Result | Notes |
+|----------|------|--------|-------|
+| `GET /api/v1/version` | 200 | ✅ PASS | `traceabilityComplete:false` (no AYC env vars — expected in sandbox) |
+| `GET /api/v1/health` | 200 | ✅ PASS | Returns 500 without `JWT_SECRET` — correct security guard |
+| `GET /api/v1/prices/live?symbols=BTCUSDT` | 200 | ✅ PASS | `prices:{}, count:0` — empty without backend, expected |
+| `GET /api/v1/alarms` | 200 | ✅ PASS | Returns 500 without `JWT_SECRET` — correct security guard |
+| `GET /api/v1/signals/live` | 200 | ✅ PASS | `signals:[], feed_status:no_signal` |
+| `GET /dashboard` | 200 | ✅ PASS | Page compiles and renders |
 
-Live domain: **not tested** — returns `not_provided_by_cli_deploy`.
+**Classification: PASS_LOCAL** — all 6 endpoints respond correctly when run with valid secrets. Endpoints requiring JWT correctly return 500 without it (security guard working).
 
----
-
-## Browser / Mobile Smoke
-
-**NOT RUN** — Playwright Chromium download blocked (network restricted in sandbox).
-
-Viewports pending: `390×844`, `393×852`, `412×915`, `430×932`, `768×1024`.
+Production endpoints (`aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com`) are blocked at the network level ("Host not in allowlist") — not testable from this sandbox.
 
 ---
 
-## Production
+## 3. Browser / Mobile Emulation Smoke
 
-**FAIL** — Live endpoint returns `not_provided_by_cli_deploy`. Not accessible from this environment.
+**NOT RUN.**
+
+Playwright v1.56.1 is installed. Chromium binary installation fails:
+```
+Failed to install browsers
+Error: Installation process exited with code: 100
+```
+Ubuntu PPA (`launchpadcontent.net`) returns 403 Forbidden — network restricted in sandbox. The same block was present in all prior sessions.
+
+**Viewports pending** (must be verified externally):
+- `390×844` — iPhone 14 Pro
+- `393×852` — iPhone 15
+- `412×915` — Android
+- `430×932` — iPhone 15 Plus
+- `768×1024` — iPad
+
+**Checks pending per viewport:**
+- No header/ticker overlap with status bar
+- No bottom nav overlap with content
+- No horizontal overflow
+- Hero/demo balance readable
+- Copilot bottom area not compressed
+- Ticker not crowded or visually duplicated
+
+---
+
+## 4. Real Mobile
+
+**NOT RUN** — no physical device available.
+
+---
+
+## 5. Production
+
+**FAIL.** All production endpoints blocked at network level from this sandbox. Prior manual testing showed `/api/v1/version` returning `not_provided_by_cli_deploy` on live domain. PROD_PASS cannot be marked until:
+1. Network access to production is available, AND
+2. Live version endpoint returns real commit SHA / branch (not `not_provided_by_cli_deploy`)
+
+---
+
+## Source Audit Summary
+
+All source-level truth leaks resolved at code commit `5d4c86c`. Full audit detail in Phase 3 v1–v4 reports.
+
+| Check | Result | Commit |
+|-------|--------|--------|
+| "Canlı" requires provider + TTL | ✅ PASS | `dade011` |
+| Label centralization | ✅ PASS | `dade011` |
+| Source label leak ("Binance Canlı") | ✅ PASS | `21cb0df` |
+| Price/status consistency across all components | ✅ PASS | `dade011`–`5d4c86c` |
+| Dashboard aggregate provider-aware status | ✅ PASS | `5d4c86c` |
+| Dashboard "Gerçek zamanlı" claim removed | ✅ PASS | `21cb0df` |
+| MarketTicker source-verified live | ✅ PASS | `21cb0df` |
+| AssetDetailModal headerStatus false-live | ✅ PASS | `dade011` |
+| Dashboard causal fake values removed | ✅ PASS | `dade011` |
+| Alarm EMPTY_ALARM_HINT removed | ✅ PASS | `21cb0df` |
+| Social radar percentages | ✅ FIXED | `a614605` |
+| Traceability fields | ✅ PASS | `ba3ce74` |
+| Performance zero-state bar | ✅ PASS | `ba3ce74` |
+| Mobile safe-area CSS | ✅ PASS (source-only) | `ba3ce74` |
 
 ---
 
@@ -148,31 +152,41 @@ Viewports pending: `390×844`, `393×852`, `412×915`, `430×932`, `768×1024`.
 
 | # | Severity | Issue |
 |---|----------|-------|
-| 1–10 | Fixed | All source-level truth leaks (see commit log above) |
-| 11 | Blocker | CI not run on HEAD `5d4c86c` — awaiting GitHub Actions |
-| 12 | Blocker | Browser/mobile smoke NOT_RUN — network blocked |
-| 13 | Blocker | Real mobile NOT_RUN — no device |
-| 14 | Blocker | Production FAIL — `not_provided_by_cli_deploy` |
+| 1–10 | ✅ Fixed | All source-level truth leaks |
+| 11 | ⚠️ Warning | CI: gitleaks-action `gitleaks-config` unexpected input — not a failure |
+| 12 | ⚠️ Warning | CI: Node.js 20 deprecation in `actions/setup-node@v4` — not a failure |
+| 13 | 🔴 Blocker | Browser/mobile emulation NOT_RUN — Chromium install blocked by network |
+| 14 | 🔴 Blocker | Real mobile NOT_RUN — no device |
+| 15 | 🔴 Blocker | Production FAIL — `not_provided_by_cli_deploy`; network blocked from sandbox |
 
 ---
 
-## Test Results at HEAD (`5d4c86c`)
+## Test Results at HEAD (`2868c0f` / code `5d4c86c`)
 
 | Suite | Result |
 |-------|--------|
 | `tsc --noEmit` | ✅ 0 errors |
-| `pytest` (127/129) | ✅ 127 passed, 2 deselected (fastapi env-only) |
-| Social radar math | ✅ All 1610 combinations sum to 100 |
-| API smoke (local) | ✅ Key endpoints respond correctly |
+| `pytest` (127/129 local) | ✅ 127 passed, 2 deselected (fastapi env-only) |
+| CI: Web lint + type-check + build | ✅ PASS |
+| CI: Pytest backend tests | ✅ PASS |
+| CI: Secret scan | ✅ PASS |
+| CI: Docker compose validate | ✅ PASS |
+| API smoke (local + JWT_SECRET) | ✅ 6/6 endpoints pass |
 
 ---
 
 ## Honesty Summary
 
-**SOURCE_ONLY_PASS: PASS** — all source-level truth leaks resolved. No component can produce "Canlı" from timestamps alone or from non-live providers.
+**SOURCE_ONLY_PASS: PASS** — no component can produce "Canlı" without verified Binance WS source + TTL.
 
-**CI_PASS: NOT_RUN** — GitHub Actions not verified at this HEAD.
+**CI_PASS: PASS_WITH_WARNINGS** — all 4 jobs green; two non-blocking annotation warnings noted (gitleaks input, Node 20 deprecation).
 
-**PROD_PASS: FAIL** — live domain not accessible.
+**API_CONTRACT_PASS: PASS_LOCAL** — all 6 endpoints correct with valid secrets locally. Production not reachable from sandbox.
+
+**BROWSER_MOBILE_EMULATION_PASS: NOT_RUN** — Chromium download blocked; must be verified externally.
+
+**REAL_MOBILE_PASS: NOT_RUN** — no physical device.
+
+**PROD_PASS: FAIL** — network blocked; previous live test returned `not_provided_by_cli_deploy`.
 
 **Production-ready: NO.**
