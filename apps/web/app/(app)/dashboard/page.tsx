@@ -23,7 +23,7 @@ import { AssetDetailModal, type AssetInfo } from "@/components/ui/AssetDetailMod
 
 
 import { usePrices } from "@/lib/prices/PriceContext";
-import { getStatusLabel } from "@/lib/markets/data-status";
+import { getStatusLabel, type DataStatus } from "@/lib/markets/data-status";
 
 import { DemoBanner } from "@/components/ui/DemoBanner";
 
@@ -972,8 +972,19 @@ export default function DashboardPage() {
   const actionableCount = actionableSignals.length;
   const actionableLong = actionableSignals.filter(s => s.direction === "LONG").length;
   const priceEntries = Object.values(livePrices);
-  const freshPriceCount = priceEntries.filter((entry) => nowTs > 0 && nowTs - entry.ts < 45000).length;
-  const dataStatus = getStatusLabel(freshPriceCount >= 8 ? "live" : freshPriceCount > 0 ? "delayed" : "no_data");
+  // Provider-aware aggregate status — mirrors central inferBaseStatus rules.
+  // Only binance-ws entries with TTL < 5 min count as verified live.
+  // backend/aggregation → ayc_data. Fresh ts alone is not sufficient for "live".
+  const wsLiveCount  = priceEntries.filter(e => e.source === "binance-ws" && nowTs > 0 && nowTs - e.ts < 300000).length;
+  const backendFresh = priceEntries.filter(e => e.source === "backend"    && nowTs > 0 && nowTs - e.ts < 120000).length;
+  const anyFresh     = priceEntries.filter(e =>                              nowTs > 0 && nowTs - e.ts <  90000).length;
+  const dashStatus: DataStatus =
+    wsLiveCount >= 3  ? "live"
+    : wsLiveCount > 0 ? "delayed"
+    : backendFresh > 0 ? "ayc_data"
+    : anyFresh > 0    ? "delayed"
+    : "no_data";
+  const dataStatus = getStatusLabel(dashStatus);
 
 
 
