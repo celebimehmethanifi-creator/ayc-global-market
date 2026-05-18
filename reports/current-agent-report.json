@@ -1,0 +1,47 @@
+{
+  "phase": 3,
+  "title": "Live Data Truth + Mobile Browser Shell",
+  "branch": "fix/live-data-truth-mobile-shell",
+  "base": "hardening-production-readiness",
+  "baseCommit": "392ae98",
+  "patchCommit": "ba3ce74",
+  "date": "2026-05-18",
+  "objectives": [
+    {"id": 1, "desc": "Central market truth model in data-status.ts", "status": "done"},
+    {"id": 2, "desc": "Price consistency via central helpers", "status": "no_change_needed"},
+    {"id": 3, "desc": "Analysis gating when data insufficient", "status": "no_change_needed"},
+    {"id": 4, "desc": "Dashboard truth: remove MOCK_SIGNALS/MOVER_SEEDS/MOCK_CAUSAL/hardcoded AI motor count", "status": "done"},
+    {"id": 5, "desc": "Alarm truth: remove MOCK_ALARMS merge", "status": "done"},
+    {"id": 6, "desc": "Traceability: add traceabilityComplete/traceabilityStatus/missing to version endpoint", "status": "done"},
+    {"id": 7, "desc": "Stale fallback mismatch: isStale field in DataStatusMeta", "status": "done"},
+    {"id": 8, "desc": "Mobile shell safe-area: iOS Safari ticker/header overlap", "status": "done_source_only"},
+    {"id": 9, "desc": "Social Radar Demo label + bull+bear+neutral <= 100", "status": "already_correct"},
+    {"id": 10, "desc": "Performance zero-state: no fake yellow bar", "status": "done"}
+  ],
+  "changedFiles": [
+    "apps/web/app/(app)/alarms/page.tsx",
+    "apps/web/app/(app)/dashboard/page.tsx",
+    "apps/web/app/(app)/performance/page.tsx",
+    "apps/web/app/api/v1/_lib/version-info.ts",
+    "apps/web/lib/markets/data-status.ts",
+    "apps/web/app/globals.css",
+    ".github/workflows/ci.yml"
+  ],
+  "testResults": {
+    "typeCheck": "pass",
+    "lint": "warnings_only_preexisting",
+    "build": "pass",
+    "pytest_111_of_113": "pass",
+    "deselected": [
+      "test_gateway_auth_service_fails_when_secret_missing_in_production",
+      "test_gateway_invalid_token_is_rejected"
+    ],
+    "deselectedReason": "fastapi not installed in sandbox; pass in CI Ubuntu runner"
+  },
+  "honestyClaims": {
+    "productionReady": false,
+    "realMobilePass": false,
+    "mobileTestMethod": "source_level_only",
+    "fakeDataRemoved": true
+  }
+}
