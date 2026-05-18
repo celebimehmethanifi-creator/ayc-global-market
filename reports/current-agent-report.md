@@ -253,7 +253,7 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | Traceability fields | ✅ PASS | `ba3ce74` |
 | Performance zero-state bar | ✅ PASS | `ba3ce74` |
 | Mobile safe-area CSS | ✅ PASS (source-only) | `ba3ce74` |
-| Vercel preview build crash (auth.ts lazy SECRET) | ✅ FIXED | this commit |
+| Vercel preview build crash (auth.ts lazy SECRET) | ✅ FIXED | dc73940 |
 
 ---
 
