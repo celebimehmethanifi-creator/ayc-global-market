@@ -23,6 +23,7 @@ import { AssetDetailModal, type AssetInfo } from "@/components/ui/AssetDetailMod
 
 
 import { usePrices } from "@/lib/prices/PriceContext";
+import { getStatusLabel } from "@/lib/markets/data-status";
 
 import { DemoBanner } from "@/components/ui/DemoBanner";
 
@@ -816,34 +817,18 @@ export default function DashboardPage() {
 
 
 
+  const btcEntry = livePrices["BTCUSDT"];
+  const btcLiveFresh = nowTs > 0 && (btcEntry?.ts ?? 0) > 0 && nowTs - (btcEntry?.ts ?? 0) < 60000 && Number(btcEntry?.price) > 0;
   const {data:causalData} = useQuery({
-
-
-
-    queryKey:["causal-btc"],
-
-
-
+    queryKey:["causal-btc", btcEntry?.ts],
+    enabled: btcLiveFresh,
     queryFn:()=>api.post("/intelligence/causal",{
-
-
-
-      symbol:"BTCUSDT",price:livePrices["BTCUSDT"]?.price||80000,change_24h:(v=>isFinite(Number(v))?Number(v):0)(livePrices["BTCUSDT"]?.chg),volume_ratio:2.1,
-
-
-
-      indicators:{rsi:62,macd_hist:0.0012},market:"crypto"
-
-
-
+      symbol:"BTCUSDT",
+      price: Number(btcEntry?.price),
+      change_24h: (v=>isFinite(Number(v))?Number(v):0)(btcEntry?.chg),
+      market:"crypto"
     }).then(r=>r.data).catch(()=>null),
-
-
-
     staleTime:120000,
-
-
-
   });
 
 
@@ -966,7 +951,7 @@ export default function DashboardPage() {
         const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return tb - ta;
       });
-    return normalized.length ? normalized.slice(0, 5) : [EMPTY_ALARM_HINT];
+    return normalized.slice(0, 5);
   }, [alarmData]);
 
   const marketPulse = useMemo(() => computeMarketPulse(signals, movers), [signals, movers]);
@@ -1000,11 +985,7 @@ export default function DashboardPage() {
   const actionableLong = actionableSignals.filter(s => s.direction === "LONG").length;
   const priceEntries = Object.values(livePrices);
   const freshPriceCount = priceEntries.filter((entry) => nowTs > 0 && nowTs - entry.ts < 45000).length;
-  const dataStatus = freshPriceCount >= 8
-    ? "Canlı"
-    : freshPriceCount > 0
-      ? "Canlı/Gecikmeli karışık"
-      : "Veri sınırlı";
+  const dataStatus = getStatusLabel(freshPriceCount >= 8 ? "live" : freshPriceCount > 0 ? "delayed" : "no_data");
 
 
 
@@ -1328,7 +1309,9 @@ export default function DashboardPage() {
             <CausalSection data={causal}/>
           ) : (
             <div style={{background:"var(--bg-card)",border:"1px solid var(--b1)",borderRadius:"var(--r-xl)",padding:20}}>
-              <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,margin:0}}>Bu varlık için anlamlı hareket verisi henüz oluşmadı.</p>
+              <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,margin:0}}>
+                {btcLiveFresh ? "Bu varlık için anlamlı hareket verisi henüz oluşmadı." : "Causal analiz için güvenilir veri yok."}
+              </p>
             </div>
           )}
 
@@ -1619,6 +1602,11 @@ export default function DashboardPage() {
 
 
 
+            {alarms.length === 0 && (
+              <div style={{padding:"12px 0",textAlign:"center"}}>
+                <span style={{fontSize:10,color:"var(--t4)"}}>Henüz alarm bulunmuyor.</span>
+              </div>
+            )}
             {alarms.map((a)=>(
 
 

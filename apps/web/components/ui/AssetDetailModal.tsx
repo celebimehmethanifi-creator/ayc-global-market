@@ -17,6 +17,7 @@ import ProfessionalChart from "@/components/ui/ProfessionalChart";
 import { AITradeModal } from "@/components/ui/AITradeModal";
 import RealTradeModal from "@/components/ui/RealTradeModal";
 import { useExchange } from "@/lib/exchange/ExchangeContext";
+import { mapLegacyStatus, getStatusLabel, getStatusColor, type DataStatus } from "@/lib/markets/data-status";
 
 export type AssetInfo = {
   symbol: string;
@@ -28,16 +29,6 @@ export type AssetInfo = {
   confidence?: number;
   direction?: string;
 };
-
-type AnalysisStatus =
-  | "live"
-  | "delayed"
-  | "fallback"
-  | "insufficient"
-  | "license_required"
-  | "no_volume"
-  | "no_data"
-  | "api_error";
 
 type AssetAnalysis = {
   ok: boolean;
@@ -67,7 +58,7 @@ type AssetAnalysis = {
     resistance?: number | null;
   };
   dataQuality?: {
-    status?: AnalysisStatus;
+    status?: string;
     provider?: string | null;
     updatedAt?: string;
   };
@@ -100,25 +91,6 @@ function normalizeDirection(value: string | undefined): "LONG" | "SHORT" | "NEUT
   return "NEUTRAL";
 }
 
-function statusLabel(status: AnalysisStatus | undefined): string {
-  if (status === "live") return "Canlı";
-  if (status === "delayed") return "Gecikmeli";
-  if (status === "fallback") return "Fallback";
-  if (status === "license_required") return "Lisans gerekli";
-  if (status === "no_volume") return "Hacim yok";
-  if (status === "no_data") return "Veri yok";
-  if (status === "api_error") return "API bağlantısı yok";
-  return "Veri yetersiz";
-}
-
-function statusColor(status: AnalysisStatus | undefined): string {
-  if (status === "live") return "var(--up)";
-  if (status === "delayed") return "var(--warn)";
-  if (status === "license_required") return "var(--warn)";
-  if (status === "no_volume" || status === "no_data" || status === "api_error") return "var(--down)";
-  if (status === "fallback") return "var(--gold)";
-  return "var(--down)";
-}
 
 function DirectionChip({ direction }: { direction: "LONG" | "SHORT" | "NEUTRAL" }) {
   const cfg =
@@ -287,12 +259,15 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
   const targetPrice = analysis?.tradePlan?.target ?? null;
   const stopLoss = analysis?.tradePlan?.stopLoss ?? null;
   const riskReward = analysis?.tradePlan?.riskReward ?? null;
-  const hasSufficientData = analysis?.dataQuality?.status !== "insufficient";
+  const mappedQualityStatus = mapLegacyStatus(analysis?.dataQuality?.status);
+  const hasSufficientData = mappedQualityStatus !== "insufficient" && mappedQualityStatus !== "no_data";
 
   const priceDiffPct =
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
   const showDriftWarning = priceDiffPct > 1;
-  const headerStatus: AnalysisStatus = analysis?.dataQuality?.status || (livePrice ? "live" : "fallback");
+  const headerStatus: DataStatus = analysis?.dataQuality?.status
+    ? mapLegacyStatus(analysis.dataQuality.status)
+    : livePrice ? "delayed" : "no_data";
   const isBistAsset = asset.symbol.endsWith(".IS") || asset.market === "bist";
 
   const headerTitle = asset.display || asset.symbol;
@@ -353,14 +328,14 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
                 <span
                   style={{
                     fontSize: 11,
-                    color: statusColor(headerStatus),
+                    color: getStatusColor(headerStatus),
                     fontWeight: 700,
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 4,
                     borderRadius: 8,
-                    border: `1px solid ${statusColor(headerStatus)}33`,
-                    background: `${statusColor(headerStatus)}14`,
+                    border: `1px solid ${getStatusColor(headerStatus)}33`,
+                    background: `${getStatusColor(headerStatus)}14`,
                     padding: "2px 8px",
                   }}
                 >
@@ -369,11 +344,11 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
                       width: 6,
                       height: 6,
                       borderRadius: "50%",
-                      background: statusColor(headerStatus),
-                      boxShadow: `0 0 8px ${statusColor(headerStatus)}`,
+                      background: getStatusColor(headerStatus),
+                      boxShadow: `0 0 8px ${getStatusColor(headerStatus)}`,
                     }}
                   />
-                  {statusLabel(headerStatus)}
+                  {getStatusLabel(headerStatus)}
                 </span>
                 {isBistAsset && headerStatus !== "live" && (
                   <span style={{ fontSize: 11, color: "var(--t3)" }} title="BIST gerçek zamanlı fiyat/hacim için lisanslı veri sağlayıcı gereklidir.">
@@ -534,8 +509,8 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <DirectionChip direction={direction} />
                 {analysis?.dataQuality?.status && (
-                  <span style={{ fontSize: 10, color: statusColor(analysis.dataQuality.status), fontWeight: 700 }}>
-                    {statusLabel(analysis.dataQuality.status)}
+                  <span style={{ fontSize: 10, color: getStatusColor(mapLegacyStatus(analysis.dataQuality.status)), fontWeight: 700 }}>
+                    {getStatusLabel(mapLegacyStatus(analysis.dataQuality.status))}
                   </span>
                 )}
               </div>

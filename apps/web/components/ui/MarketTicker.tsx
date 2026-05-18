@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useEffect, useMemo, useState } from "react";
 import { usePrices } from "@/lib/prices/PriceContext";
+import { getStatusLabel } from "@/lib/markets/data-status";
 
 const ALL_SYMBOLS = [
   { sym:"BTC",     label:"Bitcoin",     cat:"crypto", key:"BTCUSDT"  },
@@ -97,7 +98,7 @@ export function MarketTicker() {
 
   const liveCount = items.filter(i => i.ts > 0 && nowTs > 0 && nowTs - i.ts < 90000).length;
   const isLive = liveCount >= 3;
-  const statusLabel = isLive ? "Canlı" : "Gecikmeli";
+  const statusLabel = getStatusLabel(isLive ? "live" : "delayed");
   const durationSec = Math.max(40, items.length * 3.8);
 
   if (!mounted) {

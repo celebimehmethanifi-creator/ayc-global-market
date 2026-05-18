@@ -92,8 +92,8 @@ function toInitialRows(locale: "tr" | "en"): NormalizedMarketAsset[] {
     dataStatusLabel: locale === "en" ? "No data" : "Veri yok",
     delayMinutes: null,
     hasVolume: false,
-    volumeStatus: "no_volume",
-    volumeStatusLabel: locale === "en" ? "No volume" : "Hacim yok",
+    volumeStatus: "insufficient",
+    volumeStatusLabel: locale === "en" ? "Insufficient" : "Veri yetersiz",
     provider: "UNAVAILABLE",
     updatedAt: null,
   }));
@@ -178,14 +178,14 @@ function statusVisual(status: string) {
       border: "var(--up-border)",
     };
   }
-  if (status === "delayed" || status === "license_required") {
+  if (status === "delayed" || status === "ayc_data") {
     return {
       color: "var(--warn)",
       bg: "rgba(245,158,11,0.12)",
       border: "rgba(245,158,11,0.35)",
     };
   }
-  if (status === "fallback") {
+  if (status === "insufficient") {
     return {
       color: "var(--gold)",
       bg: "var(--gold-dim)",

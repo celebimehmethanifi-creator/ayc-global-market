@@ -1,13 +1,15 @@
-﻿import type { AssetCategory } from "./asset-universe";
+import type { AssetCategory } from "./asset-universe";
 
+// Canonical 6-value status set.
+// Callers must never compare against old values (fallback/no_volume/license_required/api_error).
+// Use mapLegacyStatus() to normalize API responses that still use old values.
 export type DataStatus =
-  | "live"
-  | "delayed"
-  | "fallback"
-  | "no_data"
-  | "no_volume"
-  | "license_required"
-  | "api_error";
+  | "live"        // Canlı         — real-time, valid TTL confirmed
+  | "delayed"     // Gecikmeli     — real price, no streaming or TTL unverified
+  | "ayc_data"    // AYC Veri      — from AYC backend aggregation layer
+  | "no_data"     // Veri yok      — no price available
+  | "insufficient"// Veri yetersiz — price present but context incomplete
+  | "demo";       // Demo          — seeded / synthetic data
 
 export type DataLocale = "tr" | "en";
 
@@ -16,6 +18,7 @@ export type DataStatusMeta = {
   sourceLabel: string;
   dataStatus: DataStatus;
   dataStatusLabel: string;
+  dataStatusColor: string;
   delayMinutes: number | null;
   updatedAt: string | null;
   hasVolume: boolean;
@@ -42,8 +45,8 @@ const SOURCE_LABELS_TR: Record<string, string> = {
   FRANKFURTER: "Frankfurter",
   BACKEND: "AYC Veri",
   UNAVAILABLE: "Veri yok",
-  "ER-API": "API bağlantısı yok",
-  "ER-APİ": "API bağlantısı yok",
+  "ER-API": "Veri yok",
+  "ER-APİ": "Veri yok",
   NO_DATA: "Veri yok",
 };
 
@@ -59,30 +62,55 @@ const SOURCE_LABELS_EN: Record<string, string> = {
   FRANKFURTER: "Frankfurter",
   BACKEND: "AYC Data",
   UNAVAILABLE: "No data",
-  "ER-API": "API unavailable",
-  "ER-APİ": "API unavailable",
+  "ER-API": "No data",
+  "ER-APİ": "No data",
   NO_DATA: "No data",
 };
 
 const STATUS_LABELS_TR: Record<DataStatus, string> = {
-  live: "Canlı",
-  delayed: "Gecikmeli",
-  fallback: "Fallback",
-  no_data: "Veri yok",
-  no_volume: "Hacim yok",
-  license_required: "Lisans gerekli",
-  api_error: "API bağlantısı yok",
+  live:        "Canlı",
+  delayed:     "Gecikmeli",
+  ayc_data:    "AYC Veri",
+  no_data:     "Veri yok",
+  insufficient:"Veri yetersiz",
+  demo:        "Demo",
 };
 
 const STATUS_LABELS_EN: Record<DataStatus, string> = {
-  live: "Live",
-  delayed: "Delayed",
-  fallback: "Fallback",
-  no_data: "No data",
-  no_volume: "No volume",
-  license_required: "License required",
-  api_error: "API unavailable",
+  live:        "Live",
+  delayed:     "Delayed",
+  ayc_data:    "AYC Data",
+  no_data:     "No data",
+  insufficient:"Insufficient",
+  demo:        "Demo",
 };
+
+const STATUS_COLORS: Record<DataStatus, string> = {
+  live:        "var(--up)",
+  delayed:     "var(--warn)",
+  ayc_data:    "var(--info)",
+  no_data:     "var(--t3)",
+  insufficient:"var(--down)",
+  demo:        "var(--t4)",
+};
+
+// mapLegacyStatus normalizes values from backend APIs that still use old status strings.
+export function mapLegacyStatus(value: string | null | undefined): DataStatus {
+  if (!value) return "no_data";
+  switch (value) {
+    case "live":             return "live";
+    case "delayed":          return "delayed";
+    case "fallback":         return "delayed";
+    case "ayc_data":         return "ayc_data";
+    case "no_data":          return "no_data";
+    case "api_error":        return "no_data";
+    case "no_volume":        return "insufficient";
+    case "license_required": return "insufficient";
+    case "insufficient":     return "insufficient";
+    case "demo":             return "demo";
+    default:                 return "no_data";
+  }
+}
 
 function normalizeSource(source: string): string {
   const normalized = String(source || "")
@@ -104,6 +132,10 @@ export function getStatusLabel(status: DataStatus, locale: DataLocale = "tr"): s
   return locale === "en" ? STATUS_LABELS_EN[status] : STATUS_LABELS_TR[status];
 }
 
+export function getStatusColor(status: DataStatus): string {
+  return STATUS_COLORS[status] ?? "var(--t3)";
+}
+
 function resolveDelayMinutes(updatedAt?: string | null): number | null {
   if (!updatedAt) return null;
   const ts = new Date(updatedAt).getTime();
@@ -111,14 +143,30 @@ function resolveDelayMinutes(updatedAt?: string | null): number | null {
   return Math.max(0, Math.round((Date.now() - ts) / 60000));
 }
 
-function inferBaseStatus(source: string, hasPrice: boolean, delayMinutes: number | null): DataStatus {
+// inferBaseStatus — internal. Requires delayMinutes !== null to claim "live".
+function inferBaseStatus(
+  source: string,
+  hasPrice: boolean,
+  delayMinutes: number | null,
+): DataStatus {
   if (!hasPrice) return "no_data";
   if (source === "UNAVAILABLE" || source === "NO_DATA") return "no_data";
-  if (source === "ER-API" || source === "ER-APİ") return "api_error";
-  if (source === "BINANCE-WS") return "live";
-  if (source === "BINANCE") return delayMinutes != null && delayMinutes > 2 ? "delayed" : "live";
-  if (source === "FINNHUB" || source === "YAHOO" || source === "BACKEND") return "delayed";
-  return "fallback";
+  if (source === "ER-API" || source === "ER-APİ") return "no_data";
+  if (source === "BACKEND") return "ayc_data";
+
+  // Binance WebSocket: live only when TTL is confirmed (delayMinutes not null) and fresh.
+  if (source === "BINANCE-WS") {
+    if (delayMinutes === null) return "delayed"; // TTL unverifiable
+    return delayMinutes < 5 ? "live" : "delayed";
+  }
+  // Binance REST: live only when TTL confirmed and within 2 minutes.
+  if (source === "BINANCE") {
+    if (delayMinutes === null) return "delayed"; // TTL unverifiable — do not claim live
+    return delayMinutes <= 2 ? "live" : "delayed";
+  }
+
+  if (source === "FINNHUB" || source === "YAHOO") return "delayed";
+  return "delayed"; // all unknown third-party sources: delayed, not fallback
 }
 
 export function buildDataStatusMeta(args: {
@@ -141,32 +189,29 @@ export function buildDataStatusMeta(args: {
 
   if (category === "bist" && !bistRealtimeLicensed) {
     if (!args.hasPrice) dataStatus = "no_data";
-    else if (!args.hasVolume) dataStatus = "license_required";
-    else dataStatus = "delayed";
+    else dataStatus = "insufficient";
   }
 
-  if (dataStatus === "live" && delayMinutes != null && delayMinutes >= 5) {
+  // Additional stale guard: anything claiming live with delay >= 5 min becomes delayed.
+  if (dataStatus === "live" && delayMinutes !== null && delayMinutes >= 5) {
     dataStatus = "delayed";
   }
 
-  let volumeStatus: DataStatus = args.hasVolume ? "live" : "no_volume";
+  let volumeStatus: DataStatus = args.hasVolume ? "live" : "insufficient";
   if (!args.hasPrice) volumeStatus = "no_data";
   if (category === "bist" && !args.hasVolume && !bistRealtimeLicensed) {
-    volumeStatus = "license_required";
+    volumeStatus = "insufficient";
   }
-  if (dataStatus === "api_error") volumeStatus = "api_error";
+  if (dataStatus === "no_data") volumeStatus = "no_data";
 
-  // When there is no actual price data, do not surface a misleading provider label.
-  const finalSourceLabel = args.hasPrice
-    ? getSourceLabel(source, locale)
-    : "—";
+  const finalSourceLabel = args.hasPrice ? getSourceLabel(source, locale) : "—";
   const finalUpdatedAt = args.hasPrice ? (args.updatedAt || null) : null;
 
   const isLive = dataStatus === "live";
-  const isDelayed = dataStatus === "delayed";
-  const isFallback = dataStatus === "fallback" || dataStatus === "license_required";
-  const isStale = delayMinutes != null && delayMinutes >= 15;
-  const isDemo = !args.hasPrice || dataStatus === "no_data" || dataStatus === "api_error";
+  const isDelayed = dataStatus === "delayed" || dataStatus === "ayc_data";
+  const isFallback = dataStatus === "insufficient";
+  const isStale = delayMinutes !== null && delayMinutes >= 15;
+  const isDemo = dataStatus === "no_data" || dataStatus === "demo" || !args.hasPrice;
 
   const confidence: DataStatusMeta["confidence"] =
     isLive && !isStale ? "high"
@@ -179,6 +224,7 @@ export function buildDataStatusMeta(args: {
     sourceLabel: finalSourceLabel,
     dataStatus,
     dataStatusLabel: getStatusLabel(dataStatus, locale),
+    dataStatusColor: getStatusColor(dataStatus),
     delayMinutes,
     updatedAt: finalUpdatedAt,
     hasVolume: args.hasVolume,
