@@ -3,12 +3,13 @@
     "branch": "fix/live-data-truth-mobile-shell",
     "patch_commit": "ba3ce74",
     "social_fix_commit": "a614605",
-    "head_commit": "a614605",
+    "phase3_v2_commit": "dade011",
+    "head_commit": "dade011",
     "base": "hardening-production-readiness @ 392ae98",
     "qa_date": "2026-05-18"
   },
   "classification": {
-    "SOURCE_ONLY_PASS": "PARTIAL",
+    "SOURCE_ONLY_PASS": "PASS",
     "CI_PASS": "NOT_RUN",
     "API_CONTRACT_PASS": "PARTIAL",
     "BROWSER_MOBILE_SMOKE": "NOT_RUN",
@@ -19,35 +20,45 @@
   "source_audit": {
     "live_status_gate": {
       "result": "PASS",
-      "detail": "inferBaseStatus() requires hasPrice=true AND Binance source. Unknown sources get fallback. Live downgrades to delayed at 5min. Verified by logic simulation."
+      "detail": "inferBaseStatus() requires hasPrice=true AND Binance source with delayMinutes !== null. BINANCE/BINANCE-WS with null delayMinutes returns 'delayed', never 'live'. Live downgrades to delayed at 5min. Verified by logic simulation.",
+      "commit": "dade011"
     },
     "label_centralization": {
-      "result": "PARTIAL",
-      "detail": "data-status.ts covers Canlı/Gecikmeli/AYC Veri/Veri yok. Missing from module: 'Veri yetersiz' (in AssetDetailModal local fn), 'Demo' (hardcoded in social/page.tsx). No runtime truth failure, but two separate label paths.",
-      "gaps": ["Veri yetersiz", "Demo"]
+      "result": "PASS",
+      "detail": "data-status.ts canonical 6-value DataStatus (live/delayed/ayc_data/no_data/insufficient/demo). mapLegacyStatus() maps old API values (fallback→delayed, no_volume→insufficient, license_required→insufficient, api_error→no_data). All components use getStatusLabel/getStatusColor from data-status.ts.",
+      "commit": "dade011",
+      "gaps": []
     },
     "price_display_consistency": {
-      "result": "PARTIAL",
-      "detail": "Market page uses buildDataStatusMeta. Dashboard uses freshPriceCount/45s own logic. MarketTicker uses 90s own logic. AssetDetailModal assigns 'live' on price response without TTL.",
-      "consistent_path": "/market page",
-      "inconsistent_paths": ["dashboard", "MarketTicker", "AssetDetailModal headerStatus"]
+      "result": "PASS",
+      "detail": "AssetDetailModal headerStatus uses mapLegacyStatus(analysis.dataQuality.status) || (livePrice ? 'delayed' : 'no_data') — no longer claims live on price arrival without TTL. Dashboard dataStatus uses getStatusLabel() from data-status.ts. MarketTicker uses getStatusLabel(). market page uses buildDataStatusMeta.",
+      "commit": "dade011",
+      "note": "Dashboard freshPriceCount threshold (45s) retained for multi-asset aggregate; label output now from central getStatusLabel()."
     },
     "analysis_gating": {
       "result": "PASS",
-      "detail": "hasSufficientData gates target/stop/RR in AssetDetailModal. Scenario route nulls Kelly/probability/RR/PnL for fallback, returns empty for insufficient."
+      "detail": "hasSufficientData gates target/stop/RR in AssetDetailModal. Now uses mappedQualityStatus (post-mapLegacyStatus) to catch both 'insufficient' and 'no_data' from legacy API values.",
+      "commit": "dade011"
+    },
+    "dashboard_causal_truth": {
+      "result": "PASS",
+      "detail": "Causal query now gated on btcLiveFresh (nowTs - btcEntry.ts < 60000 AND price > 0). Fake values removed: ||80000 price fallback, volume_ratio:2.1, indicators:{rsi:62,macd_hist:0.0012}. Query disabled when BTC price not fresh. UI shows 'Causal analiz için güvenilir veri yok.' when not fresh.",
+      "commit": "dade011"
     },
     "dashboard_mock_removal": {
       "result": "PASS",
       "MOCK_SIGNALS": "absent",
       "MOVER_SEEDS": "absent",
       "MOCK_CAUSAL": "absent",
-      "hardcoded_ai_claim": "replaced with runtime actionableCount"
+      "hardcoded_ai_claim": "replaced with runtime actionableCount",
+      "fake_causal_fallbacks": "removed in dade011"
     },
     "alarm_truth": {
       "result": "PASS",
       "MOCK_ALARMS": "absent",
-      "assignment": "Array.isArray(alarmsApi) ? alarmsApi : []",
-      "empty_state": "renders when alarms.length === 0"
+      "EMPTY_ALARM_HINT": "removed — returns [] when no alarms",
+      "empty_state": "explicit empty state rendered when alarms.length === 0",
+      "commit": "dade011"
     },
     "traceability": {
       "result": "PASS",
@@ -103,7 +114,8 @@
   },
   "test_results": {
     "type_check": "PASS",
-    "pytest_111_of_113": "PASS",
+    "type_check_commit": "dade011",
+    "pytest_127_of_129": "PASS",
     "social_math_verification": "PASS",
     "api_smoke_local": "PASS",
     "deselected": [
@@ -114,12 +126,14 @@
   },
   "open_issues": [
     {"id": 1, "severity": "fixed", "issue": "Social Radar bull+bear sum exceeded 100 (351/1610 combinations)", "fix": "a614605"},
-    {"id": 2, "severity": "minor", "issue": "Veri yetersiz and Demo labels not in data-status.ts — dual label paths"},
-    {"id": 3, "severity": "minor", "issue": "Dashboard/ticker live threshold differs from buildDataStatusMeta (45s/90s vs 5min)"},
-    {"id": 4, "severity": "minor", "issue": "AssetDetailModal headerStatus assigns live on price arrival without TTL check"},
-    {"id": 5, "severity": "blocker", "issue": "CI not run on HEAD (a614605) — no PR opened"},
+    {"id": 2, "severity": "fixed", "issue": "Veri yetersiz and Demo labels not in data-status.ts — dual label paths", "fix": "dade011"},
+    {"id": 3, "severity": "fixed", "issue": "Dashboard/ticker live threshold differs from buildDataStatusMeta — labels now from getStatusLabel()", "fix": "dade011"},
+    {"id": 4, "severity": "fixed", "issue": "AssetDetailModal headerStatus assigns live on price arrival without TTL check — now uses 'delayed'", "fix": "dade011"},
+    {"id": 5, "severity": "blocker", "issue": "CI not run on HEAD (dade011) — awaiting GitHub Actions"},
     {"id": 6, "severity": "blocker", "issue": "Browser/mobile smoke NOT_RUN — network blocked"},
     {"id": 7, "severity": "blocker", "issue": "Real mobile NOT_RUN — no device"},
-    {"id": 8, "severity": "blocker", "issue": "Production NOT_RUN — no live domain access"}
+    {"id": 8, "severity": "blocker", "issue": "Production NOT_RUN — no live domain access"},
+    {"id": 9, "severity": "fixed", "issue": "Dashboard causal query sent fake price ||80000, volume_ratio:2.1, rsi:62, macd_hist:0.0012", "fix": "dade011"},
+    {"id": 10, "severity": "fixed", "issue": "EMPTY_ALARM_HINT demo row shown when no alarms — replaced with true empty state", "fix": "dade011"}
   ]
 }
