@@ -1,10 +1,9 @@
 ﻿{
   "branch": "fix/live-data-truth-mobile-shell",
   "work_branch": "sync/fix-live-data-truth-mobile-shell",
-  "head": "1dad300",
+  "head_before_report_update": "934cd2f",
   "date": "2026-05-20",
   "setup_commit": "df51d7b",
-  "report_commit": "1dad300",
   "commands_run": [
     "pnpm install",
     "pnpm type-check",
@@ -54,6 +53,37 @@
       "redirect_to": "https://aycmarket.com/api/v1/version"
     }
   },
+  "blocking_gates": [
+    {
+      "gate": "REAL_MOBILE_PASS",
+      "status": "FAIL",
+      "owner": "Codex",
+      "handoff_target": "User",
+      "root_cause": "SECRET_OR_PERMISSION",
+      "exact_blocker": "BrowserStack credentials failed API auth before tunnel/session start",
+      "exact_file_or_test": [
+        "scripts/ayc-browserstack-real-device.ps1::Test-BrowserStackCredentials",
+        "tests/browserstack/real-device.smoke.spec.ts"
+      ],
+      "next_action": "Set valid BrowserStack account credentials and rerun BrowserStack pipeline",
+      "next_validation_command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1"
+    },
+    {
+      "gate": "PROD_PASS",
+      "status": "FAIL",
+      "owner": "Codex",
+      "handoff_target": "User",
+      "root_cause": "DEPLOY_TRACE",
+      "exact_blocker": "Live /api/v1/version returns not_provided_by_cli_deploy markers",
+      "exact_file_or_test": [
+        "apps/web/app/api/v1/version/route.ts",
+        "apps/web/app/api/v1/_lib/version-info.ts",
+        "curl -I https://www.aycmarket.com/api/v1/version"
+      ],
+      "next_action": "Inject real commit/branch/build metadata in production deploy configuration",
+      "next_validation_command": "Invoke-WebRequest https://aycmarket.com/api/v1/version"
+    }
+  ],
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
     "CI_PASS": "NOT_RUN",

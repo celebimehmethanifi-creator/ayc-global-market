@@ -3,10 +3,9 @@
 ## Context
 - Branch: `fix/live-data-truth-mobile-shell`
 - Work branch: `sync/fix-live-data-truth-mobile-shell`
-- HEAD: `1dad300`
+- HEAD (before this report update): `934cd2f`
 - Date: `2026-05-20`
 - BrowserStack setup commit: `df51d7b`
-- Report update commit: `1dad300`
 
 ## Commands Run
 1. `pnpm install`
@@ -47,6 +46,24 @@
 - `scripts/browserstack-local-daemon.js`
 - `package.json` (`test:browserstack` script + `browserstack-local` dev dependency)
 - `pnpm-lock.yaml`
+
+## Blocking Gates (Owner + Next Action)
+
+### REAL_MOBILE_PASS = FAIL
+- owner: `Codex`
+- handoff target: `User (external secret)`
+- exact blocker: BrowserStack credentials fail API auth (`BROWSERSTACK_CREDENTIALS_VALID=false`).
+- exact file/test: `scripts/ayc-browserstack-real-device.ps1` (`Test-BrowserStackCredentials`), `tests/browserstack/real-device.smoke.spec.ts`
+- next action: set valid BrowserStack account credentials in environment and rerun real-device pipeline.
+- next validation command: `powershell -ExecutionPolicy Bypass -File .\scripts\ayc-browserstack-real-device.ps1`
+
+### PROD_PASS = FAIL
+- owner: `Codex`
+- handoff target: `User (external deploy approval/permission)`
+- exact blocker: live version API still exposes deploy fallback identity (`not_provided_by_cli_deploy`).
+- exact file/test: `apps/web/app/api/v1/version/route.ts`, `apps/web/app/api/v1/_lib/version-info.ts`, live check via `curl -I https://www.aycmarket.com/api/v1/version`
+- next action: deploy pipeline must inject real commit/branch/build metadata to production.
+- next validation command: `Invoke-WebRequest https://aycmarket.com/api/v1/version`
 
 ## Final Classification
 - SOURCE_ONLY_PASS: PASS
