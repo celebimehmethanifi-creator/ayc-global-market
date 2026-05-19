@@ -35,6 +35,15 @@ export default defineConfig({
     trace: "off",
     ...chromiumBase,
   },
+  webServer: {
+    command:
+      "pnpm --filter neura-web run build && pnpm --filter neura-web exec next start --hostname 127.0.0.1 --port 3093",
+    url: BASE_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180000,
+    stdout: "pipe",
+    stderr: "pipe",
+  },
   projects: [
     {
       name: "mobile-390x844",
