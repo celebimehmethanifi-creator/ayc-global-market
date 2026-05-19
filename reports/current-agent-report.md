@@ -1,9 +1,10 @@
 # Phase 3 QA Report — fix/live-data-truth-mobile-shell
 
 **Branch:** `fix/live-data-truth-mobile-shell`
-**Code commit:** `4c876af` (fix: hard fail-closed data truth — backend + UI + tests + mobile shell)
-**Phase 3 source closure:** `4c876af`
-**HEAD:** `4c876af`
+**Code commit:** `80e1e5a` (fix: KALKAN dashboard + ticker conservative aggregate + copilot mobile shell + 2 new tests)
+**Prior code commits:** `4c876af` (hard fail-closed data truth backend+UI+market-truth+tests), `e8be547` (vercel.json + build-time git traceability), `f96ff53` (asset detail data gating + dashboard Canlı label), `dc73940` (auth.ts lazy JWT_SECRET)
+**Phase 3 source closure:** `80e1e5a`
+**HEAD:** `80e1e5a`
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `main @ 18f4699` / merge-base hardening-production-readiness `392ae98`
 **QA date:** 2026-05-19
@@ -276,6 +277,9 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | AssetDetailModal: Demo İşlem button hidden when `!analysisAllowed` | ✅ FIXED | 4c876af |
 | BrainMap "Canlı Beyin Haritası" hardcoded heading | ✅ FIXED | 4c876af |
 | Mobile shell central CSS variables (safe-area, dvh, bottom-pad) | ✅ ADDED | 4c876af |
+| Dashboard `KALKAN AKTİF — 4 risk filtresi çalışıyor` fake claim | ✅ FIXED | 80e1e5a |
+| MarketTicker over-eager `verifiedLiveCount >= 3 ? live` aggregate | ✅ FIXED | 80e1e5a |
+| Copilot mobile composer can slide under bottom nav (height calc) | ✅ FIXED | 80e1e5a |
 | `mapLegacyStatus("fallback")` → `"delayed"` (wrong) | ✅ FIXED | f96ff53 |
 | `hasSufficientData` gate too narrow (excluded only insufficient/no_data) | ✅ FIXED | f96ff53 |
 | DirectionChip (LONG/SHORT) rendered unconditionally | ✅ FIXED | f96ff53 |
@@ -307,32 +311,36 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | 29 | ✅ Fixed | **AssetDetailModal hardened.** Consumes `dataQuality.canShow.*` from API as truth source. When `canShowTradePlan=false`: MetricCard grid is NOT rendered; single message "Yeterli güvenilir veri olmadığı için analiz üretilemedi." appears with `data-testid="analysis-blocked-message"`. Demo İşlem button gated by `analysisAllowed`. (`4c876af`) |
 | 30 | ✅ Fixed | **BrainMap heading.** `Canlı Beyin Haritası` → `Beyin Haritası`. Static viz had no real live data to justify the label. (`4c876af`) |
 | 31 | ✅ Added | **Mobile shell central CSS.** `globals.css` adds `--app-safe-top/-bottom/-left/-right` + `--app-bottom-nav-height` + `--app-content-bottom-pad`. `.app-main` uses these so every page gets uniform bottom padding (no per-page hacks). New `.app-sticky-bottom` utility for copilot/composer above bottom nav. New `.app-modal-body` uses `100dvh`. (`4c876af`) |
-| 32 | ✅ Added | **Tests.** Playwright 75/75 pass (was 60/12-skip). New asserts: safe-message present, MetricCard grid absent, Demo button hidden when blocked. New Analysis API contract test locks `dataQuality.canShow.*` schema. New BrainMap heading regression. New Version traceability test. Mobile data-gating tests now run via `.market-mobile-card` selector — no more skips. (`4c876af`) |
+| 32 | ✅ Added | **Tests round 1.** Playwright 75/75 pass (was 60/12-skip). New asserts: safe-message present, MetricCard grid absent, Demo button hidden when blocked. New Analysis API contract test locks `dataQuality.canShow.*` schema. New BrainMap heading regression. New Version traceability test. Mobile data-gating tests now run via `.market-mobile-card` selector. (`4c876af`) |
+| 33 | ✅ Fixed | **Dashboard fake `KALKAN AKTİF` claim.** `StatBadge` value `"AKTİF"` + sub `"4 risk filtresi çalışıyor"` was misleading because KALKAN Risk Engine is FAZ 9 work, not yet built. Fixed: value → `"Hazırlanıyor"`, sub → `"Risk motoru FAZ 9'da devreye alınacak"`. KALKAN Guard card inline badge → `"Hazırlanıyor"`. All 5 filter items flipped `active:true` → `active:false`. (`80e1e5a`) |
+| 34 | ✅ Fixed | **MarketTicker conservative aggregate.** Old rule `verifiedLiveCount >= 3 ? live` claimed Canlı globally with a 3/30 ratio. New rule: `tickerStatus = allLive ? live : hasRecentTs ? delayed : no_data`. With a mixed asset-class ticker, this practically resolves to `Gecikmeli` — the honest aggregate. (`80e1e5a`) |
+| 35 | ✅ Fixed | **Copilot mobile shell.** Old height `calc(100dvh - 130px)` arbitrary; ignored bottom nav + iOS safe-area. New: subtracts `--app-ticker-height + --app-header-height + --app-bottom-nav-height + --app-safe-top + --app-safe-bottom + 16px`. Composer input now sits above bottom nav on real iOS. (`80e1e5a`) |
+| 36 | ✅ Added | **Tests round 2.** Playwright 85/85 pass at 5 viewports (was 75/0). New `Dashboard fake-claim audit` (KALKAN-AKTİF pairing forbidden, `4 risk filtresi çalışıyor` forbidden). New `Asset modal state reset` (no_data response with mock body containing real-looking target:55000 / RR:2.5 + canShow:false must NOT surface those numbers anywhere). Locks the canShow-aware gating end-to-end. (`80e1e5a`) |
 | 16 | ⚠️ Warning | CI: 4 node20→node24 informational annotations. FORCE flag applied (`b2a555b`). Permanent fix: action maintainers update `action.yml`. Enforced June 2 2026. |
-| 17 | 🟡 Operator | **Vercel preview redeploy needed.** Two prior root causes fixed: `auth.ts` JWT_SECRET (`dc73940`) + `rootDirectory:null` via `vercel.json` (`e8be547`). Operator: trigger redeploy at `4c876af` and confirm preview URL works — no dashboard config required. |
-| 14 | 🟡 Operator | **REAL_MOBILE_PASS re-test.** Real iOS screenshots from `aycmarket.com` confirmed production failures (asset detail metrics for `fallback` data, hardcoded `Canlı`). All source fixes shipped in `f96ff53`. Re-test required on real device against `4c876af` preview URL. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
-| 15 | 🟡 Operator | **PROD_PASS:** deploy at `4c876af+` to production and confirm `aycmarket.com/api/v1/version` returns `traceabilityComplete:true`. With `4c876af`'s build-time embedding, only Vercel's auto-injected `VERCEL_URL` is needed (always present on Vercel deploys). |
+| 17 | 🟡 Operator | **Vercel preview redeploy needed.** Two prior root causes fixed: `auth.ts` JWT_SECRET (`dc73940`) + `rootDirectory:null` via `vercel.json` (`e8be547`). Operator: trigger redeploy at `80e1e5a` and confirm preview URL works — no dashboard config required. |
+| 14 | 🟡 Operator | **REAL_MOBILE_PASS re-test.** Real iOS screenshots from `aycmarket.com` confirmed production failures (asset detail metrics for `fallback` data, hardcoded `Canlı`, `KALKAN AKTİF` fake claim). All known source-side leaks shipped in `f96ff53`, `4c876af`, `80e1e5a`. Re-test required on real device against `80e1e5a` preview URL. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
+| 15 | 🟡 Operator | **PROD_PASS:** deploy at `80e1e5a+` to production and confirm `aycmarket.com/api/v1/version` returns `traceabilityComplete:true`. With `80e1e5a`'s build-time embedding, only Vercel's auto-injected `VERCEL_URL` is needed (always present on Vercel deploys). |
 
 ---
 
-## FAZ 3 Closure — Smoke at HEAD (`4c876af`)
+## FAZ 3 Closure — Smoke at HEAD (`80e1e5a`)
 
 | Suite | Result | Detail |
 |-------|--------|--------|
 | `tsc --noEmit` | ✅ 0 errors | clean type-check |
 | `next build` | ✅ PASS | 37 static pages, no `JWT_SECRET` required at build (lazy `getSecret()`) |
-| API smoke local (6/6) | ✅ PASS | version returns real `4c876af` SHA + branch + buildTime |
+| API smoke local (6/6) | ✅ PASS | version returns real `80e1e5a` SHA + branch + buildTime |
 | Analysis API contract | ✅ PASS | `dataQuality.analysisAllowed=false` + all `canShow.*=false` + safe `fundamentalSummary` + `tradePlan.target=null` when no live provider |
-| Playwright | ✅ 75 pass / 0 skip / 0 fail | 5 viewports, 75 total tests (was 60/12-skip; mobile selector fix + 15 new hardened tests) |
-| CI: all 5 jobs at `207962d` | ✅ PASS (PASS_WITH_WARNINGS) | run `26067099054`; CI must re-run at `4c876af` after push |
+| Playwright | ✅ 85 pass / 0 skip / 0 fail | 5 viewports, 85 total tests (was 60/12-skip; mobile selector fix + 25 new hardened tests across 2 rounds) |
+| CI: all 5 jobs at `207962d` | ✅ PASS (PASS_WITH_WARNINGS) | run `26067099054`; CI must re-run at `80e1e5a` after push |
 | `pytest` | ✅ 127/129 | backend tests |
 | Real mobile | ⏳ OPERATOR | source fixed; re-test required on real device after preview redeploy |
 
-### `/api/v1/version` observed at HEAD `4c876af` (local production build)
+### `/api/v1/version` observed at HEAD `80e1e5a` (local production build)
 
 ```json
 {
-  "commitSha": "4c876aff3f9d8ecf0a100687576d8a19137e4f8f",
+  "commitSha": "80e1e5a3294b7ee34f408a035d758a5626a28217",
   "branch":    "fix/live-data-truth-mobile-shell",
   "buildTime": "2026-05-19T10:50:16.636Z",
   "environment": "production",
@@ -343,7 +351,7 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 }
 ```
 
-> `deploymentId`/`deploymentUrl` are auto-injected by Vercel's `VERCEL_URL` env var on **any** real Vercel deploy (CLI or Git). After operator deploy at `4c876af+`, `traceabilityComplete:true` is reachable **without dashboard env-var setup**.
+> `deploymentId`/`deploymentUrl` are auto-injected by Vercel's `VERCEL_URL` env var on **any** real Vercel deploy (CLI or Git). After operator deploy at `80e1e5a+`, `traceabilityComplete:true` is reachable **without dashboard env-var setup**.
 
 ---
 
