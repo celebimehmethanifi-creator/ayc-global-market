@@ -3,6 +3,23 @@
 // AYC Global Market - Platform Config
 // © 2026 AYC Grup. Tüm hakları saklıdır.
 
+const { execSync } = require("child_process");
+
+// Embed git metadata at build time so /api/v1/version returns traceabilityComplete:true
+// even on Vercel CLI deploys that don't auto-inject VERCEL_GIT_* vars.
+function readGitInfo() {
+  try {
+    const sha = execSync("git rev-parse HEAD", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return { sha, branch };
+  } catch {
+    return { sha: "", branch: "" };
+  }
+}
+
+const gitInfo = readGitInfo();
+const buildTimeIso = new Date().toISOString();
+
 const ContentSecurityPolicy = `
   default-src 'self';
   script-src 'self' 'unsafe-eval' 'unsafe-inline' https://s.tradingview.com https://www.tradingview.com;
@@ -68,6 +85,9 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
     NEXT_PUBLIC_APP_VERSION:       "2.5.0",
     NEXT_PUBLIC_BUILD_DATE:        new Date().toISOString().split("T")[0],
+    NEXT_PUBLIC_COMMIT_SHA:        process.env.NEXT_PUBLIC_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || gitInfo.sha || "",
+    NEXT_PUBLIC_BRANCH:            process.env.NEXT_PUBLIC_BRANCH     || process.env.VERCEL_GIT_COMMIT_REF || gitInfo.branch || "",
+    NEXT_PUBLIC_BUILD_TIME:        process.env.NEXT_PUBLIC_BUILD_TIME || buildTimeIso,
   },
 
   webpack(config, { dev, isServer }) {
