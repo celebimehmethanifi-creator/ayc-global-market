@@ -1,209 +1,70 @@
 {
-  "qa_session": {
-    "branch": "fix/live-data-truth-mobile-shell",
-    "code_commit": "80e1e5a",
-    "head_commit": "80e1e5a",
-    "phase3_closure_commit": "80e1e5a",
-    "pr_number": 3,
-    "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3",
-    "base": "main @ 18f4699",
-    "merge_base_hardening": "392ae98",
-    "qa_date": "2026-05-19"
+  "branch": "fix/live-data-truth-mobile-shell",
+  "head": "023ed3c",
+  "date": "2026-05-19",
+  "automation": {
+    "script": "scripts/ayc-full-local-check.ps1",
+    "results_helper": "scripts/ayc-open-latest-test-results.ps1",
+    "latest_log_path": "test-results/local-automation/20260519-234520"
   },
+  "commands_run": [
+    "git status --short",
+    "git branch --show-current",
+    "git rev-parse --short HEAD",
+    "git log --oneline -12",
+    "pnpm --version",
+    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-full-local-check.ps1",
+    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-open-latest-test-results.ps1"
+  ],
+  "tooling_results": {
+    "pnpm_install": "PASS",
+    "pnpm_type_check": "PASS",
+    "pnpm_lint": "PASS",
+    "pnpm_build": "PASS",
+    "playwright_install_chromium": "PASS",
+    "pnpm_test_browser": "PASS"
+  },
+  "playwright": {
+    "passed": 85,
+    "failed": 0,
+    "skipped": 0,
+    "flaky": 0,
+    "result_file": "test-results/playwright-results.json"
+  },
+  "root_cause": {
+    "class": "A",
+    "description": "Browser smoke failures were caused by app server lifecycle/test setup instability, not proven product regressions.",
+    "fix": "Configured Playwright webServer to run build + next start on 127.0.0.1:3093 for stable test execution.",
+    "file": "playwright.config.ts"
+  },
+  "files_changed": [
+    "scripts/ayc-full-local-check.ps1",
+    "scripts/ayc-open-latest-test-results.ps1",
+    "playwright.config.ts"
+  ],
+  "commits": [
+    {
+      "sha": "85e9dd8",
+      "message": "fix(tooling): automate local validation pipeline"
+    },
+    {
+      "sha": "023ed3c",
+      "message": "fix(phase3): close browser smoke and data truth failures"
+    }
+  ],
+  "remaining_dirty_not_committed": [
+    "test-results/screenshots/phase3-browser-mobile-smoke/*",
+    "test-results/local-automation/*",
+    "scripts/ayc-local-automation.ps1",
+    "pnpm-workspace.yaml (line-ending state only, no semantic diff)"
+  ],
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
-    "CI_PASS": "PASS_WITH_WARNINGS",
+    "CI_PASS": "NOT_RUN",
     "API_CONTRACT_PASS": "PASS_LOCAL",
     "BROWSER_MOBILE_EMULATION_PASS": "PASS",
     "REAL_MOBILE_PASS": "FAIL",
     "PROD_PASS": "FAIL",
-    "production_ready": false
-  },
-  "tool_versions": {
-    "node": "v22.22.2",
-    "playwright": "1.56.1",
-    "chromium_build": "1194",
-    "next": "14.2.3",
-    "python": "3.11",
-    "platform": "linux (sandbox)"
-  },
-  "ci_verification": {
-    "pr": 3,
-    "head_sha": "207962d",
-    "run_id": "26067099054",
-    "jobs": [
-      {"name": "Web lint + type-check + build", "conclusion": "success"},
-      {"name": "Pytest backend tests",           "conclusion": "success"},
-      {"name": "Secret scan",                    "conclusion": "success"},
-      {"name": "Docker compose config validation","conclusion": "success"},
-      {"name": "Vercel Preview Comments",         "conclusion": "success"}
-    ],
-    "overall": "success",
-    "action_runtime": "node24 (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true at b2a555b)",
-    "resolved_warnings": [
-      {"issue": "gitleaks-action gitleaks-config", "fix": "env: GITLEAKS_CONFIG", "commit": "aec7828"},
-      {"issue": "setup-node node-version: 20",     "fix": "node-version: 22",     "commit": "aec7828"}
-    ],
-    "remaining_annotations": [
-      {
-        "count": 4,
-        "severity": "informational",
-        "text": "Node.js 20 is deprecated. Actions target node20 but are being forced to run on node24.",
-        "all_jobs_pass_on_node24": true,
-        "permanent_fix": "Action maintainers update action.yml runs.using to node24. GitHub cutover June 2 2026."
-      }
-    ]
-  },
-  "api_contract_smoke": {
-    "server": "localhost:3093 (JWT_SECRET set)",
-    "result": "PASS_LOCAL",
-    "endpoints": [
-      {"path": "/api/v1/version",                    "status": 200, "result": "PASS", "notes": "traceabilityComplete:false (no AYC env vars)"},
-      {"path": "/api/v1/health",                     "status": 200, "result": "PASS"},
-      {"path": "/api/v1/prices/live?symbols=BTCUSDT", "status": 200, "result": "PASS"},
-      {"path": "/api/v1/alarms",                     "status": 200, "result": "PASS"},
-      {"path": "/api/v1/signals/live",               "status": 200, "result": "PASS"},
-      {"path": "/dashboard",                         "status": 200, "result": "PASS"}
-    ],
-    "production_endpoints": {
-      "aycmarket.com/api/v1/version":     "403 Forbidden (sandbox network block — host not in allowlist)",
-      "app.aycmarket.com/api/v1/version": "403 Forbidden (sandbox network block — host not in allowlist)",
-      "www.aycmarket.com/api/v1/version": "403 Forbidden (sandbox network block — host not in allowlist)"
-    }
-  },
-  "browser_mobile_smoke": {
-    "result": "PASS",
-    "total_tests": 60,
-    "passed": 48,
-    "skipped": 12,
-    "failed": 0,
-    "playwright_version": "1.56.1",
-    "chromium_build": "1194",
-    "original_45_still_pass": true,
-    "new_gating_tests": 15,
-    "new_gating_tests_note": "3 gating tests × 5 viewports = 15. Pass on tablet-768x1024 (market table visible). Skip on 4 mobile viewports (mobile market layout has no table rows — intentional skip, not failure).",
-    "viewports": [
-      {"name": "mobile-390x844",  "passed": 9, "skipped": 3},
-      {"name": "mobile-393x852",  "passed": 9, "skipped": 3},
-      {"name": "mobile-412x915",  "passed": 9, "skipped": 3},
-      {"name": "mobile-430x932",  "passed": 9, "skipped": 3},
-      {"name": "tablet-768x1024", "passed": 12, "skipped": 0}
-    ],
-    "screenshots_dir": "test-results/screenshots/phase3-browser-mobile-smoke/",
-    "screenshots_count": 90
-  },
-  "vercel_preview_build_fix": {
-    "root_cause_fixed_step1": "auth.ts:32 called readJwtSecret() at module initialization time. next build 'Collecting page data' phase threw JWT_SECRET environment variable is required. Fixed dc73940: lazy getSecret() — JWT_SECRET only read at request time.",
-    "root_cause_fixed_step2": "rootDirectory:null in Vercel project metadata. Fixed e8be547: vercel.json at repo root pinning buildCommand=pnpm --filter neura-web build, outputDirectory=apps/web/.next, framework=nextjs — no longer requires operator dashboard config.",
-    "file": "apps/web/app/api/v1/_lib/auth.ts + vercel.json",
-    "local_build_without_jwt_secret": "PASS — 37 static pages generated, all routes collected"
-  },
-  "phase3_closure": {
-    "head_commit": "80e1e5a",
-    "qa_date": "2026-05-19",
-    "closure_smoke": {
-      "type_check":   "PASS (tsc --noEmit, 0 errors)",
-      "next_build":   "PASS (37 static pages, no JWT_SECRET at build)",
-      "api_smoke":    "PASS 6/6 (version returns real 80e1e5a SHA + branch + buildTime)",
-      "playwright":   "PASS 85 / SKIP 0 / FAIL 0 (85 total, 5 viewports — was 60/12-skip; mobile selector fix + 25 new hardened tests across 3 rounds: f96ff53/4c876af/80e1e5a)",
-      "analysis_api_contract": "PASS — /api/v1/assets/BTCUSDT/analysis with no live provider returns dataQuality.analysisAllowed=false, all canShow.* flags=false, fundamentalSummary='Temel analiz için güvenilir veri yok.', tradePlan.target=null"
-    },
-    "version_endpoint_observed": {
-      "commitSha": "80e1e5a3294b7ee34f408a035d758a5626a28217",
-      "branch":    "fix/live-data-truth-mobile-shell",
-      "buildTime": "2026-05-19T10:50:16.636Z",
-      "missing":   ["deploymentId"],
-      "note":      "deploymentId/deploymentUrl filled by Vercel's auto-injected VERCEL_URL on real deploy — traceabilityComplete:true is achievable in production without any operator env-var setup."
-    },
-    "remaining_gates_for_production_ready": [
-      "Operator triggers Vercel preview deploy at 80e1e5a+ → confirm preview URL works (vercel.json fix should unblock)",
-      "Real device smoke (iOS Safari + iOS or Android Chrome) at preview URL → REAL_MOBILE_PASS",
-      "Production deploy at 80e1e5a+ → confirm aycmarket.com/api/v1/version returns traceabilityComplete:true → PROD_PASS"
-    ]
-  },
-  "vercel_preview_history": [
-    {"deploy": 1, "commit": "a878330", "status": "FAILED", "inspector": "6R9GtEe3BfKFuL4pFvfcKi3jhSEG", "known_cause": "auth.ts module-level readJwtSecret() — fixed in dc73940"},
-    {"deploy": 2, "commit": "3c085a4", "status": "FAILED", "inspector": "FWny56Gdw8u6pwew4hiGpguGPdvJ", "known_cause": "unknown — different error from #1, inspector 403 from sandbox"},
-    {"deploy": 3, "commit": "207962d", "status": "FAILED", "inspector": "AQ3CkXTWMJGGuRcFVTTQorMYv8c3", "updated_utc": "2026-05-18T23:46:51Z", "known_cause": "unknown — inspector 403 from sandbox. rootDirectory:null conflicts with VERCEL_ENV_SETUP.txt documented apps/web. Operator must set Root Directory and Build Command in Vercel dashboard."}
-  ],
-  "real_mobile": {
-    "result": "NOT_RUN",
-    "reason": "Sandbox cannot access real mobile device. Vercel preview has 3 consecutive FAILED deploys (no preview URL). Production network blocked (403). LAN requires physical Windows PC.",
-    "options_attempted": [
-      {
-        "option": "A — Vercel preview",
-        "status": "UNAVAILABLE",
-        "detail": "3 consecutive FAILED deploys. Latest (207962d, 23:46 UTC): nextCommitStatus: FAILED, previewUrl empty. Inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/AQ3CkXTWMJGGuRcFVTTQorMYv8c3. Operator must fix Vercel project config."
-      },
-      {
-        "option": "B — LAN server",
-        "status": "UNAVAILABLE",
-        "detail": "Requires physical Windows PC C:\\Users\\mhani\\Desktop\\NEURA and real mobile on same Wi-Fi. Sandbox cannot do this."
-      },
-      {
-        "option": "C — Production",
-        "status": "BLOCKED",
-        "detail": "aycmarket.com/app.aycmarket.com/www.aycmarket.com all return 403 Forbidden from sandbox (host not in allowlist)."
-      }
-    ],
-    "infrastructure_committed": {
-      "manifest": "test-results/screenshots/phase3-real-mobile-smoke/manifest.json",
-      "manual_steps": "test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md",
-      "screenshot_dirs": [
-        "test-results/screenshots/phase3-real-mobile-smoke/ios-safari/",
-        "test-results/screenshots/phase3-real-mobile-smoke/ios-chrome/",
-        "test-results/screenshots/phase3-real-mobile-smoke/android-chrome/"
-      ]
-    },
-    "classification_rules": {
-      "PASS": "iOS Safari + iOS or Android Chrome, all visual checks pass",
-      "PARTIAL_REAL_DEVICE_EVIDENCE": "iOS Safari only, all visual checks pass",
-      "FAIL": "Any layout blocker found",
-      "NOT_RUN": "No real device tested"
-    },
-    "required_to_pass": [
-      "At minimum: real iOS Safari screenshots",
-      "Preferred: iOS Safari + iOS Chrome or Android Chrome",
-      "Pages: Dashboard, Market, Asset detail modal, Alarms, Performance, Social",
-      "All visual checks pass (no overlap, no overflow, no fake live claims)"
-    ]
-  },
-  "production": {
-    "result": "FAIL",
-    "vercel_preview_deploy": "3 consecutive FAILED deploys. Latest inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/AQ3CkXTWMJGGuRcFVTTQorMYv8c3 (commit 207962d, 23:46 UTC). auth.ts JWT_SECRET build crash fixed in dc73940. Remaining failure: unknown, requires Vercel dashboard access.",
-    "live_version_observed": "403 Forbidden from sandbox — cannot confirm. Prior manual evidence: not_provided_by_cli_deploy.",
-    "root_cause_version": "Vercel CLI deploy does not inject VERCEL_GIT_COMMIT_SHA/REF. All version-info.ts fields fall to CLI_FALLBACK sentinel.",
-    "fix_option_a": "Enable Vercel Git integration → auto-injects VERCEL_GIT_COMMIT_SHA, VERCEL_GIT_COMMIT_REF, VERCEL_DEPLOYMENT_ID, VERCEL_URL",
-    "fix_option_b": "Set NEXT_PUBLIC_COMMIT_SHA=$(git rev-parse --short HEAD), NEXT_PUBLIC_BRANCH, BUILD_TIME, DEPLOYMENT_URL in Vercel dashboard env vars before CLI deploy",
-    "required_to_pass": "aycmarket.com/api/v1/version must return traceabilityComplete:true with real commitSha/branch",
-    "sandbox_constraint": "Cannot access Vercel dashboard or run production deploy. Cannot access production endpoints (403)."
-  },
-  "open_issues": [
-    {"id": "1-10", "severity": "fixed",   "issue": "All original source-level truth leaks", "commits": ["dade011","21cb0df","5d4c86c"]},
-    {"id": 11,    "severity": "fixed",   "issue": "CI: gitleaks-config unexpected input", "commit": "aec7828"},
-    {"id": 12,    "severity": "fixed",   "issue": "CI: node-version 20→22", "commit": "aec7828"},
-    {"id": 13,    "severity": "fixed",   "issue": "Browser/mobile emulation — 48 pass / 12 intentional skip / 0 fail. 3 new data-gating tests added.", "commit": "f96ff53"},
-    {"id": 18,    "severity": "fixed",   "issue": "mapLegacyStatus('fallback') → 'delayed' allowed trading metrics for fallback analysis. Fixed: → 'insufficient'. file: lib/markets/data-status.ts", "commit": "f96ff53"},
-    {"id": 19,    "severity": "fixed",   "issue": "hasSufficientData only excluded insufficient+no_data. demo and ayc_data could show LONG/SHORT and target/stop/RR. Fixed: whitelist live+delayed only. file: AssetDetailModal.tsx", "commit": "f96ff53"},
-    {"id": 20,    "severity": "fixed",   "issue": "DirectionChip (LONG/SHORT) rendered unconditionally regardless of data quality. Fixed: gated by hasSufficientData. file: AssetDetailModal.tsx", "commit": "f96ff53"},
-    {"id": 21,    "severity": "fixed",   "issue": "TextBoxes showed 'değerlendirme yapıldı' and technicalSummary when data was unsafe. Fixed: gate text content by hasSufficientData. file: AssetDetailModal.tsx", "commit": "f96ff53"},
-    {"id": 22,    "severity": "fixed",   "issue": "Technical indicators (RSI/MACD/ATR/Support/Resistance) showed for insufficient data. Fixed: gated by hasSufficientData. file: AssetDetailModal.tsx", "commit": "f96ff53"},
-    {"id": 23,    "severity": "fixed",   "issue": "dashboard/page.tsx hardcoded {a.isLive ? 'Canlı' : 'Demo'} — not through central getStatusLabel. Fixed: now uses getStatusLabel('live') / getStatusLabel('demo'). file: dashboard/page.tsx line 1639", "commit": "f96ff53"},
-    {"id": 24,    "severity": "fixed",   "issue": "vercel.json at repo root pinning buildCommand=pnpm --filter neura-web build, outputDirectory=apps/web/.next, framework=nextjs. Replaces rootDirectory:null dashboard requirement.", "commit": "e8be547"},
-    {"id": 25,    "severity": "fixed",   "issue": "next.config.js: build-time git embedding (execSync git rev-parse HEAD/abbrev-ref HEAD + ISO buildTime) → NEXT_PUBLIC_COMMIT_SHA/_BRANCH/_BUILD_TIME consumed by version-info.ts. CLI deploy no longer needs operator env-var setup for traceability.", "commit": "e8be547"},
-    {"id": 26,    "severity": "fixed",   "issue": "Backend analysis route was producing 'için momentum ve hacim odaklı değerlendirme yapıldı' UNCONDITIONALLY in fundamentalSummary even when dataStatus=no_data/insufficient/fallback. Fixed: buildFundamentalSummary requires analysisAllowed=true; otherwise returns safe message. tradePlan numeric fields forced to null when blocked. file: app/api/v1/assets/[symbol]/analysis/route.ts", "commit": "4c876af"},
-    {"id": 27,    "severity": "fixed",   "issue": "Central market-truth.ts: buildMarketTruth() with explicit canShow{TradePlan,Target,Stop,RiskReward,Kelly,Probability,DirectionChip,Technical,Fundamental} boolean flags. Single fail-closed gate consumed by UI + API. file: lib/markets/market-truth.ts", "commit": "4c876af"},
-    {"id": 28,    "severity": "fixed",   "issue": "Analysis API now exposes dataQuality.analysisAllowed + dataQuality.canShow.* flags. AssetDetailModal consumes these directly; when canShowTradePlan=false the entire MetricCard grid is hidden and a single 'Yeterli güvenilir veri olmadığı için analiz üretilemedi.' message renders (data-testid=analysis-blocked-message). Demo İşlem button gated by analysisAllowed. files: app/api/v1/assets/[symbol]/analysis/route.ts, components/ui/AssetDetailModal.tsx", "commit": "4c876af"},
-    {"id": 29,    "severity": "fixed",   "issue": "BrainMap.tsx: 'Canlı Beyin Haritası' → 'Beyin Haritası'. Static viz had no real live data claim to justify the label.", "commit": "4c876af"},
-    {"id": 30,    "severity": "fixed",   "issue": "Mobile shell central CSS: globals.css adds --app-safe-top/-bottom/-left/-right + --app-bottom-nav-height + --app-content-bottom-pad. .app-main uses these so every page gets uniform bottom padding (no per-page hacks). New .app-sticky-bottom utility positions copilot/composer above bottom nav. New .app-modal-body uses 100dvh.", "commit": "4c876af"},
-    {"id": 31,    "severity": "fixed",   "issue": "Playwright tests: 75/75 pass at 5 viewports (was 60/12-skip). New data-gating asserts: safe message present, MetricCard grid absent, Demo button hidden. New Analysis API contract test locks dataQuality.canShow.* schema. New BrainMap heading regression test. New Version traceability test (/api/v1/version must return real git SHA).", "commit": "4c876af"},
-    {"id": 33,    "severity": "fixed",   "issue": "Dashboard KALKAN fake-AKTİF claim. StatBadge value 'AKTİF' + sub '4 risk filtresi çalışıyor' was misleading because KALKAN Risk Engine is FAZ 9 work, not yet built. Fixed: value → 'Hazırlanıyor', sub → 'Risk motoru FAZ 9'da devreye alınacak'. KALKAN Guard card inline badge AKTİF → 'Hazırlanıyor'. All 5 filter items (Sahte Kırılım/Geç Giriş/Risk-Ödül/FOMO/İntikam) flipped active:true → active:false. file: app/(app)/dashboard/page.tsx", "commit": "80e1e5a"},
-    {"id": 34,    "severity": "fixed",   "issue": "MarketTicker conservative aggregate. Old rule 'verifiedLiveCount >= 3 ? live' meant 3/30 ratio claimed Canlı globally — misleading with mixed asset classes. New rule: tickerStatus = (allLive ? live : hasRecentTs ? delayed : no_data). With a mixed ticker (crypto/stocks/BIST/forex/commodities) the aggregate practically resolves to 'Gecikmeli', which is honest. file: components/ui/MarketTicker.tsx", "commit": "80e1e5a"},
-    {"id": 35,    "severity": "fixed",   "issue": "Copilot mobile shell. Old height: calc(100dvh - 130px) arbitrary; ignored bottom nav + iOS safe-area. New: calc(100dvh - --app-ticker-height - --app-header-height - --app-bottom-nav-height - --app-safe-top - --app-safe-bottom - 16px). The composer input now sits above the bottom nav on real iOS where env(safe-area-inset-bottom) is non-zero. file: app/(app)/copilot/page.tsx", "commit": "80e1e5a"},
-    {"id": 36,    "severity": "fixed",   "issue": "Playwright 85/85 pass at 5 viewports (was 75/0-skip). Two new tests: 'Dashboard fake-claim audit' (KALKAN-AKTİF pairing forbidden, '4 risk filtresi çalışıyor' forbidden) + 'Asset modal state reset' (no_data with mock body containing real-looking target:55000/RR:2.5 + canShow:false must NOT surface those numbers anywhere on the page). Locks the canShow-aware gating end-to-end.", "commit": "80e1e5a"},
-    {"id": 16,    "severity": "warning", "issue": "CI: 4 node20→24 informational annotations. FORCE flag applied (b2a555b). Permanent fix: action maintainers update action.yml. GitHub enforces June 2 2026."},
-    {"id": 17,    "severity": "operator", "issue": "Vercel preview: 3 prior FAILED deploys (a878330, 3c085a4, 207962d). Two root causes fixed: auth.ts JWT_SECRET crash (dc73940) + rootDirectory:null via vercel.json (e8be547). Operator: trigger redeploy at 80e1e5a and confirm preview URL — vercel.json should make it pass without dashboard changes."},
-    {"id": 14,    "severity": "operator", "issue": "REAL_MOBILE_PASS: FAIL — real iOS screenshots from aycmarket.com confirmed production failures (asset detail metrics shown for fallback/insufficient data, hardcoded Canlı badge, KALKAN AKTİF fake claim). All known source-side leaks fixed (f96ff53, 4c876af, 80e1e5a). Re-test required on real device after Vercel preview at 80e1e5a succeeds. Manual steps: test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md."},
-    {"id": 15,    "severity": "operator", "issue": "PROD_PASS: FAIL — needs production deploy at 80e1e5a+ and confirmation that aycmarket.com/api/v1/version returns traceabilityComplete:true. With e8be547's build-time git embedding, only Vercel's auto-injected VERCEL_URL is needed (always present on Vercel deploys)."}
-  ]
+    "Production_ready": "NO"
+  }
 }
