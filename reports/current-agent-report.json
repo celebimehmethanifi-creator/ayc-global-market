@@ -1,21 +1,15 @@
 {
   "branch": "fix/live-data-truth-mobile-shell",
-  "head": "023ed3c",
-  "date": "2026-05-19",
+  "head": "bf49ea1",
+  "code_commit": "023ed3c",
+  "report_commit": "c741a2a",
+  "sync_commit": "bf49ea1",
+  "date": "2026-05-20",
   "automation": {
     "script": "scripts/ayc-full-local-check.ps1",
     "results_helper": "scripts/ayc-open-latest-test-results.ps1",
     "latest_log_path": "test-results/local-automation/20260519-234520"
   },
-  "commands_run": [
-    "git status --short",
-    "git branch --show-current",
-    "git rev-parse --short HEAD",
-    "git log --oneline -12",
-    "pnpm --version",
-    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-full-local-check.ps1",
-    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-open-latest-test-results.ps1"
-  ],
   "tooling_results": {
     "pnpm_install": "PASS",
     "pnpm_type_check": "PASS",
@@ -31,32 +25,11 @@
     "flaky": 0,
     "result_file": "test-results/playwright-results.json"
   },
-  "root_cause": {
-    "class": "A",
-    "description": "Browser smoke failures were caused by app server lifecycle/test setup instability, not proven product regressions.",
-    "fix": "Configured Playwright webServer to run build + next start on 127.0.0.1:3093 for stable test execution.",
-    "file": "playwright.config.ts"
-  },
-  "files_changed": [
-    "scripts/ayc-full-local-check.ps1",
-    "scripts/ayc-open-latest-test-results.ps1",
-    "playwright.config.ts"
-  ],
-  "commits": [
-    {
-      "sha": "85e9dd8",
-      "message": "fix(tooling): automate local validation pipeline"
-    },
-    {
-      "sha": "023ed3c",
-      "message": "fix(phase3): close browser smoke and data truth failures"
-    }
-  ],
-  "remaining_dirty_not_committed": [
-    "test-results/screenshots/phase3-browser-mobile-smoke/*",
-    "test-results/local-automation/*",
-    "scripts/ayc-local-automation.ps1",
-    "pnpm-workspace.yaml (line-ending state only, no semantic diff)"
+  "pushed_commits": [
+    { "sha": "85e9dd8", "message": "fix(tooling): automate local validation pipeline" },
+    { "sha": "023ed3c", "message": "fix(phase3): close browser smoke and data truth failures" },
+    { "sha": "c741a2a", "message": "chore(report): phase 3 local automation closure" },
+    { "sha": "bf49ea1", "message": "chore(sync): merge remote branch updates before pushing local commits" }
   ],
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
