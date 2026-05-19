@@ -3,5 +3,12 @@ packages:
   - "services/*"
   - "packages/*"
 
+# pnpm v11+
+allowBuilds:
+  '0': '@shopify/react-native-skia'
+  '1': unrs-resolver
+
+# pnpm v10
 onlyBuiltDependencies:
+  - "@shopify/react-native-skia"
   - unrs-resolver
