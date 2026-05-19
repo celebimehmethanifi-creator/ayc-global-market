@@ -1,13 +1,13 @@
 {
   "status": "NOT_RUN",
-  "reason": "Sandbox environment cannot access a real mobile device. Vercel preview deploy FAILED (previewUrl empty). Production network blocked (403). LAN option requires physical Windows PC C:\\Users\\mhani\\Desktop\\NEURA.",
+  "reason": "Sandbox cannot access a real mobile device. Vercel preview has 3 consecutive FAILED deploys (no preview URL). Production network blocked (403 from sandbox). LAN requires physical Windows PC C:\\Users\\mhani\\Desktop\\NEURA.",
   "branch": "fix/live-data-truth-mobile-shell",
-  "headCommit": "a878330",
-  "codeCommit": "5d4c86c",
+  "headCommit": "207962d",
+  "codeCommit": "dc73940",
   "testedUrl": null,
   "testedAt": null,
-  "vercelPreviewStatus": "FAILED — no preview URL available for PR #3",
-  "productionStatus": "BLOCKED (network 403 from sandbox)",
+  "vercelPreviewStatus": "FAILED — 3 consecutive deploys failed. Latest inspector: https://vercel.com/celebimehmethanifi-creators-projects/web/AQ3CkXTWMJGGuRcFVTTQorMYv8c3 (commit 207962d, 2026-05-18T23:46:51Z)",
+  "productionStatus": "BLOCKED (network 403 from sandbox — host not in allowlist)",
   "devices": [],
   "checks": {
     "noHeaderTickerOverlap": null,
@@ -18,5 +18,5 @@
     "tickerNotCrowded": null,
     "noFakeLiveClaims": null
   },
-  "instructions": "See MANUAL_STEPS.md in this directory for exact steps to run on the real Windows PC."
+  "instructions": "See MANUAL_STEPS.md in this directory for exact steps to run on the Windows PC at C:\\Users\\mhani\\Desktop\\NEURA. Confirm HEAD is 207962d before starting."
 }

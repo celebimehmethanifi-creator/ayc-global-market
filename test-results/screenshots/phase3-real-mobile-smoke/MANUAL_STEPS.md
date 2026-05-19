@@ -8,7 +8,7 @@ git fetch origin
 git switch fix/live-data-truth-mobile-shell
 git pull --ff-only
 git rev-parse --short HEAD
-# Expected: a878330 (or later)
+# Expected: 207962d (or later)
 ```
 
 ## Start the dev server accessible from phone (same Wi-Fi)
