@@ -61,6 +61,19 @@ type AssetAnalysis = {
     status?: string;
     provider?: string | null;
     updatedAt?: string;
+    analysisAllowed?: boolean;
+    candlesAvailable?: number;
+    canShow?: {
+      tradePlan?: boolean;
+      target?: boolean;
+      stop?: boolean;
+      riskReward?: boolean;
+      kelly?: boolean;
+      probability?: boolean;
+      directionChip?: boolean;
+      fundamentalAnalysis?: boolean;
+      technicalAnalysis?: boolean;
+    };
   };
   disclaimer?: string;
 };
@@ -260,9 +273,33 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
   const stopLoss = analysis?.tradePlan?.stopLoss ?? null;
   const riskReward = analysis?.tradePlan?.riskReward ?? null;
   const mappedQualityStatus = mapLegacyStatus(analysis?.dataQuality?.status);
-  // Only live or delayed real-market data is safe to show trading metrics.
-  // fallback, ayc_data, demo, no_data, insufficient must all suppress actionable numbers.
-  const hasSufficientData = mappedQualityStatus === "live" || mappedQualityStatus === "delayed";
+
+  // Fail-closed gate. Truth source priority:
+  //   1) API-supplied dataQuality.analysisAllowed (server computed it from
+  //      hasEnoughData + dataStatus)
+  //   2) Local fallback: only "live" or "delayed" with non-null target+stop
+  // Anything else → hide all actionable metrics, show one safe message.
+  const apiAnalysisAllowed = analysis?.dataQuality?.analysisAllowed;
+  const apiCanShow = analysis?.dataQuality?.canShow;
+  const localAnalysisAllowed =
+    (mappedQualityStatus === "live" || mappedQualityStatus === "delayed") &&
+    targetPrice != null &&
+    stopLoss != null;
+  const analysisAllowed =
+    typeof apiAnalysisAllowed === "boolean" ? apiAnalysisAllowed : localAnalysisAllowed;
+
+  // Per-flag gates default to analysisAllowed; canShow.* overrides when API
+  // provides them (which is now after this commit).
+  const canShowTradePlan       = apiCanShow?.tradePlan       ?? (analysisAllowed && targetPrice != null && stopLoss != null);
+  const canShowTarget          = apiCanShow?.target          ?? (canShowTradePlan && targetPrice != null);
+  const canShowStop            = apiCanShow?.stop            ?? (canShowTradePlan && stopLoss != null);
+  const canShowRiskReward      = apiCanShow?.riskReward      ?? (canShowTradePlan && riskReward != null && Number.isFinite(riskReward));
+  const canShowDirectionChip   = apiCanShow?.directionChip   ?? analysisAllowed;
+  const canShowTechnicalChart  = apiCanShow?.technicalAnalysis ?? analysisAllowed;
+  const canShowFundamentalText = apiCanShow?.fundamentalAnalysis ?? analysisAllowed;
+  const canShowTechnicalText   = canShowTechnicalChart;
+  // Legacy alias kept for any remaining call sites (gradually replaced).
+  const hasSufficientData = analysisAllowed;
 
   const priceDiffPct =
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
@@ -394,24 +431,28 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={() => setShowDemoTrade(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                borderRadius: 8,
-                border: "1px solid rgba(245,158,11,0.35)",
-                background: "rgba(245,158,11,0.12)",
-                color: "#f59e0b",
-                padding: "7px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              <FlaskConical size={13} /> Demo İşlem
-            </button>
+            {/* Demo İşlem only when analysis data is safe — synthetic AI
+                analysis on unsafe data would still be a fake actionable claim. */}
+            {analysisAllowed && (
+              <button
+                onClick={() => setShowDemoTrade(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  borderRadius: 8,
+                  border: "1px solid rgba(245,158,11,0.35)",
+                  background: "rgba(245,158,11,0.12)",
+                  color: "#f59e0b",
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <FlaskConical size={13} /> Demo İşlem
+              </button>
+            )}
 
             {exchanges.length > 0 ? (
               <button
@@ -509,7 +550,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {hasSufficientData && <DirectionChip direction={direction} />}
+                {canShowDirectionChip && <DirectionChip direction={direction} />}
                 {analysis?.dataQuality?.status && (
                   <span style={{ fontSize: 10, color: getStatusColor(mapLegacyStatus(analysis.dataQuality.status)), fontWeight: 700 }}>
                     {getStatusLabel(mapLegacyStatus(analysis.dataQuality.status))}
@@ -540,22 +581,57 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
-              <MetricCard icon={<Target size={12} color="var(--up)" />} label="Hedef" value={hasSufficientData ? fmtPrice(targetPrice) : "Veri yetersiz"} />
-              <MetricCard icon={<ShieldAlert size={12} color="var(--down)" />} label="Stop Loss" value={hasSufficientData ? fmtPrice(stopLoss) : "Veri yetersiz"} />
-              <MetricCard
-                icon={<BarChart3 size={12} color="var(--gold)" />}
-                label="Risk/Ödül"
-                value={hasSufficientData && riskReward != null && Number.isFinite(riskReward) ? `${riskReward.toFixed(2)}x` : "Veri yetersiz"}
+            {/* Fail-closed: render the metric cards ONLY when analysis is allowed.
+                When blocked, show a single honest message — no fake values. */}
+            {canShowTradePlan ? (
+              <div data-testid="trade-plan-metrics" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+                {canShowTarget && (
+                  <MetricCard icon={<Target size={12} color="var(--up)" />} label="Hedef" value={fmtPrice(targetPrice)} />
+                )}
+                {canShowStop && (
+                  <MetricCard icon={<ShieldAlert size={12} color="var(--down)" />} label="Stop Loss" value={fmtPrice(stopLoss)} />
+                )}
+                {canShowRiskReward && (
+                  <MetricCard
+                    icon={<BarChart3 size={12} color="var(--gold)" />}
+                    label="Risk/Ödül"
+                    value={`${(riskReward as number).toFixed(2)}x`}
+                  />
+                )}
+              </div>
+            ) : (
+              <div
+                data-testid="analysis-blocked-message"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRadius: 10,
+                  border: "1px solid var(--b2)",
+                  background: "var(--bg-hover)",
+                  padding: "12px 14px",
+                  color: "var(--t2)",
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                }}
+              >
+                <AlertCircle size={14} color="var(--t3)" />
+                <span>Yeterli güvenilir veri olmadığı için analiz üretilemedi.</span>
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+              <TextBox
+                title="Teknik Analiz"
+                text={canShowTechnicalText && analysis?.technicalSummary ? analysis.technicalSummary : "Teknik analiz için veri yetersiz."}
+              />
+              <TextBox
+                title="Temel Analiz"
+                text={canShowFundamentalText && analysis?.fundamentalSummary ? analysis.fundamentalSummary : "Temel analiz için güvenilir veri yok."}
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-              <TextBox title="Teknik Analiz" text={hasSufficientData ? (analysis?.technicalSummary || "Teknik analiz için yeterli veri yok.") : "Teknik analiz için yeterli veri yok."} />
-              <TextBox title="Temel Analiz" text={hasSufficientData ? (analysis?.fundamentalSummary || "Temel analiz için güvenilir veri yok.") : "Temel analiz için güvenilir veri yok."} />
-            </div>
-
-            {hasSufficientData && analysis?.technical && (
+            {canShowTechnicalChart && analysis?.technical && (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <TinyBadge label="RSI" value={analysis.technical.rsi != null ? analysis.technical.rsi.toFixed(2) : "—"} />
                 <TinyBadge label="MACD" value={analysis.technical.macd != null ? analysis.technical.macd.toFixed(4) : "—"} />

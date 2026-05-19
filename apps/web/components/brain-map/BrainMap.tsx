@@ -188,7 +188,7 @@ export default function BrainMap() {
     <div className="glass-card p-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-bold text-lg neon-text">Canlı Beyin Haritası</h2>
+          <h2 className="font-bold text-lg neon-text">Beyin Haritası</h2>
           <p className="text-white/50 text-sm">Her varlık bir nöron – sinyal gücü ile ışıldıyor</p>
         </div>
         <div className="flex gap-3 text-xs">

@@ -189,7 +189,8 @@ function buildTradePlan(args: {
   };
 }
 
-function buildFundamentalSummary(category: string, symbol: string, volume: number | null): string {
+function buildFundamentalSummary(category: string, symbol: string, volume: number | null, analysisAllowed: boolean): string {
+  if (!analysisAllowed) return "Temel analiz için güvenilir veri yok.";
   if (category === "crypto") {
     return `${symbol} için momentum ve hacim odaklı değerlendirme yapıldı${volume ? ` (hacim ${volume.toLocaleString("en-US", { maximumFractionDigits: 0 })})` : ""}.`;
   }
@@ -277,6 +278,26 @@ export async function GET(
   else if (liveEntry) dataStatus = "live";
   else dataStatus = (ohlcvStatus as AnalysisDataStatus) || (ohlcvJson?.provider ? "fallback" : "delayed");
 
+  // Fail-closed analysisAllowed gate — must match apps/web/lib/markets/market-truth.ts.
+  // Only "live" or "delayed" market data with enough candles produces actionable metrics.
+  const analysisAllowed = (dataStatus === "live" || dataStatus === "delayed") && hasEnoughData;
+
+  // Force tradePlan nullable fields to null when analysis is not allowed.
+  // buildTradePlan already does this via hasEnoughData; defense in depth here.
+  const safeTradePlan = analysisAllowed
+    ? tradePlan
+    : {
+        direction: "NEUTRAL" as const,
+        entry: null,
+        target: null,
+        stopLoss: null,
+        riskReward: null,
+        confidence: 0,
+        reason: tradePlan.reason || "ANALYSIS_BLOCKED",
+      };
+
+  const canShowTradePlan = analysisAllowed && safeTradePlan.target !== null && safeTradePlan.stopLoss !== null;
+
   return NextResponse.json(
     {
       ok: true,
@@ -287,7 +308,7 @@ export async function GET(
       latestPrice,
       latestClose: latestCandle?.c ?? null,
       change24h: safeNumber(liveEntry?.change24h ?? liveEntry?.chg),
-      tradePlan,
+      tradePlan: safeTradePlan,
       technical: {
         trend: direction,
         rsi: rsiValue,
@@ -303,15 +324,28 @@ export async function GET(
         support,
         resistance,
       },
-      technicalSummary: hasEnoughData
+      technicalSummary: analysisAllowed
         ? `${direction} eğilim, RSI ${rsiValue?.toFixed(1) ?? "n/a"}, ATR ${atrValue?.toFixed(4) ?? "n/a"}`
-        : "Veri yetersiz, teknik güven düşük.",
-      fundamentalSummary: buildFundamentalSummary(category, canonicalSymbol, average(volumes)),
+        : "Teknik analiz için veri yetersiz.",
+      fundamentalSummary: buildFundamentalSummary(category, canonicalSymbol, average(volumes), analysisAllowed),
       dataQuality: {
         status: dataStatus,
         provider: ohlcvJson?.provider || liveEntry?.source || null,
         updatedAt: new Date(latestCandle?.t || Date.now()).toISOString(),
         providerAttempts: ohlcvJson?.providerAttempts || [],
+        analysisAllowed,
+        candlesAvailable: candles.length,
+        canShow: {
+          tradePlan: canShowTradePlan,
+          target: canShowTradePlan,
+          stop: canShowTradePlan,
+          riskReward: canShowTradePlan,
+          kelly: canShowTradePlan,
+          probability: canShowTradePlan,
+          directionChip: analysisAllowed,
+          fundamentalAnalysis: analysisAllowed,
+          technicalAnalysis: analysisAllowed,
+        },
       },
       disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
     },

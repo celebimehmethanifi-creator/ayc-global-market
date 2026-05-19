@@ -158,9 +158,11 @@ test.describe("Alarms page", () => {
 
 const UNSAFE_ANALYSIS_STATUSES = ["fallback", "no_data", "insufficient"] as const;
 
-/** Mocked analysis payload with real-looking numbers that must be suppressed for unsafe statuses. */
-function mockAnalysisBody(status: string) {
-  return JSON.stringify({
+/** Mocked analysis payload with real-looking numbers that must be suppressed for unsafe statuses.
+ *  Notice: caller can override `analysisAllowed` and `canShow` to simulate older API responses. */
+function mockAnalysisBody(status: string, opts: { withCanShow?: boolean } = {}) {
+  const withCanShow = opts.withCanShow !== false; // default true — exercise new API shape
+  const body: any = {
     ok: true, symbol: "BTCUSDT", timeframe: "1D", category: "crypto",
     latestPrice: 50000, latestClose: 50000, change24h: 0.5,
     tradePlan: { direction: "LONG", entry: 50000, target: 55000, stopLoss: 48000, riskReward: 2.5, confidence: 65 },
@@ -169,7 +171,17 @@ function mockAnalysisBody(status: string) {
     fundamentalSummary: "BTCUSDT için momentum ve hacim odaklı değerlendirme yapıldı (hacim 1,234,567).",
     dataQuality: { status, updatedAt: null },
     disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
-  });
+  };
+  if (withCanShow) {
+    body.dataQuality.analysisAllowed = false;
+    body.dataQuality.candlesAvailable = 0;
+    body.dataQuality.canShow = {
+      tradePlan: false, target: false, stop: false, riskReward: false,
+      kelly: false, probability: false, directionChip: false,
+      fundamentalAnalysis: false, technicalAnalysis: false,
+    };
+  }
+  return JSON.stringify(body);
 }
 
 test.describe("Asset analysis modal — data gating", () => {
@@ -183,11 +195,12 @@ test.describe("Asset analysis modal — data gating", () => {
       await page.goto("/market", { waitUntil: "domcontentloaded", timeout: 20000 });
       await page.waitForTimeout(1500);
 
-      // Click first clickable asset row to open the detail panel
-      const row = page.locator("table tbody tr, [data-testid='asset-row'], .asset-row").first();
+      // Click first clickable asset row to open the detail panel.
+      // Tablet/desktop use a table; mobile uses .market-mobile-card.
+      const row = page.locator("table tbody tr, [data-testid='asset-row'], .asset-row, .market-mobile-card").first();
       const rowVisible = await row.isVisible().catch(() => false);
       if (!rowVisible) {
-        test.skip(); // market table not loaded — skip rather than false-fail
+        test.skip(); // market list not loaded — skip rather than false-fail
         return;
       }
       await row.click();
@@ -205,8 +218,73 @@ test.describe("Asset analysis modal — data gating", () => {
 
       // "değerlendirme yapıldı" must not appear when data is unsafe
       expect(bodyText, `${status}: "değerlendirme yapıldı" must not appear`).not.toContain("değerlendirme yapıldı");
+
+      // Fail-closed: the explicit safe message must appear instead of metric cards
+      expect(bodyText, `${status}: safe blocked-analysis message must appear`).toContain(
+        "Yeterli güvenilir veri olmadığı için analiz üretilemedi.",
+      );
+
+      // The MetricCard grid must not be in the DOM
+      const metricsGrid = page.locator("[data-testid='trade-plan-metrics']");
+      expect(await metricsGrid.count(), `${status}: trade-plan-metrics grid must not render`).toBe(0);
+
+      // Demo İşlem button must be hidden when analysisAllowed=false
+      const demoBtn = page.locator("text=Demo İşlem").first();
+      expect(await demoBtn.isVisible().catch(() => false), `${status}: Demo İşlem must be hidden`).toBe(false);
     });
   }
+});
+
+// ── API contract: analysis route returns canShow flags ───────────────────────
+
+test.describe("Analysis API contract", () => {
+  test("response includes dataQuality.canShow.* flags", async ({ request }) => {
+    const resp = await request.get("/api/v1/assets/BTCUSDT/analysis?timeframe=1D&riskProfile=medium");
+    expect(resp.ok(), `expected 200, got ${resp.status()}`).toBe(true);
+    const body = await resp.json();
+    // Required new keys (regression-locked by this test)
+    expect(body.dataQuality, "dataQuality block required").toBeTruthy();
+    expect(typeof body.dataQuality.analysisAllowed, "analysisAllowed must be boolean").toBe("boolean");
+    expect(body.dataQuality.canShow, "canShow block required").toBeTruthy();
+    for (const key of ["tradePlan","target","stop","riskReward","kelly","probability","directionChip","fundamentalAnalysis","technicalAnalysis"]) {
+      expect(typeof body.dataQuality.canShow[key], `canShow.${key} must be boolean`).toBe("boolean");
+    }
+    // When analysisAllowed=false, fundamentalSummary must be the safe message
+    if (!body.dataQuality.analysisAllowed) {
+      expect(body.fundamentalSummary, "blocked fundamental must be safe message").toBe("Temel analiz için güvenilir veri yok.");
+      expect(body.technicalSummary, "blocked technical must be safe message").toBe("Teknik analiz için veri yetersiz.");
+      expect(body.tradePlan.target, "blocked tradePlan.target must be null").toBeNull();
+      expect(body.tradePlan.stopLoss, "blocked tradePlan.stopLoss must be null").toBeNull();
+    }
+  });
+});
+
+// ── BrainMap heading: no fake live claim ─────────────────────────────────────
+
+test.describe("BrainMap heading", () => {
+  test("must not say 'Canlı Beyin Haritası' (no fake live claim)", async ({ request }) => {
+    // Source-level grep via the route that may surface BrainMap. We only assert
+    // the rendered string never appears in any /api/* or page text; integration
+    // verification is part of the page tests above.
+    const dash = await request.get("/dashboard");
+    const html = await dash.text();
+    expect(html).not.toContain("Canlı Beyin Haritası");
+  });
+});
+
+// ── Version traceability: build-time git embedding ───────────────────────────
+
+test.describe("Version traceability", () => {
+  test("/api/v1/version returns real commitSha and branch (not CLI_FALLBACK)", async ({ request }) => {
+    const resp = await request.get("/api/v1/version");
+    expect(resp.ok()).toBe(true);
+    const v = await resp.json();
+    expect(v.commitSha, "commitSha must not be CLI_FALLBACK").not.toBe("not_provided_by_cli_deploy");
+    expect(v.branch, "branch must not be CLI_FALLBACK").not.toBe("not_provided_by_cli_deploy");
+    expect(v.buildTime, "buildTime must not be CLI_FALLBACK").not.toBe("not_provided_by_cli_deploy");
+    // commitSha looks like a git SHA (40 hex chars) or short form
+    expect(v.commitSha).toMatch(/^[0-9a-f]{7,40}$/);
+  });
 });
 
 // ── Ticker badge ──────────────────────────────────────────────────────────────

@@ -627,6 +627,19 @@ h1, h2, h3, h4, h5, h6 {
   --sidebar-w-mobile: 0px;
   --bottom-nav-h: 58px;
   --bottom-nav-height: 58px; /* alias used by app-main padding-bottom calc */
+
+  /* Central app-shell variables — every page consumes these so we never
+     hand-tune padding per page. Real iOS Safari respects env(safe-area-inset-*)
+     for notch / home-indicator. dvh / svh handle the dynamic viewport bar.   */
+  --app-safe-top:           env(safe-area-inset-top, 0px);
+  --app-safe-bottom:        env(safe-area-inset-bottom, 0px);
+  --app-safe-left:          env(safe-area-inset-left, 0px);
+  --app-safe-right:         env(safe-area-inset-right, 0px);
+  --app-ticker-height:      32px;
+  --app-header-height:      52px;
+  --app-bottom-nav-height:  58px;
+  --app-content-bottom-gap: 24px;
+  --app-content-bottom-pad: calc(var(--app-bottom-nav-height) + var(--app-safe-bottom) + var(--app-content-bottom-gap));
 }
 
 /* ── body: NO overflow:hidden on mobile — need scroll ─────────── */
@@ -862,8 +875,22 @@ body.asset-modal-open .app-main {
   padding-top: 0 !important;
 }
 @media (max-width: 767px) {
+  /* Central content padding — every (app)/* page sits inside .app-main. The
+     bottom value adds bottom-nav height + iOS safe area + 24px breathing room
+     so CTAs, copilot composer, and bottom content never sit under the nav. */
   .app-main {
-    padding: 12px 12px calc(var(--bottom-nav-height, 58px) + env(safe-area-inset-bottom, 0px) + 24px) 12px !important;
+    padding: 12px max(12px, var(--app-safe-right)) var(--app-content-bottom-pad) max(12px, var(--app-safe-left)) !important;
+  }
+  /* Copilot composer / sticky bottom toolbar — always above bottom nav. */
+  .app-sticky-bottom {
+    position: sticky;
+    bottom: calc(var(--app-bottom-nav-height) + var(--app-safe-bottom));
+    z-index: 50;
+  }
+  /* Modal/dialog bodies use dvh so they don't get hidden by iOS address bar. */
+  .app-modal-body {
+    max-height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom) - 32px);
+    overflow-y: auto;
   }
 }
 
