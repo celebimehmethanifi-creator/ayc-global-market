@@ -154,6 +154,61 @@ test.describe("Alarms page", () => {
   });
 });
 
+// ── Asset analysis modal — data gating ───────────────────────────────────────
+
+const UNSAFE_ANALYSIS_STATUSES = ["fallback", "no_data", "insufficient"] as const;
+
+/** Mocked analysis payload with real-looking numbers that must be suppressed for unsafe statuses. */
+function mockAnalysisBody(status: string) {
+  return JSON.stringify({
+    ok: true, symbol: "BTCUSDT", timeframe: "1D", category: "crypto",
+    latestPrice: 50000, latestClose: 50000, change24h: 0.5,
+    tradePlan: { direction: "LONG", entry: 50000, target: 55000, stopLoss: 48000, riskReward: 2.5, confidence: 65 },
+    technical: { trend: "LONG", rsi: 55.12, macd: 0.5, atr: 100, support: 48000, resistance: 55000 },
+    technicalSummary: "Teknik analiz özeti",
+    fundamentalSummary: "BTCUSDT için momentum ve hacim odaklı değerlendirme yapıldı (hacim 1,234,567).",
+    dataQuality: { status, updatedAt: null },
+    disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
+  });
+}
+
+test.describe("Asset analysis modal — data gating", () => {
+  for (const status of UNSAFE_ANALYSIS_STATUSES) {
+    test(`status=${status}: hides LONG chip and actionable metrics`, async ({ page }) => {
+      // Intercept analysis API to inject controlled unsafe status
+      await page.route("**/api/v1/assets/*/analysis*", route =>
+        route.fulfill({ status: 200, contentType: "application/json", body: mockAnalysisBody(status) }),
+      );
+
+      await page.goto("/market", { waitUntil: "domcontentloaded", timeout: 20000 });
+      await page.waitForTimeout(1500);
+
+      // Click first clickable asset row to open the detail panel
+      const row = page.locator("table tbody tr, [data-testid='asset-row'], .asset-row").first();
+      const rowVisible = await row.isVisible().catch(() => false);
+      if (!rowVisible) {
+        test.skip(); // market table not loaded — skip rather than false-fail
+        return;
+      }
+      await row.click();
+      await page.waitForTimeout(1500);
+
+      const html = await page.content();
+      const bodyText = await page.locator("body").innerText().catch(() => "");
+
+      // Direction chip must be hidden for unsafe status
+      expect(html, `${status}: LONG chip must not appear`).not.toMatch(/>\s*LONG\s*</);
+
+      // Numeric target/stop/RR must not appear as actionable values
+      expect(bodyText, `${status}: target 55,000 must not appear`).not.toContain("55,000");
+      expect(bodyText, `${status}: risk/reward 2.50x must not appear`).not.toContain("2.50x");
+
+      // "değerlendirme yapıldı" must not appear when data is unsafe
+      expect(bodyText, `${status}: "değerlendirme yapıldı" must not appear`).not.toContain("değerlendirme yapıldı");
+    });
+  }
+});
+
 // ── Ticker badge ──────────────────────────────────────────────────────────────
 
 test.describe("MarketTicker status badge", () => {

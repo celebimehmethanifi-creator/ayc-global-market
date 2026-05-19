@@ -260,7 +260,9 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
   const stopLoss = analysis?.tradePlan?.stopLoss ?? null;
   const riskReward = analysis?.tradePlan?.riskReward ?? null;
   const mappedQualityStatus = mapLegacyStatus(analysis?.dataQuality?.status);
-  const hasSufficientData = mappedQualityStatus !== "insufficient" && mappedQualityStatus !== "no_data";
+  // Only live or delayed real-market data is safe to show trading metrics.
+  // fallback, ayc_data, demo, no_data, insufficient must all suppress actionable numbers.
+  const hasSufficientData = mappedQualityStatus === "live" || mappedQualityStatus === "delayed";
 
   const priceDiffPct =
     chartLatestClose && displayPrice > 0 ? Math.abs((chartLatestClose - displayPrice) / displayPrice) * 100 : 0;
@@ -507,7 +509,7 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <DirectionChip direction={direction} />
+                {hasSufficientData && <DirectionChip direction={direction} />}
                 {analysis?.dataQuality?.status && (
                   <span style={{ fontSize: 10, color: getStatusColor(mapLegacyStatus(analysis.dataQuality.status)), fontWeight: 700 }}>
                     {getStatusLabel(mapLegacyStatus(analysis.dataQuality.status))}
@@ -549,11 +551,11 @@ export function AssetDetailModal({ asset, onClose }: { asset: AssetInfo | null; 
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-              <TextBox title="Teknik Analiz" text={analysis?.technicalSummary || "Teknik analiz için yeterli veri yok."} />
-              <TextBox title="Temel Analiz" text={analysis?.fundamentalSummary || "Veri yetersiz."} />
+              <TextBox title="Teknik Analiz" text={hasSufficientData ? (analysis?.technicalSummary || "Teknik analiz için yeterli veri yok.") : "Teknik analiz için yeterli veri yok."} />
+              <TextBox title="Temel Analiz" text={hasSufficientData ? (analysis?.fundamentalSummary || "Temel analiz için güvenilir veri yok.") : "Temel analiz için güvenilir veri yok."} />
             </div>
 
-            {analysis?.technical && (
+            {hasSufficientData && analysis?.technical && (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <TinyBadge label="RSI" value={analysis.technical.rsi != null ? analysis.technical.rsi.toFixed(2) : "—"} />
                 <TinyBadge label="MACD" value={analysis.technical.macd != null ? analysis.technical.macd.toFixed(4) : "—"} />

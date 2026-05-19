@@ -1636,7 +1636,7 @@ export default function DashboardPage() {
                         border:"1px solid var(--b1)",
                         color:a.isLive ? "var(--up)" : "var(--t4)",
                       }}>
-                        {a.isLive ? "Canlı" : "Demo"}
+                        {a.isLive ? getStatusLabel("live") : getStatusLabel("demo")}
                       </span>
                     </div>
 

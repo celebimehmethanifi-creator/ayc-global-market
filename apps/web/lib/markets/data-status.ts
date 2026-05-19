@@ -100,7 +100,7 @@ export function mapLegacyStatus(value: string | null | undefined): DataStatus {
   switch (value) {
     case "live":             return "live";
     case "delayed":          return "delayed";
-    case "fallback":         return "delayed";
+    case "fallback":         return "insufficient"; // fallback calc ≠ real delayed market data
     case "ayc_data":         return "ayc_data";
     case "no_data":          return "no_data";
     case "api_error":        return "no_data";
