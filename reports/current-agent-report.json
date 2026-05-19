@@ -1,36 +1,39 @@
-{
+﻿{
   "branch": "fix/live-data-truth-mobile-shell",
-  "head": "bf49ea1",
-  "code_commit": "023ed3c",
-  "report_commit": "c741a2a",
-  "sync_commit": "bf49ea1",
+  "work_branch": "sync/fix-live-data-truth-mobile-shell",
+  "head": "df51d7b",
   "date": "2026-05-20",
-  "automation": {
-    "script": "scripts/ayc-full-local-check.ps1",
-    "results_helper": "scripts/ayc-open-latest-test-results.ps1",
-    "latest_log_path": "test-results/local-automation/20260519-234520"
-  },
-  "tooling_results": {
+  "setup_commit": "df51d7b",
+  "commands_run": [
+    "pnpm install",
+    "pnpm type-check",
+    "pnpm lint",
+    "pnpm build",
+    "npx playwright install chromium",
+    "pnpm test:browser",
+    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1"
+  ],
+  "local_pipeline": {
     "pnpm_install": "PASS",
     "pnpm_type_check": "PASS",
-    "pnpm_lint": "PASS",
+    "pnpm_lint": "PASS_WARNINGS",
     "pnpm_build": "PASS",
-    "playwright_install_chromium": "PASS",
-    "pnpm_test_browser": "PASS"
+    "pnpm_test_browser": {
+      "status": "PASS",
+      "passed": 85,
+      "failed": 0,
+      "skipped": 0,
+      "flaky": 0
+    }
   },
-  "playwright": {
-    "passed": 85,
-    "failed": 0,
-    "skipped": 0,
-    "flaky": 0,
-    "result_file": "test-results/playwright-results.json"
+  "browserstack": {
+    "username_present": true,
+    "access_key_present": true,
+    "credentials_valid": false,
+    "result": "BLOCKED_INVALID_CREDENTIALS",
+    "session_links": [],
+    "tested_url": "http://bs-local.com:3093"
   },
-  "pushed_commits": [
-    { "sha": "85e9dd8", "message": "fix(tooling): automate local validation pipeline" },
-    { "sha": "023ed3c", "message": "fix(phase3): close browser smoke and data truth failures" },
-    { "sha": "c741a2a", "message": "chore(report): phase 3 local automation closure" },
-    { "sha": "bf49ea1", "message": "chore(sync): merge remote branch updates before pushing local commits" }
-  ],
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",
     "CI_PASS": "NOT_RUN",

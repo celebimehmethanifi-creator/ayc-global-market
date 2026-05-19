@@ -1,51 +1,43 @@
-# AYC Local Automation Closure Report
+﻿# AYC BrowserStack Real-Device Start Report
 
 ## Context
 - Branch: `fix/live-data-truth-mobile-shell`
-- HEAD: `bf49ea1`
-- Code commit: `023ed3c`
-- Report closure commit: `c741a2a`
-- Sync merge commit: `bf49ea1`
+- Work branch: `sync/fix-live-data-truth-mobile-shell`
+- HEAD: `df51d7b`
 - Date: `2026-05-20`
-- Automation script: `scripts/ayc-full-local-check.ps1`
-- Results helper script: `scripts/ayc-open-latest-test-results.ps1`
-- Latest automation log path: `test-results/local-automation/20260519-234520`
+- BrowserStack setup commit: `df51d7b`
 
 ## Commands Run
-1. `git status --short`
-2. `git branch --show-current`
-3. `git rev-parse --short HEAD`
-4. `git log --oneline -12`
-5. `git remote -v`
-6. `git log --oneline --decorate --graph --all -20`
-7. `git branch --contains c741a2a`
-8. `git branch --contains 023ed3c`
-9. `git branch --contains 85e9dd8`
-10. `git push origin fix/live-data-truth-mobile-shell` (rejected: remote ahead)
-11. `git fetch --filter=blob:none --depth=50 origin fix/live-data-truth-mobile-shell`
-12. `git merge --no-ff origin/fix/live-data-truth-mobile-shell`
-13. `git push origin sync/fix-live-data-truth-mobile-shell:fix/live-data-truth-mobile-shell`
+1. `pnpm install`
+2. `pnpm type-check`
+3. `pnpm lint`
+4. `pnpm build`
+5. `npx playwright install chromium`
+6. `pnpm test:browser`
+7. `powershell -ExecutionPolicy Bypass -File .\scripts\ayc-browserstack-real-device.ps1`
 
-## Pipeline Results (Latest Verified Run)
+## Local Pipeline Result
 - `pnpm install`: PASS
 - `pnpm type-check`: PASS
-- `pnpm lint`: PASS
+- `pnpm lint`: PASS (warnings only)
 - `pnpm build`: PASS
-- `npx playwright install chromium`: PASS
-- `pnpm test:browser`: PASS
+- `pnpm test:browser`: PASS (`85 passed / 0 failed`)
 
-## Playwright Result
-- Passed: 85
-- Failed: 0
-- Skipped: 0
-- Flaky: 0
-- Source: `test-results/playwright-results.json`
+## BrowserStack Credential Check
+- `BROWSERSTACK_USERNAME_PRESENT=true`
+- `BROWSERSTACK_ACCESS_KEY_PRESENT=true`
+- `BROWSERSTACK_CREDENTIALS_VALID=false`
+- Result: BrowserStack API auth failed before tunnel/session start.
+- Session links: not available (no session started)
 
-## Pushed Commit Chain Now On GitHub Branch
-1. `85e9dd8` - `fix(tooling): automate local validation pipeline`
-2. `023ed3c` - `fix(phase3): close browser smoke and data truth failures`
-3. `c741a2a` - `chore(report): phase 3 local automation closure`
-4. `bf49ea1` - `chore(sync): merge remote branch updates before pushing local commits`
+## BrowserStack Setup Added
+- `playwright.browserstack.config.ts`
+- `tests/browserstack/fixture.ts`
+- `tests/browserstack/real-device.smoke.spec.ts`
+- `scripts/ayc-browserstack-real-device.ps1`
+- `scripts/browserstack-local-daemon.js`
+- `package.json` (`test:browserstack` script + `browserstack-local` dev dependency)
+- `pnpm-lock.yaml`
 
 ## Final Classification
 - SOURCE_ONLY_PASS: PASS
