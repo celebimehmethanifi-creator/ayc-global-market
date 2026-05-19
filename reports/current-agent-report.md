@@ -1,11 +1,11 @@
 # Phase 3 QA Report — fix/live-data-truth-mobile-shell
 
 **Branch:** `fix/live-data-truth-mobile-shell`
-**Code commit:** `dc73940` (auth: lazy JWT SECRET — last source change)
-**HEAD:** `207962d` (chore: correct HEAD metadata)
+**Code commit:** `f96ff53` (fix: asset detail data gating + dashboard Canlı label)
+**HEAD:** `f96ff53`
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `main @ 18f4699` / merge-base hardening-production-readiness `392ae98`
-**QA date:** 2026-05-18
+**QA date:** 2026-05-19
 
 ---
 
@@ -17,7 +17,7 @@
 | CI_PASS | **PASS_WITH_WARNINGS** |
 | API_CONTRACT_PASS | **PASS_LOCAL** |
 | BROWSER_MOBILE_EMULATION_PASS | **PASS** |
-| REAL_MOBILE_PASS | **NOT_RUN** |
+| REAL_MOBILE_PASS | **FAIL** |
 | PROD_PASS | **FAIL** |
 | **Production-ready** | **NO** |
 
@@ -91,31 +91,33 @@ Production: `aycmarket.com`, `app.aycmarket.com`, `www.aycmarket.com` — 403 Fo
 
 ## 3. Browser / Mobile Emulation — PASS
 
-**45/45 tests passed** across 5 viewport projects. Committed at `7a9f57f`.
+**48 passed / 12 intentionally skipped / 0 failed** across 5 viewport projects. 15 new data-gating tests added (3 gating tests × 5 viewports). Screenshots in `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files).
 
-| Viewport | Tests | Result |
-|----------|-------|--------|
-| mobile-390x844 | 9 | ✅ |
-| mobile-393x852 | 9 | ✅ |
-| mobile-412x915 | 9 | ✅ |
-| mobile-430x932 | 9 | ✅ |
-| tablet-768x1024 | 9 | ✅ |
+| Viewport | Passed | Skipped | Result |
+|----------|--------|---------|--------|
+| mobile-390x844 | 9 | 3 | ✅ |
+| mobile-393x852 | 9 | 3 | ✅ |
+| mobile-412x915 | 9 | 3 | ✅ |
+| mobile-430x932 | 9 | 3 | ✅ |
+| tablet-768x1024 | 12 | 0 | ✅ |
 
-All content/truth checks pass. Screenshots in `test-results/screenshots/phase3-browser-mobile-smoke/` (90 files).
+**Skips are intentional, not failures.** The 3 new data-gating tests (`status=fallback/no_data/insufficient: hides LONG chip and actionable metrics`) require a clickable `table tbody tr` row to open the asset detail modal. Mobile viewports render a card layout without table rows — test skips on those 4 viewports. Tablet-768x1024 has a table and all 3 gating tests pass there.
 
 ---
 
-## 4. Real Mobile — NOT_RUN
+## 4. Real Mobile — FAIL
 
-**No physical device accessible from this sandbox.**
+**Classification: FAIL.** Real iOS screenshots from `aycmarket.com` provided by the user confirm production failures in the asset detail modal: trading metrics (LONG/SHORT chip, target, stop loss, risk/reward) and "değerlendirme yapıldı" text were visible when `dataQuality.status: "fallback"` — which is insufficient data. Source fixes committed in this commit (see Issues 18–23 in Open Issues).
 
-### Why NOT_RUN
+**Re-test required** after Vercel preview is fixed and the source fixes are deployed.
+
+### Options for re-test
 
 | Option | Status | Reason |
 |--------|--------|--------|
 | **Vercel preview (Option A)** | ❌ Unavailable | PR #3 has 3 consecutive FAILED deploys. Latest: `nextCommitStatus: FAILED`, `previewUrl: ""`, inspector `AQ3CkXTWMJGGuRcFVTTQorMYv8c3`. No working preview URL. |
-| **LAN server (Option B)** | ❌ Unavailable | Requires physical Windows PC `C:\Users\mhani\Desktop\NEURA`. Sandbox cannot start a server accessible to a real phone. |
-| **Production URLs** | ❌ Blocked | `aycmarket.com` returns 403 from sandbox. |
+| **LAN server (Option B)** | ❌ Unavailable | Requires physical Windows PC. Sandbox cannot start a server accessible to a real phone. |
+| **Production URLs** | ❌ Blocked | `aycmarket.com` returns 403 from sandbox. Prior manual evidence confirms production failures (screenshots provided). |
 
 ### What was prepared
 
@@ -131,7 +133,7 @@ cd C:\Users\mhani\Desktop\NEURA
 git fetch origin
 git switch fix/live-data-truth-mobile-shell
 git pull --ff-only
-git rev-parse --short HEAD   # must show: 207962d
+git rev-parse --short HEAD   # must show: f96ff53
 
 # 2. Start dev server accessible from phone
 $env:JWT_SECRET="local-test-jwt-secret-32chars-minimum"
@@ -264,6 +266,12 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | Performance zero-state bar | ✅ PASS | `ba3ce74` |
 | Mobile safe-area CSS | ✅ PASS (source-only) | `ba3ce74` |
 | Vercel preview build crash (auth.ts lazy SECRET) | ✅ FIXED | dc73940 |
+| `mapLegacyStatus("fallback")` → `"delayed"` (wrong) | ✅ FIXED | f96ff53 |
+| `hasSufficientData` gate too narrow (excluded only insufficient/no_data) | ✅ FIXED | f96ff53 |
+| DirectionChip (LONG/SHORT) rendered unconditionally | ✅ FIXED | f96ff53 |
+| TextBox content "değerlendirme yapıldı" shown for unsafe data | ✅ FIXED | f96ff53 |
+| Technical indicators (RSI/MACD/ATR) shown for unsafe data | ✅ FIXED | f96ff53 |
+| Dashboard hardcoded `"Canlı"` / `"Demo"` bypassed `getStatusLabel` | ✅ FIXED | f96ff53 |
 
 ---
 
@@ -274,15 +282,21 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | 1–10 | ✅ Fixed | All source-level truth leaks |
 | 11 | ✅ Fixed | CI: gitleaks-config → env var (`aec7828`) |
 | 12 | ✅ Fixed | CI: node-version 20 → 22 (`aec7828`) |
-| 13 | ✅ Done | Browser/mobile emulation — 45/45 PASS (`7a9f57f`) |
+| 13 | ✅ Done | Browser/mobile emulation — 48 pass / 12 intentional skip / 0 fail. 3 new data-gating tests added. (`f96ff53`) |
+| 18 | ✅ Fixed | `mapLegacyStatus("fallback")` returned `"delayed"` — allowed trading metrics for fallback analysis. Fixed: → `"insufficient"`. File: `lib/markets/data-status.ts` (`f96ff53`) |
+| 19 | ✅ Fixed | `hasSufficientData` excluded only `insufficient`+`no_data`. `demo` and `ayc_data` could show LONG/SHORT, target, stop, RR. Fixed: whitelist `live`+`delayed` only. File: `AssetDetailModal.tsx` (`f96ff53`) |
+| 20 | ✅ Fixed | DirectionChip (LONG/SHORT) rendered unconditionally regardless of data quality. Fixed: gated by `hasSufficientData`. File: `AssetDetailModal.tsx` (`f96ff53`) |
+| 21 | ✅ Fixed | TextBox showed "değerlendirme yapıldı" and `technicalSummary` when data was unsafe. Fixed: gate text content by `hasSufficientData`. File: `AssetDetailModal.tsx` (`f96ff53`) |
+| 22 | ✅ Fixed | Technical indicators (RSI/MACD/ATR/Support/Resistance) showed for insufficient data. Fixed: gated by `hasSufficientData`. File: `AssetDetailModal.tsx` (`f96ff53`) |
+| 23 | ✅ Fixed | `dashboard/page.tsx` hardcoded `{a.isLive ? "Canlı" : "Demo"}` — not through central `getStatusLabel`. Fixed: uses `getStatusLabel("live")` / `getStatusLabel("demo")`. File: `dashboard/page.tsx:1639` (`f96ff53`) |
 | 16 | ⚠️ Warning | CI: 4 node20→node24 informational annotations. FORCE flag applied (`b2a555b`). Permanent fix: action maintainers update action.yml. Enforced June 2 2026. |
 | 17 | 🔴 Blocker | **Vercel preview: 3 consecutive FAILED deploys** — auth.ts JWT_SECRET crash fixed (`dc73940`); 2nd+3rd failures have unknown error (inspector 403 from sandbox). Latest inspector: `AQ3CkXTWMJGGuRcFVTTQorMYv8c3`. `rootDirectory:null` conflicts with intended `apps/web`. Operator must check Vercel dashboard → set Root Directory to `apps/web`, Build Command to `pnpm --filter neura-web build`. |
-| 14 | 🔴 Blocker | **REAL_MOBILE_PASS: NOT_RUN** — Vercel preview still FAILED (3 deploys, no URL). LAN requires Windows PC at `C:\Users\mhani\Desktop\NEURA`. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
-| 15 | 🔴 Blocker | **PROD_PASS: FAIL** — `not_provided_by_cli_deploy`. Fix: enable Vercel Git integration OR set `AYC_*` env vars before CLI deploy. Sandbox cannot deploy. |
+| 14 | 🔴 Blocker | **REAL_MOBILE_PASS: FAIL** — Real iOS screenshots from `aycmarket.com` confirmed production failures (asset detail metrics shown for fallback/insufficient data, hardcoded Canlı badge). Source fixes committed in `f96ff53`. Re-test required on real device after deploy. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
+| 15 | 🔴 Blocker | **PROD_PASS: FAIL** — `not_provided_by_cli_deploy` (403 from sandbox). Fix: enable Vercel Git integration OR set `NEXT_PUBLIC_COMMIT_SHA`/`NEXT_PUBLIC_BRANCH`/`BUILD_TIME`/`DEPLOYMENT_URL` in Vercel dashboard before CLI deploy. |
 
 ---
 
-## Test Results at HEAD (`207962d`)
+## Test Results at HEAD (`f96ff53`)
 
 | Suite | Result |
 |-------|--------|
@@ -293,8 +307,8 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | CI: Secret scan | ✅ PASS (node24) |
 | CI: Docker compose validate | ✅ PASS (node24) |
 | API smoke local | ✅ 6/6 PASS |
-| Browser/mobile emulation | ✅ 45/45 PASS (5 viewports) |
-| Real mobile | ⏳ NOT_RUN — requires Windows PC + real device |
+| Browser/mobile emulation | ✅ 48 pass / 12 skip / 0 fail (5 viewports, 60 total) |
+| Real mobile | ❌ FAIL — real iOS screenshots confirmed failures; source fixed, re-test required |
 
 ---
 
@@ -306,9 +320,9 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 
 **API_CONTRACT_PASS: PASS_LOCAL** — 6/6 locally. Production blocked from sandbox.
 
-**BROWSER_MOBILE_EMULATION_PASS: PASS** — 45/45 Playwright tests across 5 viewports.
+**BROWSER_MOBILE_EMULATION_PASS: PASS** — 48 pass / 12 intentional skip / 0 fail across 5 viewports. 15 new data-gating tests (3 × 5 viewports): skipped on 4 mobile viewports (no table rows in mobile layout — intentional), all 3 pass on tablet-768x1024.
 
-**REAL_MOBILE_PASS: NOT_RUN** — Vercel preview deploy FAILED (no URL). Production blocked. Sandbox cannot serve LAN. Manual steps committed to `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`.
+**REAL_MOBILE_PASS: FAIL** — Real iOS screenshots from `aycmarket.com` confirmed trading metrics visible for `fallback` / `insufficient` data quality. Source fixes committed this commit (Issues 18–23). Re-test required on real device after deploy. Vercel preview still FAILED; LAN test requires Windows PC. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`.
 
 **PROD_PASS: FAIL** — `not_provided_by_cli_deploy`. Vercel CLI deploy does not inject Git metadata. Fix: enable Git integration or set `AYC_*` env vars.
 
