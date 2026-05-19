@@ -433,7 +433,18 @@ export default function CopilotPage() {
         @keyframes stream-bar{from{transform:scaleY(0.3)}to{transform:scaleY(1)}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @media(max-width:768px){
-          .copilot-layout{height:calc(100dvh - 130px)!important;gap:0!important}
+          /* Mobile: copilot card must NOT slide under the bottom nav.
+             Subtract ticker + topbar + bottom-nav + safe areas + 16px gap. */
+          .copilot-layout{
+            height: calc(100dvh
+              - var(--app-ticker-height, 32px)
+              - var(--app-header-height, 52px)
+              - var(--app-bottom-nav-height, 58px)
+              - var(--app-safe-top, 0px)
+              - var(--app-safe-bottom, 0px)
+              - 16px)!important;
+            gap:0!important
+          }
           .copilot-sidebar{display:none!important}
           .copilot-mobile-chips{display:flex!important}
           .copilot-mobile-chips::-webkit-scrollbar{display:none}

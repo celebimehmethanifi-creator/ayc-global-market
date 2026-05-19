@@ -1158,11 +1158,11 @@ export default function DashboardPage() {
 
 
 
-        <StatBadge icon={Shield}   label="KALKAN" value="AKTİF"
+        <StatBadge icon={Shield}   label="KALKAN" value="Hazırlanıyor"
 
 
 
-          sub="4 risk filtresi çalışıyor" color="var(--up)"/>
+          sub="Risk motoru FAZ 9'da devreye alınacak" color="var(--t3)"/>
 
 
 
@@ -1393,11 +1393,11 @@ export default function DashboardPage() {
 
 
 
-              <span style={{marginLeft:"auto",fontSize:9,fontWeight:800,color:"var(--up)",
+              <span style={{marginLeft:"auto",fontSize:9,fontWeight:800,color:"var(--t3)",
 
 
 
-                background:"rgba(16,185,129,0.1)",padding:"2px 6px",borderRadius:4}}>AKTİF</span>
+                background:"rgba(134,144,173,0.10)",padding:"2px 6px",borderRadius:4}}>Hazırlanıyor</span>
 
 
 
@@ -1409,23 +1409,23 @@ export default function DashboardPage() {
 
 
 
-              {label:"Sahte Kırılım Filtresi",  active:true},
+              {label:"Sahte Kırılım Filtresi",  active:false},
 
 
 
-              {label:"Geç Giriş Filtresi",       active:true},
+              {label:"Geç Giriş Filtresi",       active:false},
 
 
 
-              {label:"Risk/Ödül Filtresi",        active:true},
+              {label:"Risk/Ödül Filtresi",        active:false},
 
 
 
-              {label:"FOMO Kilidi",               active:true},
+              {label:"FOMO Kilidi",               active:false},
 
 
 
-              {label:"İntikam İşlemi Kilidi",     active:true},
+              {label:"İntikam İşlemi Kilidi",     active:false},
 
 
 

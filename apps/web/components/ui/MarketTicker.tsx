@@ -97,12 +97,16 @@ export function MarketTicker() {
     return [...gainers, ...losers];
   }, [prices]);
 
-  // Source-verified: only binance-ws items with TTL < 5 min count as live (mirrors central rule)
+  // Source-verified: only binance-ws items with TTL < 5 min count as live (mirrors central rule).
+  // Aggregate is CONSERVATIVE — "Canlı" only when EVERY priced item is live-verified. With a
+  // mixed-asset-class ticker (crypto + stocks + BIST + forex + commodities) this practically
+  // means the aggregate will be "Gecikmeli" most of the time, which is honest.
   const verifiedLiveCount = items.filter(i =>
     i.source === "binance-ws" && i.ts > 0 && nowTs > 0 && nowTs - i.ts < 300000,
   ).length;
   const hasRecentTs = items.filter(i => i.ts > 0 && nowTs > 0 && nowTs - i.ts < 90000).length > 0;
-  const tickerStatus: DataStatus = verifiedLiveCount >= 3 ? "live" : hasRecentTs ? "delayed" : "no_data";
+  const allLive = items.length > 0 && verifiedLiveCount === items.length;
+  const tickerStatus: DataStatus = allLive ? "live" : hasRecentTs ? "delayed" : "no_data";
   const isLive = tickerStatus === "live";
   const statusLabel = getStatusLabel(tickerStatus);
   const durationSec = Math.max(40, items.length * 3.8);
