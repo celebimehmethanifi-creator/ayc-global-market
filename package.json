@@ -2,11 +2,12 @@
     "name":  "neura",
     "version":  "0.1.0",
     "private":  true,
+    "packageManager": "pnpm@11.1.3",
     "scripts":  {
                     "dev":  "turbo run dev",
                     "build":  "turbo run build",
-                    "lint":  "turbo run lint",
-                    "type-check":  "turbo run type-check",
+                    "lint":  "turbo run lint --filter=neura-web",
+                    "type-check":  "turbo run type-check --filter=neura-web",
                     "test:browser": "playwright test",
                     "test:browser:install": "playwright install chromium",
                     "db:migrate":  "cd infra && python -m alembic upgrade head",
@@ -19,10 +20,5 @@
     "engines":  {
                     "node":  ">=20",
                     "pnpm":  ">=9"
-                },
-    "pnpm":  {
-                 "onlyBuiltDependencies":  [
-                                               "unrs-resolver"
-                                           ]
-             }
+                }
 }
