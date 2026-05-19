@@ -1,9 +1,9 @@
 # Phase 3 QA Report — fix/live-data-truth-mobile-shell
 
 **Branch:** `fix/live-data-truth-mobile-shell`
-**Code commit:** `e8be547` (fix: vercel.json monorepo config + build-time git traceability)
-**Phase 3 source closure:** `e8be547`
-**HEAD:** `e8be547`
+**Code commit:** `4c876af` (fix: hard fail-closed data truth — backend + UI + tests + mobile shell)
+**Phase 3 source closure:** `4c876af`
+**HEAD:** `4c876af`
 **PR:** [#3](https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3)
 **Base:** `main @ 18f4699` / merge-base hardening-production-readiness `392ae98`
 **QA date:** 2026-05-19
@@ -269,6 +269,13 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | Vercel preview build crash (auth.ts lazy SECRET) | ✅ FIXED | dc73940 |
 | Vercel monorepo `rootDirectory:null` (vercel.json) | ✅ FIXED | e8be547 |
 | `/api/v1/version` build-time git embedding | ✅ FIXED | e8be547 |
+| Backend `fundamentalSummary` unconditional "değerlendirme yapıldı" leak | ✅ FIXED | 4c876af |
+| Backend `tradePlan` not nulled when `analysisAllowed=false` | ✅ FIXED | 4c876af |
+| Central `market-truth.ts` with explicit `canShow.*` flags | ✅ ADDED | 4c876af |
+| AssetDetailModal: MetricCard grid replaced with safe message when blocked | ✅ FIXED | 4c876af |
+| AssetDetailModal: Demo İşlem button hidden when `!analysisAllowed` | ✅ FIXED | 4c876af |
+| BrainMap "Canlı Beyin Haritası" hardcoded heading | ✅ FIXED | 4c876af |
+| Mobile shell central CSS variables (safe-area, dvh, bottom-pad) | ✅ ADDED | 4c876af |
 | `mapLegacyStatus("fallback")` → `"delayed"` (wrong) | ✅ FIXED | f96ff53 |
 | `hasSufficientData` gate too narrow (excluded only insufficient/no_data) | ✅ FIXED | f96ff53 |
 | DirectionChip (LONG/SHORT) rendered unconditionally | ✅ FIXED | f96ff53 |
@@ -294,32 +301,40 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 | 23 | ✅ Fixed | `dashboard/page.tsx` hardcoded `{a.isLive ? "Canlı" : "Demo"}` — not through central `getStatusLabel`. Fixed: uses `getStatusLabel("live")` / `getStatusLabel("demo")`. File: `dashboard/page.tsx:1639` (`f96ff53`) |
 | 24 | ✅ Fixed | **Vercel monorepo config:** `vercel.json` at repo root pinning `buildCommand=pnpm --filter neura-web build`, `outputDirectory=apps/web/.next`, `framework=nextjs`. No longer requires operator dashboard `Root Directory` setting. (`e8be547`) |
 | 25 | ✅ Fixed | **Build-time git traceability:** `next.config.js` runs `git rev-parse HEAD/abbrev-ref HEAD` at build, embeds as `NEXT_PUBLIC_COMMIT_SHA`/`_BRANCH`/`_BUILD_TIME`. `version-info.ts` already consumes these in fallback chain → CLI deploy now returns real commit. (`e8be547`) |
+| 26 | ✅ Fixed | **Backend `fundamentalSummary` leak.** `/api/v1/assets/[symbol]/analysis` returned "için momentum ve hacim odaklı değerlendirme yapıldı" unconditionally even for `no_data/insufficient/fallback`. Fixed: `buildFundamentalSummary()` requires `analysisAllowed=true`, otherwise returns safe message. (`4c876af`) |
+| 27 | ✅ Fixed | **Backend `tradePlan` not nulled.** When `analysisAllowed=false`, `tradePlan.target/stopLoss/riskReward` are now forced to `null` in API response. (`4c876af`) |
+| 28 | ✅ Added | **Central `market-truth.ts`.** New `buildMarketTruth()` exposes explicit `canShow{TradePlan,Target,Stop,RiskReward,Kelly,Probability,DirectionChip,Technical,Fundamental}` booleans. Single fail-closed gate. (`4c876af`) |
+| 29 | ✅ Fixed | **AssetDetailModal hardened.** Consumes `dataQuality.canShow.*` from API as truth source. When `canShowTradePlan=false`: MetricCard grid is NOT rendered; single message "Yeterli güvenilir veri olmadığı için analiz üretilemedi." appears with `data-testid="analysis-blocked-message"`. Demo İşlem button gated by `analysisAllowed`. (`4c876af`) |
+| 30 | ✅ Fixed | **BrainMap heading.** `Canlı Beyin Haritası` → `Beyin Haritası`. Static viz had no real live data to justify the label. (`4c876af`) |
+| 31 | ✅ Added | **Mobile shell central CSS.** `globals.css` adds `--app-safe-top/-bottom/-left/-right` + `--app-bottom-nav-height` + `--app-content-bottom-pad`. `.app-main` uses these so every page gets uniform bottom padding (no per-page hacks). New `.app-sticky-bottom` utility for copilot/composer above bottom nav. New `.app-modal-body` uses `100dvh`. (`4c876af`) |
+| 32 | ✅ Added | **Tests.** Playwright 75/75 pass (was 60/12-skip). New asserts: safe-message present, MetricCard grid absent, Demo button hidden when blocked. New Analysis API contract test locks `dataQuality.canShow.*` schema. New BrainMap heading regression. New Version traceability test. Mobile data-gating tests now run via `.market-mobile-card` selector — no more skips. (`4c876af`) |
 | 16 | ⚠️ Warning | CI: 4 node20→node24 informational annotations. FORCE flag applied (`b2a555b`). Permanent fix: action maintainers update `action.yml`. Enforced June 2 2026. |
-| 17 | 🟡 Operator | **Vercel preview redeploy needed.** Two prior root causes fixed: `auth.ts` JWT_SECRET (`dc73940`) + `rootDirectory:null` via `vercel.json` (`e8be547`). Operator: trigger redeploy at `e8be547` and confirm preview URL works — no dashboard config required. |
-| 14 | 🟡 Operator | **REAL_MOBILE_PASS re-test.** Real iOS screenshots from `aycmarket.com` confirmed production failures (asset detail metrics for `fallback` data, hardcoded `Canlı`). All source fixes shipped in `f96ff53`. Re-test required on real device against `e8be547` preview URL. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
-| 15 | 🟡 Operator | **PROD_PASS:** deploy at `e8be547+` to production and confirm `aycmarket.com/api/v1/version` returns `traceabilityComplete:true`. With `e8be547`'s build-time embedding, only Vercel's auto-injected `VERCEL_URL` is needed (always present on Vercel deploys). |
+| 17 | 🟡 Operator | **Vercel preview redeploy needed.** Two prior root causes fixed: `auth.ts` JWT_SECRET (`dc73940`) + `rootDirectory:null` via `vercel.json` (`e8be547`). Operator: trigger redeploy at `4c876af` and confirm preview URL works — no dashboard config required. |
+| 14 | 🟡 Operator | **REAL_MOBILE_PASS re-test.** Real iOS screenshots from `aycmarket.com` confirmed production failures (asset detail metrics for `fallback` data, hardcoded `Canlı`). All source fixes shipped in `f96ff53`. Re-test required on real device against `4c876af` preview URL. Manual steps: `test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md`. |
+| 15 | 🟡 Operator | **PROD_PASS:** deploy at `4c876af+` to production and confirm `aycmarket.com/api/v1/version` returns `traceabilityComplete:true`. With `4c876af`'s build-time embedding, only Vercel's auto-injected `VERCEL_URL` is needed (always present on Vercel deploys). |
 
 ---
 
-## FAZ 3 Closure — Smoke at HEAD (`e8be547`)
+## FAZ 3 Closure — Smoke at HEAD (`4c876af`)
 
 | Suite | Result | Detail |
 |-------|--------|--------|
 | `tsc --noEmit` | ✅ 0 errors | clean type-check |
 | `next build` | ✅ PASS | 37 static pages, no `JWT_SECRET` required at build (lazy `getSecret()`) |
-| API smoke local (6/6) | ✅ PASS | version returns real `e8be547` SHA + branch + buildTime |
-| Playwright | ✅ 48 pass / 12 skip / 0 fail | 5 viewports, 60 total tests, intentional skips on mobile data-gating |
-| CI: all 5 jobs at `207962d` | ✅ PASS (PASS_WITH_WARNINGS) | run `26067099054`; CI must re-run at `e8be547` after push |
+| API smoke local (6/6) | ✅ PASS | version returns real `4c876af` SHA + branch + buildTime |
+| Analysis API contract | ✅ PASS | `dataQuality.analysisAllowed=false` + all `canShow.*=false` + safe `fundamentalSummary` + `tradePlan.target=null` when no live provider |
+| Playwright | ✅ 75 pass / 0 skip / 0 fail | 5 viewports, 75 total tests (was 60/12-skip; mobile selector fix + 15 new hardened tests) |
+| CI: all 5 jobs at `207962d` | ✅ PASS (PASS_WITH_WARNINGS) | run `26067099054`; CI must re-run at `4c876af` after push |
 | `pytest` | ✅ 127/129 | backend tests |
 | Real mobile | ⏳ OPERATOR | source fixed; re-test required on real device after preview redeploy |
 
-### `/api/v1/version` observed at HEAD `e8be547` (local production build)
+### `/api/v1/version` observed at HEAD `4c876af` (local production build)
 
 ```json
 {
-  "commitSha": "e8be547a900a4ed77e974f0d8856b2ce728e2d3f",
+  "commitSha": "4c876aff3f9d8ecf0a100687576d8a19137e4f8f",
   "branch":    "fix/live-data-truth-mobile-shell",
-  "buildTime": "2026-05-19T10:14:04.748Z",
+  "buildTime": "2026-05-19T10:50:16.636Z",
   "environment": "production",
   "deploymentUrl": "not_provided_by_cli_deploy",
   "deploymentId":  "not_provided_by_cli_deploy",
@@ -328,7 +343,7 @@ Set in Vercel dashboard (Env vars tab) or pass as build env at deploy time.
 }
 ```
 
-> `deploymentId`/`deploymentUrl` are auto-injected by Vercel's `VERCEL_URL` env var on **any** real Vercel deploy (CLI or Git). After operator deploy at `e8be547+`, `traceabilityComplete:true` is reachable **without dashboard env-var setup**.
+> `deploymentId`/`deploymentUrl` are auto-injected by Vercel's `VERCEL_URL` env var on **any** real Vercel deploy (CLI or Git). After operator deploy at `4c876af+`, `traceabilityComplete:true` is reachable **without dashboard env-var setup**.
 
 ---
 
