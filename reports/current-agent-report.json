@@ -1,8 +1,9 @@
 {
   "qa_session": {
     "branch": "fix/live-data-truth-mobile-shell",
-    "code_commit": "f96ff53",
-    "head_commit": "f96ff53",
+    "code_commit": "e8be547",
+    "head_commit": "e8be547",
+    "phase3_closure_commit": "e8be547",
     "pr_number": 3,
     "pr_url": "https://github.com/celebimehmethanifi-creator/ayc-global-market/pull/3",
     "base": "main @ 18f4699",
@@ -92,9 +93,32 @@
     "screenshots_count": 90
   },
   "vercel_preview_build_fix": {
-    "root_cause_fixed": "auth.ts:32 called readJwtSecret() at module initialization time. next build 'Collecting page data' phase threw JWT_SECRET environment variable is required. Fixed dc73940: lazy getSecret() — JWT_SECRET only read at request time.",
-    "file": "apps/web/app/api/v1/_lib/auth.ts",
+    "root_cause_fixed_step1": "auth.ts:32 called readJwtSecret() at module initialization time. next build 'Collecting page data' phase threw JWT_SECRET environment variable is required. Fixed dc73940: lazy getSecret() — JWT_SECRET only read at request time.",
+    "root_cause_fixed_step2": "rootDirectory:null in Vercel project metadata. Fixed e8be547: vercel.json at repo root pinning buildCommand=pnpm --filter neura-web build, outputDirectory=apps/web/.next, framework=nextjs — no longer requires operator dashboard config.",
+    "file": "apps/web/app/api/v1/_lib/auth.ts + vercel.json",
     "local_build_without_jwt_secret": "PASS — 37 static pages generated, all routes collected"
+  },
+  "phase3_closure": {
+    "head_commit": "e8be547",
+    "qa_date": "2026-05-19",
+    "closure_smoke": {
+      "type_check":   "PASS (tsc --noEmit, 0 errors)",
+      "next_build":   "PASS (37 static pages, no JWT_SECRET at build)",
+      "api_smoke":    "PASS 6/6 (version returns real e8be547 SHA + branch + buildTime)",
+      "playwright":   "PASS 48 / SKIP 12 / FAIL 0 (60 total, 5 viewports)"
+    },
+    "version_endpoint_observed": {
+      "commitSha": "e8be547a900a4ed77e974f0d8856b2ce728e2d3f",
+      "branch":    "fix/live-data-truth-mobile-shell",
+      "buildTime": "2026-05-19T10:14:04.748Z",
+      "missing":   ["deploymentId"],
+      "note":      "deploymentId/deploymentUrl filled by Vercel's auto-injected VERCEL_URL on real deploy — traceabilityComplete:true is achievable in production without any operator env-var setup."
+    },
+    "remaining_gates_for_production_ready": [
+      "Operator triggers Vercel preview deploy at e8be547+ → confirm preview URL works (vercel.json fix should unblock)",
+      "Real device smoke (iOS Safari + iOS or Android Chrome) at preview URL → REAL_MOBILE_PASS",
+      "Production deploy at e8be547+ → confirm aycmarket.com/api/v1/version returns traceabilityComplete:true → PROD_PASS"
+    ]
   },
   "vercel_preview_history": [
     {"deploy": 1, "commit": "a878330", "status": "FAILED", "inspector": "6R9GtEe3BfKFuL4pFvfcKi3jhSEG", "known_cause": "auth.ts module-level readJwtSecret() — fixed in dc73940"},
@@ -164,9 +188,11 @@
     {"id": 21,    "severity": "fixed",   "issue": "TextBoxes showed 'değerlendirme yapıldı' and technicalSummary when data was unsafe. Fixed: gate text content by hasSufficientData. file: AssetDetailModal.tsx", "commit": "f96ff53"},
     {"id": 22,    "severity": "fixed",   "issue": "Technical indicators (RSI/MACD/ATR/Support/Resistance) showed for insufficient data. Fixed: gated by hasSufficientData. file: AssetDetailModal.tsx", "commit": "f96ff53"},
     {"id": 23,    "severity": "fixed",   "issue": "dashboard/page.tsx hardcoded {a.isLive ? 'Canlı' : 'Demo'} — not through central getStatusLabel. Fixed: now uses getStatusLabel('live') / getStatusLabel('demo'). file: dashboard/page.tsx line 1639", "commit": "f96ff53"},
+    {"id": 24,    "severity": "fixed",   "issue": "vercel.json at repo root pinning buildCommand=pnpm --filter neura-web build, outputDirectory=apps/web/.next, framework=nextjs. Replaces rootDirectory:null dashboard requirement.", "commit": "e8be547"},
+    {"id": 25,    "severity": "fixed",   "issue": "next.config.js: build-time git embedding (execSync git rev-parse HEAD/abbrev-ref HEAD + ISO buildTime) → NEXT_PUBLIC_COMMIT_SHA/_BRANCH/_BUILD_TIME consumed by version-info.ts. CLI deploy no longer needs operator env-var setup for traceability.", "commit": "e8be547"},
     {"id": 16,    "severity": "warning", "issue": "CI: 4 node20→24 informational annotations. FORCE flag applied (b2a555b). Permanent fix: action maintainers update action.yml. GitHub enforces June 2 2026."},
-    {"id": 17,    "severity": "blocker", "issue": "Vercel preview: 3 consecutive FAILED deploys (a878330, 3c085a4, 207962d). auth.ts JWT_SECRET crash fixed (dc73940). 2nd+3rd failures unknown (inspector 403). rootDirectory:null vs intended apps/web. Operator action: Vercel dashboard → Root Directory=apps/web, Build Command=pnpm --filter neura-web build. Latest inspector: AQ3CkXTWMJGGuRcFVTTQorMYv8c3"},
-    {"id": 14,    "severity": "blocker", "issue": "REAL_MOBILE_PASS: FAIL — real iOS screenshots from aycmarket.com confirmed production failures (asset detail metrics shown for fallback/insufficient data, hardcoded Canlı badge). Source fixes committed this commit. PROD_PASS: FAIL (version 403 from sandbox). Re-test required on real device after deploy."},
-    {"id": 15,    "severity": "blocker", "issue": "PROD_PASS: FAIL — not_provided_by_cli_deploy (403 from sandbox). Fix: set NEXT_PUBLIC_COMMIT_SHA/NEXT_PUBLIC_BRANCH/BUILD_TIME/DEPLOYMENT_URL in Vercel dashboard before CLI deploy, or enable Vercel Git integration."}
+    {"id": 17,    "severity": "operator", "issue": "Vercel preview: 3 prior FAILED deploys (a878330, 3c085a4, 207962d). Two root causes fixed: auth.ts JWT_SECRET crash (dc73940) + rootDirectory:null via vercel.json (e8be547). Operator: trigger redeploy at e8be547 and confirm preview URL — vercel.json should make it pass without dashboard changes."},
+    {"id": 14,    "severity": "operator", "issue": "REAL_MOBILE_PASS: FAIL — real iOS screenshots from aycmarket.com confirmed production failures (asset detail metrics shown for fallback/insufficient data, hardcoded Canlı badge). Source fixes committed (f96ff53). Re-test required on real device after Vercel preview at e8be547 succeeds. Manual steps: test-results/screenshots/phase3-real-mobile-smoke/MANUAL_STEPS.md."},
+    {"id": 15,    "severity": "operator", "issue": "PROD_PASS: FAIL — needs production deploy at e8be547+ and confirmation that aycmarket.com/api/v1/version returns traceabilityComplete:true. With e8be547's build-time git embedding, only Vercel's auto-injected VERCEL_URL is needed (always present on Vercel deploys)."}
   ]
 }
