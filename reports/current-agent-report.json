@@ -1,9 +1,10 @@
 ﻿{
   "branch": "fix/live-data-truth-mobile-shell",
   "work_branch": "sync/fix-live-data-truth-mobile-shell",
-  "head": "df51d7b",
+  "head": "1dad300",
   "date": "2026-05-20",
   "setup_commit": "df51d7b",
+  "report_commit": "1dad300",
   "commands_run": [
     "pnpm install",
     "pnpm type-check",
@@ -11,7 +12,10 @@
     "pnpm build",
     "npx playwright install chromium",
     "pnpm test:browser",
-    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1"
+    "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1",
+    "Invoke-WebRequest https://aycmarket.com/api/v1/version",
+    "Invoke-WebRequest https://app.aycmarket.com/api/v1/version",
+    "curl -I https://www.aycmarket.com/api/v1/version"
   ],
   "local_pipeline": {
     "pnpm_install": "PASS",
@@ -33,6 +37,22 @@
     "result": "BLOCKED_INVALID_CREDENTIALS",
     "session_links": [],
     "tested_url": "http://bs-local.com:3093"
+  },
+  "production_trace": {
+    "aycmarket": {
+      "status": 200,
+      "commitSha": "not_provided_by_cli_deploy",
+      "branch": "not_provided_by_cli_deploy"
+    },
+    "app_aycmarket": {
+      "status": 200,
+      "commitSha": "not_provided_by_cli_deploy",
+      "branch": "not_provided_by_cli_deploy"
+    },
+    "www_aycmarket": {
+      "status": 308,
+      "redirect_to": "https://aycmarket.com/api/v1/version"
+    }
   },
   "classification": {
     "SOURCE_ONLY_PASS": "PASS",

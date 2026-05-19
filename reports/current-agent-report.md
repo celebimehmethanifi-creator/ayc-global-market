@@ -3,9 +3,10 @@
 ## Context
 - Branch: `fix/live-data-truth-mobile-shell`
 - Work branch: `sync/fix-live-data-truth-mobile-shell`
-- HEAD: `df51d7b`
+- HEAD: `1dad300`
 - Date: `2026-05-20`
 - BrowserStack setup commit: `df51d7b`
+- Report update commit: `1dad300`
 
 ## Commands Run
 1. `pnpm install`
@@ -15,6 +16,9 @@
 5. `npx playwright install chromium`
 6. `pnpm test:browser`
 7. `powershell -ExecutionPolicy Bypass -File .\scripts\ayc-browserstack-real-device.ps1`
+8. `Invoke-WebRequest https://aycmarket.com/api/v1/version`
+9. `Invoke-WebRequest https://app.aycmarket.com/api/v1/version`
+10. `curl -I https://www.aycmarket.com/api/v1/version`
 
 ## Local Pipeline Result
 - `pnpm install`: PASS
@@ -29,6 +33,11 @@
 - `BROWSERSTACK_CREDENTIALS_VALID=false`
 - Result: BrowserStack API auth failed before tunnel/session start.
 - Session links: not available (no session started)
+
+## Production Version Trace Check
+- `https://aycmarket.com/api/v1/version`: `200`, returns `commitSha=not_provided_by_cli_deploy`, `branch=not_provided_by_cli_deploy`
+- `https://app.aycmarket.com/api/v1/version`: `200`, returns `commitSha=not_provided_by_cli_deploy`, `branch=not_provided_by_cli_deploy`
+- `https://www.aycmarket.com/api/v1/version`: `308` redirect to `https://aycmarket.com/api/v1/version`
 
 ## BrowserStack Setup Added
 - `playwright.browserstack.config.ts`
