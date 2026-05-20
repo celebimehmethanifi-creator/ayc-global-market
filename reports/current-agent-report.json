@@ -1,7 +1,7 @@
 ﻿{
   "branch": "fix/live-data-truth-mobile-shell",
   "work_branch": "sync/fix-live-data-truth-mobile-shell",
-  "head_before_report_update": "934cd2f",
+  "head_before_report_update": "5a7f2d0",
   "date": "2026-05-20",
   "setup_commit": "df51d7b",
   "commands_run": [
@@ -14,7 +14,8 @@
     "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1",
     "Invoke-WebRequest https://aycmarket.com/api/v1/version",
     "Invoke-WebRequest https://app.aycmarket.com/api/v1/version",
-    "curl -I https://www.aycmarket.com/api/v1/version"
+    "curl -I https://www.aycmarket.com/api/v1/version",
+    "BrowserStack credential debug via process.env + GET https://api.browserstack.com/automate/plan.json"
   ],
   "local_pipeline": {
     "pnpm_install": "PASS",
@@ -30,12 +31,33 @@
     }
   },
   "browserstack": {
-    "username_present": true,
-    "access_key_present": true,
+    "credentials_source": [
+      "process.env.kirvec_TIR7wr",
+      "process.env.g6BvNrFycP5929pQNTGT"
+    ],
+    "username_present": false,
+    "access_key_present": false,
+    "credentials_present": false,
+    "runtime_trim_applied": true,
     "credentials_valid": false,
-    "result": "BLOCKED_INVALID_CREDENTIALS",
-    "session_links": [],
-    "tested_url": "http://bs-local.com:3093"
+    "http_status": null,
+    "classification": "INVALID_CREDENTIALS",
+    "blocker": "BROWSERSTACK_AUTH_BLOCKED",
+    "sanitized_error_body": "missing process.env credential variable(s)",
+    "next_action": "Set valid BrowserStack credentials in process env vars and rerun auth check",
+    "next_validation_command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1"
+  },
+  "browserstack_config_verification": {
+    "executed": false,
+    "reason": "BROWSERSTACK_AUTH_BLOCKED",
+    "checks_on_next_run": [
+      "username/accessKey from env only",
+      "no hardcoded secrets",
+      "real iOS Safari capability",
+      "Android Chrome capability",
+      "browserstack.local=true if localhost is used",
+      "session links/artifacts saved"
+    ]
   },
   "production_trace": {
     "aycmarket": {
@@ -60,12 +82,12 @@
       "owner": "Codex",
       "handoff_target": "User",
       "root_cause": "SECRET_OR_PERMISSION",
-      "exact_blocker": "BrowserStack credentials failed API auth before tunnel/session start",
+      "exact_blocker": "BROWSERSTACK_AUTH_BLOCKED (missing process.env credential variable(s))",
       "exact_file_or_test": [
         "scripts/ayc-browserstack-real-device.ps1::Test-BrowserStackCredentials",
         "tests/browserstack/real-device.smoke.spec.ts"
       ],
-      "next_action": "Set valid BrowserStack account credentials and rerun BrowserStack pipeline",
+      "next_action": "Set valid BrowserStack credentials and rerun BrowserStack pipeline",
       "next_validation_command": "powershell -ExecutionPolicy Bypass -File .\\scripts\\ayc-browserstack-real-device.ps1"
     },
     {

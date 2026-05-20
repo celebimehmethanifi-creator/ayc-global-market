@@ -3,7 +3,7 @@
 ## Context
 - Branch: `fix/live-data-truth-mobile-shell`
 - Work branch: `sync/fix-live-data-truth-mobile-shell`
-- HEAD (before this report update): `934cd2f`
+- HEAD (before this report update): `5a7f2d0`
 - Date: `2026-05-20`
 - BrowserStack setup commit: `df51d7b`
 
@@ -18,6 +18,7 @@
 8. `Invoke-WebRequest https://aycmarket.com/api/v1/version`
 9. `Invoke-WebRequest https://app.aycmarket.com/api/v1/version`
 10. `curl -I https://www.aycmarket.com/api/v1/version`
+11. BrowserStack credential debug (runtime-only trim + `GET /automate/plan.json` Basic Auth)
 
 ## Local Pipeline Result
 - `pnpm install`: PASS
@@ -26,12 +27,20 @@
 - `pnpm build`: PASS
 - `pnpm test:browser`: PASS (`85 passed / 0 failed`)
 
-## BrowserStack Credential Check
-- `BROWSERSTACK_USERNAME_PRESENT=true`
-- `BROWSERSTACK_ACCESS_KEY_PRESENT=true`
-- `BROWSERSTACK_CREDENTIALS_VALID=false`
-- Result: BrowserStack API auth failed before tunnel/session start.
-- Session links: not available (no session started)
+## BrowserStack Credential Debug (Requested)
+- `process.env.kirvec_TIR7wr`: present=`false`
+- `process.env.g6BvNrFycP5929pQNTGT`: present=`false`
+- runtime trim applied: `true` (no persisted changes)
+- `credentials_present`: `false`
+- `credentials_valid`: `false`
+- classification: `INVALID_CREDENTIALS`
+- blocker: `BROWSERSTACK_AUTH_BLOCKED`
+- HTTP status: `null` (request not attempted due to missing process env vars)
+- sanitized error body: `missing process.env credential variable(s)`
+
+## BrowserStack Config Verification
+- Not executed because auth is blocked.
+- Next run target after valid credentials: verify env-only credentials, iOS Safari + Android Chrome capabilities, `browserstack.local=true` for localhost mode, and session/artifact outputs.
 
 ## Production Version Trace Check
 - `https://aycmarket.com/api/v1/version`: `200`, returns `commitSha=not_provided_by_cli_deploy`, `branch=not_provided_by_cli_deploy`
@@ -52,9 +61,9 @@
 ### REAL_MOBILE_PASS = FAIL
 - owner: `Codex`
 - handoff target: `User (external secret)`
-- exact blocker: BrowserStack credentials fail API auth (`BROWSERSTACK_CREDENTIALS_VALID=false`).
+- exact blocker: `BROWSERSTACK_AUTH_BLOCKED` (missing `process.env.kirvec_TIR7wr` and/or `process.env.g6BvNrFycP5929pQNTGT`).
 - exact file/test: `scripts/ayc-browserstack-real-device.ps1` (`Test-BrowserStackCredentials`), `tests/browserstack/real-device.smoke.spec.ts`
-- next action: set valid BrowserStack account credentials in environment and rerun real-device pipeline.
+- next action: set valid BrowserStack credentials in process env vars (`kirvec_TIR7wr`, `g6BvNrFycP5929pQNTGT`) and rerun auth check.
 - next validation command: `powershell -ExecutionPolicy Bypass -File .\scripts\ayc-browserstack-real-device.ps1`
 
 ### PROD_PASS = FAIL
