@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromAuthHeader, USERS_BY_ID } from "../../_lib/auth";
+import { getUserFromAuthHeader, lookupUser } from "../../_lib/auth";
 
 export async function GET(req: NextRequest) {
   const payload = await getUserFromAuthHeader(req);
   if (!payload) return NextResponse.json({ detail: "Yetkisiz" }, { status: 401 });
 
-  const user = USERS_BY_ID.get(payload.sub);
+  const user = await lookupUser(payload.email);
   const tier = user?.plan || payload.plan || "free";
 
   return NextResponse.json({

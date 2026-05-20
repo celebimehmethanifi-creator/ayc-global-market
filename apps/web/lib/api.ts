@@ -1,1 +1,1 @@
-export { api } from "./query-provider";
+export { api, webApi, externalApi } from "./query-provider";

@@ -1,15 +1,16 @@
 "use client";
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import type { ConnectedExchange, ExchangeId, BalanceResult } from './types';
 
-const STORAGE_KEY = 'ayc_ex_v2';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
+import type { ConnectedExchange, ExchangeId, BalanceResult } from "./types";
 
-function enc(s: string): string {
-  try { return btoa(encodeURIComponent(s)); } catch { return s; }
-}
-function dec(s: string): string {
-  try { return decodeURIComponent(atob(s)); } catch { return s; }
-}
+const STORAGE_KEY = "ayc_exchange_connections_v3";
 
 interface ExchangeContextType {
   exchanges: ConnectedExchange[];
@@ -22,71 +23,126 @@ interface ExchangeContextType {
 }
 
 const ExchangeCtx = createContext<ExchangeContextType>({
-  exchanges: [], addExchange: () => {}, removeExchange: () => {},
-  getExchange: () => undefined, primaryExchange: undefined,
-  refreshBalance: async () => {}, isLoading: false,
+  exchanges: [],
+  addExchange: () => {},
+  removeExchange: () => {},
+  getExchange: () => undefined,
+  primaryExchange: undefined,
+  refreshBalance: async () => {},
+  isLoading: false,
 });
+
+function safeParseConnections(raw: string | null): ConnectedExchange[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry) =>
+        entry &&
+        typeof entry.exchange === "string" &&
+        typeof entry.connectionId === "string",
+    ) as ConnectedExchange[];
+  } catch {
+    return [];
+  }
+}
 
 export function ExchangeProvider({ children }: { children: ReactNode }) {
   const [exchanges, setExchanges] = useState<ConnectedExchange[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setExchanges(JSON.parse(dec(raw)));
-    } catch {}
+    if (typeof window === "undefined") return;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    setExchanges(safeParseConnections(raw));
   }, []);
 
-  const save = useCallback((exs: ConnectedExchange[]) => {
-    setExchanges(exs);
-    try { localStorage.setItem(STORAGE_KEY, enc(JSON.stringify(exs))); } catch {}
+  const persist = useCallback((next: ConnectedExchange[]) => {
+    setExchanges(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    }
   }, []);
 
-  const addExchange = useCallback((ex: ConnectedExchange) => {
-    setExchanges(prev => {
-      const filtered = prev.filter(e => e.exchange !== ex.exchange);
-      const next = [...filtered, ex];
-      try { localStorage.setItem(STORAGE_KEY, enc(JSON.stringify(next))); } catch {}
-      return next;
-    });
-  }, []);
-
-  const removeExchange = useCallback((id: ExchangeId) => {
-    setExchanges(prev => {
-      const next = prev.filter(e => e.exchange !== id);
-      try { localStorage.setItem(STORAGE_KEY, enc(JSON.stringify(next))); } catch {}
-      return next;
-    });
-  }, []);
-
-  const getExchange = useCallback((id: ExchangeId) => {
-    return exchanges.find(e => e.exchange === id);
-  }, [exchanges]);
-
-  const refreshBalance = useCallback(async (id: ExchangeId) => {
-    const ex = exchanges.find(e => e.exchange === id);
-    if (!ex) return;
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/v1/exchange/balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exchange: ex.exchange, apiKey: ex.apiKey, apiSecret: ex.apiSecret, passphrase: ex.passphrase }),
+  const addExchange = useCallback(
+    (ex: ConnectedExchange) => {
+      setExchanges((prev) => {
+        const filtered = prev.filter((item) => item.exchange !== ex.exchange);
+        const next = [...filtered, ex];
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        }
+        return next;
       });
-      const data: BalanceResult = await res.json();
-      if (data.ok) {
-        setExchanges(prev => {
-          const next = prev.map(e => e.exchange === id ? { ...e, totalBalance: data.totalBalance, currency: data.currency } : e);
-          try { localStorage.setItem(STORAGE_KEY, enc(JSON.stringify(next))); } catch {}
-          return next;
+    },
+    [],
+  );
+
+  const removeExchange = useCallback(
+    (id: ExchangeId) => {
+      setExchanges((prev) => {
+        const next = prev.filter((item) => item.exchange !== id);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const getExchange = useCallback(
+    (id: ExchangeId) => exchanges.find((entry) => entry.exchange === id),
+    [exchanges],
+  );
+
+  const refreshBalance = useCallback(
+    async (id: ExchangeId) => {
+      const connection = exchanges.find((entry) => entry.exchange === id);
+      if (!connection) return;
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/v1/exchange/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ connectionId: connection.connectionId }),
         });
+        const data: BalanceResult = await res.json();
+        if (data.ok) {
+          const next = exchanges.map((entry) =>
+            entry.exchange === id
+              ? {
+                  ...entry,
+                  totalBalance: data.totalBalance,
+                  currency: data.currency,
+                }
+              : entry,
+          );
+          persist(next);
+        }
+      } catch {
+        // no-op
+      } finally {
+        setIsLoading(false);
       }
-    } catch {} finally { setIsLoading(false); }
-  }, [exchanges]);
+    },
+    [exchanges, persist],
+  );
 
   return (
-    <ExchangeCtx.Provider value={{ exchanges, addExchange, removeExchange, getExchange, primaryExchange: exchanges[0], refreshBalance, isLoading }}>
+    <ExchangeCtx.Provider
+      value={{
+        exchanges,
+        addExchange,
+        removeExchange,
+        getExchange,
+        primaryExchange: exchanges[0],
+        refreshBalance,
+        isLoading,
+      }}
+    >
       {children}
     </ExchangeCtx.Provider>
   );

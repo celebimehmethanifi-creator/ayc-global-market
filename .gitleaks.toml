@@ -1,0 +1,27 @@
+title = "AYC Global Market — Gitleaks Policy"
+
+# ─── Commit Allowlist ────────────────────────────────────────────────────────
+# The commits below contain references to the CoinGecko API key
+# CG-MoxLLAjSA3r2JHXanw9fotD5, which was REVOKED by the repository owner
+# on 2026-05-17. The key is no longer active and is not present in the
+# current working tree. These commits are enumerated here so that CI
+# secret-scan gates on CURRENT SOURCE only, not on immutable history.
+#
+# Permanent history rewrite (git-filter-repo) is tracked as a separate P1
+# task and must not be performed on actively-shared branches.
+#
+# This allowlist MUST NOT be used to suppress findings in new code.
+# Any new secret introduced after 2026-05-17 will cause CI to fail.
+
+[allowlist]
+  description = "Historical commits containing a revoked CoinGecko API key (CG-MoxLLAjSA3r2JHXanw9fotD5)"
+  commits = [
+    "1961e772db30ea6289dabebb602c41f78937111f",  # initial release — key introduced
+    "eda0c55fa05bf161952901939e6bd5ec6e3f53e9",  # lightweight-charts migration
+    "fd61d4983f90adcdc39242b76e1e57994cf85a22",  # vercel.json wordpress proxy
+    "f05cbe4baeea9cb361e1bdc8fb8be70a0ac2f223",  # remove BOM from vercel.json
+    "8d5e2dd9f193acb4b8361aa643a794e59412d34a",  # production security hardening
+    "df3fd55cab5689886202989a1abe79542063987e",  # iframe CSP fix
+    "d71cb964a3967153e975e35cbcc4a3b03f8fe514",  # security: remove secret fallbacks (key in diff)
+    "ab815c677730286ff31fae0a5dec3292b5cfb136",  # security: remove CoinGecko key (removal commit)
+  ]

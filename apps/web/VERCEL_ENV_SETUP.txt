@@ -1,8 +1,38 @@
-﻿Vercel Dashboard > Project Settings > Environment Variables eklenecekler:
+﻿Vercel ayarlari:
 
-NEXT_PUBLIC_API_URL = https://YOUR_BACKEND_URL (Railway/Render/VPS backend URL)
+1. Root Directory: apps/web
+2. Framework: Next.js
+3. Build Command: pnpm --filter neura-web build
+Deploy notu:
+- apps/web/vercel.json **bilincli olarak kaldirilmistir** ve kullanilmiyor.
+- Production deploy, Vercel project-level ayarlar + Vercel CLI akisi ile yapilir.
+- Git-triggered deploy su an guvenilir degildir; production yayininda CLI/operasyon akisi kullanilmalidir.
+- apps/web/vercel.json dosyasini geri eklemek eski build/deploy sorunlarini tekrar olusturabilir.
 
-NOT: Backend deploy edilmeden önce localhost:8000 kullan.
-Stripe canlıya geçmek için:
-  STRIPE_SECRET_KEY = sk_live_...  (payment_router.py üzerinden)
-  STRIPE_WEBHOOK_SECRET = whsec_...
+Gerekli environment degiskenleri:
+
+# Auth/Billing/Exchange cookie akisi same-origin oldugu icin production web deploy'da bos birakin.
+NEXT_PUBLIC_API_URL=<optional-public-api-url-or-empty>
+NEXT_PUBLIC_SITE_URL=<https://aycmarket.com>
+JWT_SECRET=<minimum-32-char-secret>
+EXCHANGE_CREDENTIALS_KEY=<minimum-32-char-secret>
+LEMON_API_KEY=<provider-key>
+LEMON_STORE_ID=<provider-store-id>
+LEMON_PRO_VARIANT_ID=<provider-variant-id>
+LEMON_ELITE_VARIANT_ID=<provider-variant-id>
+APP_ALIAS_REDIRECT=<0-or-1>
+
+Not:
+- `NEXT_PUBLIC_API_URL` dolu olsa bile signin/signup ve diger session endpointleri same-origin `/api/v1` kullanir.
+- Canonical production domain `https://aycmarket.com` olmalidir.
+- `www.aycmarket.com` canonical domaine (`https://aycmarket.com`) 308 yonlendirilir.
+- `app.aycmarket.com` alias olarak calisabilir (APP_ALIAS_REDIRECT=0) veya canonical domaine yonlenebilir (APP_ALIAS_REDIRECT=1).
+- `blog.aycmarket.com` WordPress/Natro trafigi icin ayridir; app route'lariyla karismamalidir.
+- Refresh session rotation state su an in-memory tutulur; cold-start/redeploy sonrasi aktif refresh oturumlari dusebilir.
+- Version metadata'nin `unknown` olmamasi icin CLI deploy oncesi su env degerlerini set edin:
+  - `NEXT_PUBLIC_COMMIT_SHA=$(git rev-parse --short HEAD)`
+  - `NEXT_PUBLIC_BRANCH=hardening-production-readiness`
+  - `BUILD_TIME=<ISO-8601 timestamp>`
+  - `DEPLOYMENT_URL=<vercel deployment url>`
+
+

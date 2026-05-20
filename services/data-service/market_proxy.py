@@ -14,18 +14,62 @@ import os
 import random
 from pathlib import Path
 
+
+def _is_production() -> bool:
+    env_name = (os.environ.get("ENVIRONMENT") or os.environ.get("NODE_ENV") or "development").lower()
+    return env_name in {"production", "prod"}
+
+
+def _parse_cors_origins() -> list[str]:
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if raw:
+        origins = [item.strip() for item in raw.split(",") if item.strip()]
+    else:
+        if _is_production():
+            raise RuntimeError("CORS_ORIGINS must be configured in production.")
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if _is_production() and not origins:
+        raise RuntimeError("CORS_ORIGINS must be configured in production.")
+    return origins
+
 # ─── API Keys ────────────────────────────────────────────────────────────────
-COINGECKO_KEY    = "CG-MoxLLAjSA3r2JHXanw9fotD5"
-FINNHUB_KEY      = "d7pp429r01qosaapdudgd7pp429r01qosaapdue0"
-TWELVEDATA_KEY   = "c6293bae084a4c0fb46e2cb5df525ef8"
-FMP_KEY          = "nJNYTTBAWGupP7ZAXz5Mh5hVOskZgxwU"
-CMC_KEY          = "0bf380a7619b417fa1ad2309d6f086fc"
-ALPHAVANTAGE_KEY = "63T2IM69L6OSSR51"
+def _env_api_key(name: str) -> str:
+    return (os.environ.get(name) or "").strip()
+
+
+def _provider_attempts() -> list[dict]:
+    providers = [
+        ("coingecko", "COINGECKO_API_KEY"),
+        ("finnhub", "FINNHUB_API_KEY"),
+        ("twelvedata", "TWELVEDATA_API_KEY"),
+        ("fmp", "FMP_API_KEY"),
+        ("coinmarketcap", "COINMARKETCAP_API_KEY"),
+        ("alphavantage", "ALPHAVANTAGE_API_KEY"),
+    ]
+    attempts: list[dict] = []
+    for provider, env_name in providers:
+        enabled = bool(_env_api_key(env_name))
+        attempts.append(
+            {
+                "provider": provider,
+                "env": env_name,
+                "enabled": enabled,
+                "status": "configured" if enabled else "disabled_missing_env",
+                "credential": "[REDACTED]" if enabled else None,
+            }
+        )
+    return attempts
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 app = FastAPI(title="AYC Global Market API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_parse_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Signature"],
+)
 
 # ─── Simple in-memory cache ──────────────────────────────────────────────────
 _cache: dict = {}
@@ -220,6 +264,9 @@ async def fetch_crypto_live() -> list[dict]:
     cached = get_cache("crypto_live")
     if cached:
         return cached
+    cg_key = _env_api_key("COINGECKO_API_KEY")
+    if not cg_key:
+        return mock_items("crypto")
     data = await get(
         "https://api.coingecko.com/api/v3/coins/markets",
         params={
@@ -230,7 +277,7 @@ async def fetch_crypto_live() -> list[dict]:
             "sparkline": "false",
             "price_change_percentage": "24h",
         },
-        headers={"x-cg-demo-api-key": COINGECKO_KEY},
+        headers={"x-cg-demo-api-key": cg_key},
     )
     if not data or not isinstance(data, list):
         return mock_items("crypto")
@@ -250,11 +297,14 @@ async def fetch_us_stocks_live() -> list[dict]:
     cached = get_cache("us_live")
     if cached:
         return cached
+    fmp_key = _env_api_key("FMP_API_KEY")
+    if not fmp_key:
+        return mock_items("us")
     tickers = ["AAPL","MSFT","NVDA","GOOGL","AMZN","TSLA","META","JPM","V","WMT",
                "UNH","XOM","JNJ","PG","MA","ORCL","HD","ABBV","MRK","LLY"]
     data = await get(
         "https://financialmodelingprep.com/api/v3/quote/" + ",".join(tickers),
-        params={"apikey": FMP_KEY}
+        params={"apikey": fmp_key}
     )
     if not data or not isinstance(data, list):
         return mock_items("us")
@@ -273,12 +323,15 @@ async def fetch_turkey_live() -> list[dict]:
     cached = get_cache("turkey_live")
     if cached:
         return cached
+    fmp_key = _env_api_key("FMP_API_KEY")
+    if not fmp_key:
+        return mock_items("turkey")
     tickers = ["THYAO.IS","ASELS.IS","EREGL.IS","TUPRS.IS","SAHOL.IS",
                "SASA.IS","KZGYO.IS","SOKM.IS","TAVHL.IS","BIMAS.IS",
                "AKBNK.IS","GARAN.IS","ISCTR.IS","KRDMD.IS","TOASO.IS"]
     data = await get(
         "https://financialmodelingprep.com/api/v3/quote/" + ",".join(tickers),
-        params={"apikey": FMP_KEY}
+        params={"apikey": fmp_key}
     )
     if not data or not isinstance(data, list):
         return mock_items("turkey")
@@ -298,9 +351,12 @@ async def fetch_forex_live() -> list[dict]:
     cached = get_cache("forex_live")
     if cached:
         return cached
+    td_key = _env_api_key("TWELVEDATA_API_KEY")
+    if not td_key:
+        return mock_items("forex")
     symbols = "EUR/USD,USD/TRY,GBP/USD,USD/JPY,EUR/TRY,USD/CHF,AUD/USD"
     data = await get(
-        f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={TWELVEDATA_KEY}"
+        f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={td_key}"
     )
     items = []
     if data and isinstance(data, dict):
@@ -321,9 +377,12 @@ async def fetch_precious_live() -> list[dict]:
     cached = get_cache("precious_live")
     if cached:
         return cached
+    td_key = _env_api_key("TWELVEDATA_API_KEY")
+    if not td_key:
+        return mock_items("precious")
     symbols = "XAU/USD,XAG/USD,XPT/USD"
     data = await get(
-        f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={TWELVEDATA_KEY}"
+        f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={td_key}"
     )
     items = []
     if data and isinstance(data, dict):
@@ -345,9 +404,12 @@ async def fetch_energy_live() -> list[dict]:
     cached = get_cache("energy_live")
     if cached:
         return cached
+    td_key = _env_api_key("TWELVEDATA_API_KEY")
+    if not td_key:
+        return mock_items("energy")
     symbols = "WTI/USD,BRENT/USD,NGAS/USD"
     data = await get(
-        f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={TWELVEDATA_KEY}"
+        f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={td_key}"
     )
     items = []
     if data and isinstance(data, dict):
@@ -369,9 +431,12 @@ async def fetch_index_live() -> list[dict]:
     cached = get_cache("index_live")
     if cached:
         return cached
+    fmp_key = _env_api_key("FMP_API_KEY")
+    if not fmp_key:
+        return mock_items("index")
     data = await get(
         "https://financialmodelingprep.com/api/v3/quote/%5EGSPC,%5ENDX,%5EDJI,%5EFTSE,%5EGDAXI,%5EN225,%5EHSI",
-        params={"apikey": FMP_KEY}
+        params={"apikey": fmp_key}
     )
     items = []
     if data and isinstance(data, list):
@@ -384,7 +449,7 @@ async def fetch_index_live() -> list[dict]:
     # Add BIST
     bist = await get(
         "https://financialmodelingprep.com/api/v3/quote/XU100.IS",
-        params={"apikey": FMP_KEY}
+        params={"apikey": fmp_key}
     )
     if bist and isinstance(bist, list) and bist:
         q = bist[0]
@@ -399,10 +464,13 @@ async def fetch_etf_live() -> list[dict]:
     cached = get_cache("etf_live")
     if cached:
         return cached
+    fmp_key = _env_api_key("FMP_API_KEY")
+    if not fmp_key:
+        return mock_items("etf")
     tickers = "SPY,QQQ,VTI,GLD,SLV,IAU,EEM,XLK,IWM,VNQ"
     data = await get(
         f"https://financialmodelingprep.com/api/v3/quote/{tickers}",
-        params={"apikey": FMP_KEY}
+        params={"apikey": fmp_key}
     )
     if not data or not isinstance(data, list):
         return mock_items("etf")
@@ -452,13 +520,16 @@ async def fetch_market_data(market: str) -> list[dict]:
 # ─── Asset history helper ─────────────────────────────────────────────────────
 async def fetch_history_twelvedata(symbol: str, interval: str, outputsize: int) -> list:
     """Fetch OHLC from TwelveData and return [[ts_ms, close], ...]"""
+    td_key = _env_api_key("TWELVEDATA_API_KEY")
+    if not td_key:
+        return []
     data = await get(
         "https://api.twelvedata.com/time_series",
         params={
             "symbol": symbol,
             "interval": interval,
             "outputsize": outputsize,
-            "apikey": TWELVEDATA_KEY,
+            "apikey": td_key,
         }
     )
     if not data or "values" not in data:
@@ -507,12 +578,16 @@ async def get_markets():
 @app.get("/signals")
 async def get_signals(market: str = "all", limit: int = 20, refresh: str = "false"):
     items = await fetch_market_data(market)
+    provider_attempts = _provider_attempts()
+    any_provider_configured = any(item.get("enabled") for item in provider_attempts)
     # sort by abs(change) desc for "most active" feel
     items_sorted = sorted(items, key=lambda x: abs(x.get("change") or 0), reverse=True)
     return JSONResponse({
         "items": items_sorted[:limit],
         "market": market,
-        "source": "live",
+        "source": "live" if any_provider_configured else "mock",
+        "providerAttempts": provider_attempts,
+        "dataQuality": "provider-dependent" if any_provider_configured else "mock",
         "total": len(items_sorted),
     })
 
@@ -550,9 +625,15 @@ async def analyze(symbol: str):
             break
     if not found:
         # try to get from finnhub
+        fh_key = _env_api_key("FINNHUB_API_KEY")
+        if not fh_key:
+            found = make_item(symbol, symbol, symbol, 0, 0, 0, "unknown", "all")
+            found["providerUnavailable"] = "finnhub"
+            found["dataQuality"] = "mock"
+            return JSONResponse(found)
         data = await get(
             f"https://finnhub.io/api/v1/quote",
-            params={"symbol": symbol, "token": FINNHUB_KEY}
+            params={"symbol": symbol, "token": fh_key}
         )
         if data and data.get("c"):
             price = data["c"]
@@ -571,9 +652,19 @@ async def asset_detail(symbol: str):
            str(item.get("display", "")).upper().replace("/", "") == sym_upper:
             return JSONResponse(item)
     # Fallback: finnhub
+    fh_key = _env_api_key("FINNHUB_API_KEY")
+    if not fh_key:
+        return JSONResponse(
+            {
+                "error": "provider_unavailable",
+                "provider": "finnhub",
+                "status": "disabled_missing_env",
+            },
+            status_code=503,
+        )
     data = await get(
         f"https://finnhub.io/api/v1/quote",
-        params={"symbol": symbol, "token": FINNHUB_KEY}
+        params={"symbol": symbol, "token": fh_key}
     )
     if data and data.get("c"):
         price = data["c"]

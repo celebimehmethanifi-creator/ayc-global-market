@@ -1,6 +1,7 @@
-﻿/**
- * AYC Global Market — Auth utilities
- * JWT token management, user session, credential token for stateless auth
+/**
+ * AYC Global Market - client auth helpers.
+ * Tokens are stored in httpOnly cookies by API routes.
+ * Client-side storage is limited to non-sensitive profile cache.
  */
 
 export interface AYCUser {
@@ -13,78 +14,66 @@ export interface AYCUser {
 }
 
 export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  credential_token?: string;
+  access_token?: string;
+  refresh_token?: string;
 }
 
-const ACCESS_KEY     = "ayc_access_token";
-const REFRESH_KEY    = "ayc_refresh_token";
-const CREDENTIAL_KEY = "ayc_credential_token";
-const USER_KEY       = "ayc_user";
+const USER_KEY = "ayc_user";
+const GUEST_KEY = "ayc_guest_demo";
 
-export function saveAuth(tokens: AuthTokens, user: AYCUser) {
+export function saveAuth(_tokens: AuthTokens, user: AYCUser) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ACCESS_KEY,  tokens.access_token);
-  localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
-  if (tokens.credential_token) {
-    localStorage.setItem(CREDENTIAL_KEY, tokens.credential_token);
-  }
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-  // Legacy key for backward compat
-  localStorage.setItem("ayc_token", tokens.access_token);
+  localStorage.removeItem(GUEST_KEY);
 }
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACCESS_KEY) || localStorage.getItem("ayc_token");
+  return null;
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_KEY);
-}
-
-export function getCredentialToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(CREDENTIAL_KEY);
+  return null;
 }
 
 export function getUser(): AYCUser | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+    return raw ? (JSON.parse(raw) as AYCUser) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function clearAuth() {
   if (typeof window === "undefined") return;
-  [ACCESS_KEY, REFRESH_KEY, CREDENTIAL_KEY, USER_KEY, "ayc_token", "sb-access-token"].forEach(k =>
-    localStorage.removeItem(k)
-  );
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem("sb-access-token");
+  localStorage.removeItem("ayc_token");
+  localStorage.removeItem("ayc_access_token");
+  localStorage.removeItem("ayc_refresh_token");
+  localStorage.removeItem("ayc_credential_token");
+  fetch("/api/v1/auth/logout", {
+    method: "POST",
+    credentials: "include",
+    keepalive: true,
+  }).catch(() => {});
 }
 
 export function isLoggedIn(): boolean {
-  return !!getAccessToken();
+  return !!getUser() && !isGuestDemo();
 }
 
 export function hasTier(required: "free" | "pro" | "elite"): boolean {
-  const RANK: Record<string, number> = { free: 0, pro: 1, elite: 2 };
+  const rank: Record<string, number> = { free: 0, pro: 1, elite: 2 };
   const user = getUser();
-  return RANK[user?.tier || "free"] >= RANK[required];
+  return rank[user?.tier || "free"] >= rank[required];
 }
-
-/* ── Guest Demo (no login required) ─────────────────────── */
-const GUEST_KEY = "ayc_guest_demo";
 
 export function startGuestDemo(): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(GUEST_KEY, "1");
-  // Clear any auth so we're in pure guest mode
-  [ACCESS_KEY, REFRESH_KEY, CREDENTIAL_KEY, USER_KEY, "ayc_token"].forEach(k =>
-    localStorage.removeItem(k)
-  );
+  localStorage.removeItem(USER_KEY);
 }
 
 export function isGuestDemo(): boolean {

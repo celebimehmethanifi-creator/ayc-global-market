@@ -7,6 +7,8 @@ import React, {
   useState,
   useMemo,
 } from 'react';
+import { createPortal } from 'react-dom';
+import { Maximize2, Minimize2, RotateCcw, X } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -22,6 +24,13 @@ interface Candle {
 }
 
 interface OHLCVResponse {
+  ok?: boolean;
+  reason?: string;
+  requestedSymbol?: string;
+  canonicalSymbol?: string;
+  provider?: string;
+  providerSymbol?: string;
+  providerAttempts?: Array<{ provider: string; status: string; detail?: string }>;
   symbol: string;
   count: number;
   candles: Candle[];
@@ -43,6 +52,7 @@ interface IndicatorVisibility {
 interface Props {
   symbol: string;
   height?: number;
+  onLatestCandleClose?: (close: number, updatedAt: number, source?: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,7 +100,7 @@ const Y_AXIS_WIDTH = 72;
 const X_AXIS_HEIGHT = 24;
 const CANDLE_GAP_RATIO = 0.2;
 const MIN_CANDLE_WIDTH = 2;
-const MAX_CANDLE_WIDTH = 24;
+const MAX_CANDLE_WIDTH = 80;
 const SUB_PANEL_MAX = 70; // px per sub-panel (when 1 active)
 const CHART_TOP_PAD = 8;
 
@@ -249,6 +259,40 @@ function buildLayout(W: number, H: number, vis: IndicatorVisibility): Layout {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
+function isValidCandleShape(candle: Candle): boolean {
+  const { o, h, l, c, v, t } = candle;
+  if (!(t > 0 && o > 0 && h > 0 && l > 0 && c > 0)) return false;
+  if (h < Math.max(o, c, l)) return false;
+  if (l > Math.min(o, c, h)) return false;
+  return Number.isFinite(v) || v === 0;
+}
+
+function cleanCandles(raw: Candle[]): { candles: Candle[]; dropped: number } {
+  const structurallyValid = raw
+    .filter(isValidCandleShape)
+    .sort((a, b) => a.t - b.t);
+  if (!structurallyValid.length) return { candles: [], dropped: raw.length };
+
+  const medClose = median(structurallyValid.map((c) => c.c));
+  if (medClose <= 0) return { candles: structurallyValid, dropped: raw.length - structurallyValid.length };
+
+  const filtered = structurallyValid.filter((c) => c.h <= medClose * 1.35 && c.l >= medClose * 0.65);
+  const usable = filtered.length >= Math.max(10, Math.floor(structurallyValid.length * 0.3))
+    ? filtered
+    : structurallyValid;
+
+  return { candles: usable, dropped: raw.length - usable.length };
+}
+
 function nicePrice(v: number): string {
   if (!isFinite(v)) return '—';
   if (Math.abs(v) >= 1000) return v.toFixed(2);
@@ -335,7 +379,11 @@ const PILLS: { key: keyof IndicatorVisibility; label: string; color: string }[] 
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ProfessionalChart({ symbol, height = 520 }: Props) {
+export default function ProfessionalChart({
+  symbol,
+  height = 520,
+  onLatestCandleClose,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -348,19 +396,112 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canvasW, setCanvasW] = useState(800);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewportH, setViewportH] = useState(0);
+  const [portalReady, setPortalReady] = useState(false);
+  const [showRotateHint, setShowRotateHint] = useState(false);
+  const [dataSource, setDataSource] = useState<string>("ohlcv");
+  const fullscreenStatePushedRef = useRef(false);
 
   const crosshairPos = useRef<{ x: number; y: number } | null>(null);
   const hoveredIdx = useRef<number>(-1);
 
   // Zoom/Pan state
-  const [viewEnd, setViewEnd] = useState<number>(-1);
+  const [viewEnd, setViewEnd] = useState<number>(0);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const panStartRef = useRef<{ x: number; startEnd: number } | null>(null);
-  const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
+  const pinchStartRef = useRef<{
+    dist: number;
+    zoom: number;
+    midpointX: number;
+    startEnd: number;
+  } | null>(null);
   const viewEndRef = useRef(viewEnd);
   const zoomRef = useRef(zoomLevel);
   viewEndRef.current = viewEnd;
   zoomRef.current = zoomLevel;
+  const chartHeight = isFullscreen ? Math.max(320, (viewportH || height) - 210) : height;
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  const openFullscreen = useCallback(() => {
+    setIsFullscreen(true);
+  }, []);
+
+  const closeFullscreen = useCallback(() => {
+    if (fullscreenStatePushedRef.current) {
+      window.history.back();
+      return;
+    }
+    setIsFullscreen(false);
+  }, []);
+
+  useEffect(() => {
+    const updateViewport = () => setViewportH(window.innerHeight);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return undefined;
+    document.body.classList.add("chart-fullscreen");
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.history.pushState({ __chartFullscreen: true }, "");
+    fullscreenStatePushedRef.current = true;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeFullscreen();
+    };
+    const onPopState = () => {
+      if (!isFullscreen) return;
+      fullscreenStatePushedRef.current = false;
+      setIsFullscreen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("popstate", onPopState);
+
+    if (document.fullscreenElement == null && containerRef.current?.requestFullscreen) {
+      containerRef.current.requestFullscreen().catch(() => {});
+    }
+    if (window.innerWidth <= 900 && screen.orientation && "lock" in screen.orientation) {
+      (screen.orientation as any).lock?.("landscape").catch(() => {});
+    }
+
+    return () => {
+      document.body.classList.remove("chart-fullscreen");
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("popstate", onPopState);
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      if (screen.orientation && "unlock" in screen.orientation) {
+        (screen.orientation as any).unlock?.();
+      }
+      fullscreenStatePushedRef.current = false;
+    };
+  }, [isFullscreen, closeFullscreen]);
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      setShowRotateHint(false);
+      return undefined;
+    }
+    const isMobileViewport = window.innerWidth <= 900;
+    const isPortrait = window.innerHeight > window.innerWidth;
+    if (!isMobileViewport || !isPortrait) {
+      setShowRotateHint(false);
+      return undefined;
+    }
+    setShowRotateHint(true);
+    const timeout = window.setTimeout(() => setShowRotateHint(false), 2800);
+    return () => window.clearTimeout(timeout);
+  }, [isFullscreen, viewportH]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
@@ -368,7 +509,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     setLoading(true);
     setError(null);
     const ctrl = new AbortController();
-    fetch(`/api/v1/ohlcv/${encodeURIComponent(symbol)}?tf=${timeframe.toLowerCase()}`, {
+    fetch(`/api/v1/ohlcv/${encodeURIComponent(symbol)}?tf=${timeframe}`, {
       signal: ctrl.signal,
     })
       .then((r) => {
@@ -376,18 +517,38 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
         return r.json() as Promise<OHLCVResponse>;
       })
       .then((data) => {
-        if (!Array.isArray(data.candles) || data.candles.length === 0)
-          throw new Error('No candle data received');
-        setCandles(data.candles);
+        if (!data?.ok && data?.reason === "NO_DATA") {
+          const providerTrail = Array.isArray(data.providerAttempts) && data.providerAttempts.length
+            ? ` (${data.providerAttempts.map((item) => `${item.provider}:${item.status}`).join(", ")})`
+            : "";
+          throw new Error(`Mum verisi alınamadı${providerTrail}`);
+        }
+        if (!Array.isArray(data.candles) || data.candles.length === 0) {
+          throw new Error("Mum verisi alınamadı");
+        }
+        const cleaned = cleanCandles(data.candles);
+        if (cleaned.candles.length === 0) {
+          throw new Error("Geçerli mum verisi bulunamadı");
+        }
+        setCandles(cleaned.candles);
+        setViewEnd(cleaned.candles.length);
+        setZoomLevel(1);
+        setDataSource(data.provider || data.providerAttempts?.[0]?.provider || "ohlcv");
         setLoading(false);
       })
       .catch((e) => {
         if (e.name === 'AbortError') return;
-        setError(e.message ?? 'Failed to load chart data');
+        setError(e.message ?? "Grafik verisi alınamadı");
         setLoading(false);
       });
     return () => ctrl.abort();
   }, [symbol, timeframe]);
+
+  useEffect(() => {
+    if (!candles.length || !onLatestCandleClose) return;
+    const latest = candles[candles.length - 1];
+    onLatestCandleClose(latest.c, latest.t, dataSource);
+  }, [candles, onLatestCandleClose, dataSource]);
 
   // ── ResizeObserver ────────────────────────────────────────────────────────
 
@@ -406,29 +567,60 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   // ── Wheel zoom + Mouse/Touch pan ──────────────────────────────────────────
 
   useEffect(() => {
-    const el = containerRef.current;
+    const el = overlayCanvasRef.current;
     if (!el) return;
+    const n = candles.length;
+    if (!n) return;
+
+    const viewWidth = Math.max(1, canvasW - Y_AXIS_WIDTH);
+    const baseSlotW = Math.max(viewWidth / n, 1);
+    const getSlotWidth = (z: number) => clamp(baseSlotW * z, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+    const getVisibleCount = (z: number) => clamp(Math.floor(viewWidth / getSlotWidth(z)), 1, n);
+    const getCurrentEnd = (visible: number) => clamp(viewEndRef.current || n, visible, n);
+
+    const applyZoomAtX = (nextZoom: number, clientX: number) => {
+      const rect = el.getBoundingClientRect();
+      const ratio = clamp((clientX - rect.left) / Math.max(viewWidth, 1), 0, 1);
+      const currentVisible = getVisibleCount(zoomRef.current);
+      const currentEnd = getCurrentEnd(currentVisible);
+      const currentStart = Math.max(0, currentEnd - currentVisible);
+      const anchorIndex = clamp(
+        currentStart + Math.round(ratio * Math.max(0, currentVisible - 1)),
+        0,
+        n - 1,
+      );
+      const nextVisible = getVisibleCount(nextZoom);
+      const nextEnd = clamp(
+        anchorIndex + Math.round((1 - ratio) * nextVisible),
+        nextVisible,
+        n,
+      );
+      setZoomLevel(nextZoom);
+      setViewEnd(nextEnd);
+    };
 
     // Wheel zoom (desktop)
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1; // scroll down = zoom out
-      setZoomLevel(z => clamp(z * delta, 0.5, 10));
+      const delta = e.deltaY > 0 ? 0.92 : 1.08;
+      const nextZoom = clamp(zoomRef.current * delta, 0.5, 20);
+      applyZoomAtX(nextZoom, e.clientX);
     };
 
     // Mouse pan (desktop drag)
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
-      panStartRef.current = { x: e.clientX, startEnd: viewEndRef.current < 0 ? candles.length : viewEndRef.current };
+      panStartRef.current = {
+        x: e.clientX,
+        startEnd: getCurrentEnd(getVisibleCount(zoomRef.current)),
+      };
     };
     const onMouseMove = (e: MouseEvent) => {
       if (!panStartRef.current) return;
       const dx = e.clientX - panStartRef.current.x;
-      const n = candles.length;
-      const baseSlotW = clamp((el.clientWidth - Y_AXIS_WIDTH) / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
-      const slotW = clamp(baseSlotW * zoomRef.current, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+      const slotW = getSlotWidth(zoomRef.current);
       const candleShift = Math.round(-dx / slotW);
-      const visible = Math.floor((el.clientWidth - Y_AXIS_WIDTH) / slotW);
+      const visible = getVisibleCount(zoomRef.current);
       const newEnd = clamp(panStartRef.current.startEnd + candleShift, visible, n);
       setViewEnd(newEnd);
     };
@@ -437,28 +629,41 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     // Touch pan + pinch zoom (mobile)
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
-        panStartRef.current = { x: e.touches[0].clientX, startEnd: viewEnd < 0 ? candles.length : viewEnd };
+        panStartRef.current = {
+          x: e.touches[0].clientX,
+          startEnd: getCurrentEnd(getVisibleCount(zoomRef.current)),
+        };
       } else if (e.touches.length === 2) {
-        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        pinchStartRef.current = { dist: d, zoom: zoomRef.current };
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+        pinchStartRef.current = {
+          dist: d,
+          zoom: zoomRef.current,
+          midpointX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          startEnd: getCurrentEnd(getVisibleCount(zoomRef.current)),
+        };
       }
     };
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 1 && panStartRef.current) {
         e.preventDefault();
         const dx = e.touches[0].clientX - panStartRef.current.x;
-        const n = candles.length;
-        const baseSlotW = clamp((el.clientWidth - Y_AXIS_WIDTH) / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
-        const slotW = clamp(baseSlotW * zoomRef.current, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+        const slotW = getSlotWidth(zoomRef.current);
         const candleShift = Math.round(-dx / slotW);
-        const visible = Math.floor((el.clientWidth - Y_AXIS_WIDTH) / slotW);
+        const visible = getVisibleCount(zoomRef.current);
         const newEnd = clamp(panStartRef.current.startEnd + candleShift, visible, n);
         setViewEnd(newEnd);
       } else if (e.touches.length === 2 && pinchStartRef.current) {
         e.preventDefault();
-        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
         const scale = d / pinchStartRef.current.dist;
-        setZoomLevel(clamp(pinchStartRef.current.zoom * scale, 0.5, 10));
+        const nextZoom = clamp(pinchStartRef.current.zoom * scale, 0.5, 20);
+        applyZoomAtX(nextZoom, pinchStartRef.current.midpointX);
       }
     };
     const onTouchEnd = () => { panStartRef.current = null; pinchStartRef.current = null; };
@@ -480,7 +685,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [candles.length]);
+  }, [candles.length, canvasW]);
 
   // ── Computed indicators ───────────────────────────────────────────────────
 
@@ -501,8 +706,8 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
   // ── Layout ────────────────────────────────────────────────────────────────
 
   const layout = useMemo(
-    () => buildLayout(canvasW, height, indicators),
-    [canvasW, height, indicators],
+    () => buildLayout(canvasW, chartHeight, indicators),
+    [canvasW, chartHeight, indicators],
   );
 
   // ── Prepare canvas (DPR-aware) ────────────────────────────────────────────
@@ -533,7 +738,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     const canvas = mainCanvasRef.current;
     if (!canvas || !candles.length || !computed) return;
     const dpr = window.devicePixelRatio || 1;
-    const ctx = prepCanvas(canvas, canvasW, height, dpr);
+    const ctx = prepCanvas(canvas, canvasW, chartHeight, dpr);
     if (!ctx) return;
 
     const { W, H, chartX, chartY, chartW, chartH, subPanels, xAxisY } = layout;
@@ -543,11 +748,14 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     ctx.fillRect(0, 0, W, H);
 
     const n = candles.length;
-    const slotW = clamp(chartW / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
-    const visible = Math.floor(chartW / slotW);
-    const startIdx = Math.max(0, n - visible);
-    const vis = candles.slice(startIdx);
+    const baseSlotW = Math.max(chartW / n, 1);
+    const slotW = clamp(baseSlotW * zoomLevel, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+    const visible = clamp(Math.floor(chartW / slotW), 1, n);
+    const endIdx = clamp(viewEnd || n, visible, n);
+    const startIdx = Math.max(0, endIdx - visible);
+    const vis = candles.slice(startIdx, endIdx);
     const vc = vis.length;
+    if (!vc) return;
 
     // Price range
     let minP = Infinity, maxP = -Infinity;
@@ -667,7 +875,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
 
     // ── Last price dashed line ────────────────────────────────────────────────
     {
-      const lastC = candles[candles.length - 1].c;
+      const lastC = candles[endIdx - 1].c;
       const ly = pToY(lastC, minP, maxP, chartY, chartH);
       if (ly >= chartY && ly <= chartY + chartH) {
         ctx.save();
@@ -840,7 +1048,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
         ctx.fillText(fmtVol(maxV), chartX + chartW + 4, pY + 5);
       }
     }
-  }, [candles, computed, layout, indicators, canvasW, height, timeframe]);
+  }, [candles, computed, layout, indicators, canvasW, chartHeight, timeframe, zoomLevel, viewEnd]);
 
   // ── Overlay / crosshair draw ───────────────────────────────────────────────
 
@@ -848,21 +1056,24 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     const canvas = overlayCanvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const ctx = prepCanvas(canvas, canvasW, height, dpr);
+    const ctx = prepCanvas(canvas, canvasW, chartHeight, dpr);
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvasW, height);
+    ctx.clearRect(0, 0, canvasW, chartHeight);
 
     const pos = crosshairPos.current;
     if (!pos || !candles.length || !computed) return;
 
     const { chartX, chartY, chartW, chartH, xAxisY } = layout;
     const n = candles.length;
-    const slotW = clamp(chartW / n, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
-    const visible = Math.floor(chartW / slotW);
-    const startIdx = Math.max(0, n - visible);
-    const vis = candles.slice(startIdx);
+    const baseSlotW = Math.max(chartW / n, 1);
+    const slotW = clamp(baseSlotW * zoomLevel, MIN_CANDLE_WIDTH, MAX_CANDLE_WIDTH);
+    const visible = clamp(Math.floor(chartW / slotW), 1, n);
+    const endIdx = clamp(viewEnd || n, visible, n);
+    const startIdx = Math.max(0, endIdx - visible);
+    const vis = candles.slice(startIdx, endIdx);
     const vc = vis.length;
+    if (!vc) return;
 
     let minP = Infinity, maxP = -Infinity;
     for (const c of vis) { if (c.l < minP) minP = c.l; if (c.h > maxP) maxP = c.h; }
@@ -901,7 +1112,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
     // OHLCV tooltip
     if (idx >= 0 && idx < vc) {
       const c = vis[idx];
-      drawCandleTooltip(ctx, c, pos.x, pos.y, canvasW, height, chartX, chartY, chartH);
+      drawCandleTooltip(ctx, c, pos.x, pos.y, canvasW, chartHeight, chartX, chartY, chartH);
     }
 
     // Date label on x-axis
@@ -919,7 +1130,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
       ctx.textBaseline = 'middle';
       ctx.fillText(txt, lx + tw / 2, ly + th / 2);
     }
-  }, [candles, computed, layout, canvasW, height, timeframe]);
+  }, [candles, computed, layout, canvasW, chartHeight, timeframe, zoomLevel, viewEnd]);
 
   // ── Schedule redraws ───────────────────────────────────────────────────────
 
@@ -997,19 +1208,20 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  return (
+  const chartInner = (
     <div
       ref={containerRef}
       style={{
         position: 'relative',
         background: THEME.containerBg,
-        borderRadius: 12,
+        borderRadius: isFullscreen ? 0 : 12,
         border: `1px solid ${THEME.border}`,
         overflow: 'hidden',
         width: '100%',
+        height: isFullscreen ? '100dvh' : undefined,
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        minWidth: 320,
+        minWidth: isFullscreen ? 0 : 320,
       }}
     >
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -1067,8 +1279,8 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
           )}
         </div>
 
-        {/* Timeframe pills */}
-        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {/* Timeframe + actions */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {TF_OPTIONS.map((tf) => (
             <button
               key={tf}
@@ -1094,64 +1306,125 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
               {tf}
             </button>
           ))}
+          <button
+            onClick={() => {
+              setZoomLevel(1);
+              setViewEnd(candles.length || 1);
+            }}
+            title="Zoom sıfırla"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px 7px',
+              borderRadius: 6,
+              border: `1px solid ${THEME.border}`,
+              background: 'transparent',
+              color: THEME.textSecondary,
+              cursor: 'pointer',
+            }}
+          >
+            <RotateCcw size={12} />
+          </button>
+          <button
+            onClick={() => (isFullscreen ? closeFullscreen() : openFullscreen())}
+            title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: `1px solid ${THEME.border}`,
+              background: 'transparent',
+              color: THEME.textSecondary,
+              cursor: 'pointer',
+              fontSize: 10,
+              fontFamily: THEME.fontSans,
+              fontWeight: 600,
+            }}
+          >
+            {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            {isFullscreen ? 'Çık' : 'Tam ekran'}
+          </button>
+          {isFullscreen && (
+            <button
+              onClick={closeFullscreen}
+              title="Kapat"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px 7px',
+                borderRadius: 6,
+                border: `1px solid ${THEME.border}`,
+                background: 'transparent',
+                color: THEME.textSecondary,
+                cursor: 'pointer',
+              }}
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Indicator toggle pills ─────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 5,
-          padding: '6px 14px',
-          borderBottom: `1px solid ${THEME.border}`,
-        }}
-      >
-        {PILLS.map(({ key, label, color }) => {
-          const active = indicators[key];
-          return (
-            <button
-              key={key}
-              onClick={() => toggleInd(key)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: active ? 'rgba(255,255,255,0.055)' : 'transparent',
-                border: `1px solid ${active ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.04)'}`,
-                borderRadius: 20,
-                padding: '2px 10px 2px 7px',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: THEME.fontSans,
-                color: active ? THEME.textSecondary : THEME.textTertiary,
-                transition: 'all 0.14s',
-                whiteSpace: 'nowrap',
-                lineHeight: 1.6,
-              }}
-            >
-              <span
+      {!isFullscreen && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 5,
+            padding: '6px 14px',
+            borderBottom: `1px solid ${THEME.border}`,
+          }}
+        >
+          {PILLS.map(({ key, label, color }) => {
+            const active = indicators[key];
+            return (
+              <button
+                key={key}
+                onClick={() => toggleInd(key)}
                 style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: active ? color : 'rgba(255,255,255,0.18)',
-                  flexShrink: 0,
-                  transition: 'background 0.14s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: active ? 'rgba(255,255,255,0.055)' : 'transparent',
+                  border: `1px solid ${active ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.04)'}`,
+                  borderRadius: 20,
+                  padding: '2px 10px 2px 7px',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  fontFamily: THEME.fontSans,
+                  color: active ? THEME.textSecondary : THEME.textTertiary,
+                  transition: 'all 0.14s',
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.6,
                 }}
-              />
-              {label}
-            </button>
-          );
-        })}
-      </div>
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: active ? color : 'rgba(255,255,255,0.18)',
+                    flexShrink: 0,
+                    transition: 'background 0.14s',
+                  }}
+                />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Canvas container ───────────────────────────────────────────────── */}
       <div
         style={{
           position: 'relative',
           width: '100%',
-          height,
+          height: chartHeight,
           background: THEME.bg,
           overflow: 'hidden',
         }}
@@ -1173,6 +1446,29 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
             touchAction: 'none',
           }}
         />
+
+        {isFullscreen && showRotateHint && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 12,
+              zIndex: 11,
+              padding: '2px 8px',
+              borderRadius: 6,
+              border: `1px solid ${THEME.border}`,
+              background: 'rgba(12,14,22,0.72)',
+              color: THEME.textTertiary,
+              fontSize: 10,
+              fontFamily: THEME.fontSans,
+              pointerEvents: 'none',
+              opacity: showRotateHint ? 1 : 0,
+              transition: "opacity 220ms ease",
+            }}
+          >
+            Daha geniş görünüm için telefonu yatay çevirin
+          </div>
+        )}
 
         {/* Loading */}
         {loading && (
@@ -1198,7 +1494,7 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
                 letterSpacing: '0.02em',
               }}
             >
-              Loading {symbol}…
+              Grafik yükleniyor: {symbol}
             </span>
           </div>
         )}
@@ -1242,33 +1538,56 @@ export default function ProfessionalChart({ symbol, height = 520 }: Props) {
                 cursor: 'pointer',
               }}
             >
-              Retry
+              Tekrar dene
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Legend footer ──────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '4px 16px',
-          padding: '5px 14px 6px',
-          borderTop: `1px solid ${THEME.border}`,
-        }}
-      >
-        {indicators.sma20   && <LegendItem color={THEME.sma20}    label="SMA 20" />}
-        {indicators.sma50   && <LegendItem color={THEME.sma50}    label="SMA 50" />}
-        {indicators.ema12   && <LegendItem color={THEME.ema12}    label="EMA 12" />}
-        {indicators.ema26   && <LegendItem color={THEME.ema26}    label="EMA 26" />}
-        {indicators.bb      && <LegendItem color={THEME.bbUpper}  label="Bollinger Bands (20,2)" />}
-        {indicators.rsi     && <LegendItem color={THEME.rsiLine}  label="RSI (14)" />}
-        {indicators.macd    && <LegendItem color={THEME.macdLine} label="MACD (12,26,9)" />}
-        {indicators.volume  && <LegendItem color={THEME.volumePos}label="Volume" />}
-      </div>
+      {!isFullscreen && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px 16px',
+            padding: '5px 14px 6px',
+            borderTop: `1px solid ${THEME.border}`,
+          }}
+        >
+          {indicators.sma20   && <LegendItem color={THEME.sma20}    label="SMA 20" />}
+          {indicators.sma50   && <LegendItem color={THEME.sma50}    label="SMA 50" />}
+          {indicators.ema12   && <LegendItem color={THEME.ema12}    label="EMA 12" />}
+          {indicators.ema26   && <LegendItem color={THEME.ema26}    label="EMA 26" />}
+          {indicators.bb      && <LegendItem color={THEME.bbUpper}  label="Bollinger Bands (20,2)" />}
+          {indicators.rsi     && <LegendItem color={THEME.rsiLine}  label="RSI (14)" />}
+          {indicators.macd    && <LegendItem color={THEME.macdLine} label="MACD (12,26,9)" />}
+          {indicators.volume  && <LegendItem color={THEME.volumePos}label="Volume" />}
+        </div>
+      )}
     </div>
   );
+
+  if (isFullscreen && portalReady && typeof document !== "undefined") {
+    return createPortal(
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 21000,
+          background: THEME.bg,
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
+          paddingRight: "env(safe-area-inset-right, 0px)",
+        }}
+      >
+        {chartInner}
+      </div>,
+      document.body,
+    );
+  }
+
+  return chartInner;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

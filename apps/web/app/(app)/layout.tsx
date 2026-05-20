@@ -15,27 +15,28 @@ import { DemoProvider, useDemo } from "@/lib/demo/DemoContext";
 import { AssetModalProvider } from "@/lib/AssetModalContext";
 import { isGuestDemo, clearAuth, exitGuestDemo, getUser, isLoggedIn } from "@/lib/auth";
 import { ExchangeProvider } from "@/lib/exchange/ExchangeContext";
+import { useI18n } from "@/lib/i18n";
 
 const NAV = [
-  { href:"/dashboard",   Icon:LayoutDashboard,   label:"Komuta Merkezi" },
-  { href:"/market",      Icon:TrendingUp,         label:"Piyasalar"      },
-  { href:"/signals",     Icon:Zap,                label:"Sinyaller"      },
-  { href:"/portfolio",   Icon:BriefcaseBusiness,  label:"Portfoy"        },
-  { href:"/alarms",      Icon:Bell,               label:"Alarmlar"       },
-  { href:"/copilot",     Icon:Bot,                label:"AI Copilot", pro:true },
-  { href:"/social",      Icon:Users2,             label:"Sosyal Radar"   },
-  { href:"/trades",      Icon:LineChart,          label:"ÃÃ¾lemlerim"     },
-  { href:"/scenario",    Icon:Calculator,         label:"Senaryo Sim."   },
-  { href:"/performance", Icon:BarChart3,          label:"Performans"     },
-  { href:"/profile",     Icon:UserCircle2,        label:"Profil"         },
+  { href:"/dashboard",   Icon:LayoutDashboard,   labelKey:"nav.dashboard" },
+  { href:"/market",      Icon:TrendingUp,         labelKey:"nav.market" },
+  { href:"/signals",     Icon:Zap,                labelKey:"nav.signals" },
+  { href:"/portfolio",   Icon:BriefcaseBusiness,  labelKey:"nav.portfolio" },
+  { href:"/alarms",      Icon:Bell,               labelKey:"nav.alarms" },
+  { href:"/copilot",     Icon:Bot,                labelKey:"nav.copilot", pro:true },
+  { href:"/social",      Icon:Users2,             labelKey:"nav.social" },
+  { href:"/trades",      Icon:LineChart,          labelKey:"nav.trades" },
+  { href:"/scenario",    Icon:Calculator,         labelKey:"nav.scenario" },
+  { href:"/performance", Icon:BarChart3,          labelKey:"nav.performance" },
+  { href:"/profile",     Icon:UserCircle2,        labelKey:"nav.profile" },
 ];
 
 const BOTTOM = [
-  { href:"/dashboard", Icon:LayoutDashboard, label:"Komuta" },
-  { href:"/market",    Icon:TrendingUp,      label:"Piyasa" },
-  { href:"/signals",   Icon:Zap,             label:"Sinyal" },
-  { href:"/alarms",    Icon:Bell,            label:"Alarm"  },
-  { href:"/profile",   Icon:UserCircle2,     label:"Profil" },
+  { href:"/dashboard", Icon:LayoutDashboard, labelKey:"bottom.command" },
+  { href:"/market",    Icon:TrendingUp,      labelKey:"bottom.market" },
+  { href:"/signals",   Icon:Zap,             labelKey:"bottom.signal" },
+  { href:"/alarms",    Icon:Bell,            labelKey:"bottom.alarm"  },
+  { href:"/profile",   Icon:UserCircle2,     labelKey:"bottom.profile" },
 ];
 
 function useClock() {
@@ -49,10 +50,11 @@ function useClock() {
   return t;
 }
 
-/* Â¦Â¦Â¦ Sidebar (desktop only) Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Sidebar (desktop only) */
 function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
 
   return (
     <aside
@@ -95,7 +97,7 @@ function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
 
       {/* Nav */}
       <nav style={{flex:1, padding:"6px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto", overflowX:"hidden"}}>
-        {NAV.map(({ href, Icon, label, pro }) => {
+        {NAV.map(({ href, Icon, labelKey, pro }) => {
           const active = path === href || path.startsWith(href + "/");
           return (
             <Link key={href} href={href} style={{
@@ -121,7 +123,7 @@ function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
                 transform: open ? "translateX(0)" : "translateX(-6px)",
                 transition: "opacity 150ms ease, transform 150ms ease",
                 transitionDelay: open ? "80ms" : "0ms",
-              }}>{label}</span>
+              }}>{t(labelKey)}</span>
               {pro && (
                 <span style={{
                   fontSize:"8px", fontFamily:"IBM Plex Mono", fontWeight:700,
@@ -165,7 +167,7 @@ function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
             opacity:open?1:0, transform:open?"translateX(0)":"translateX(-6px)",
             transition:"opacity 150ms ease, transform 150ms ease",
             transitionDelay:open?"80ms":"0ms",
-          }}>Ara</span>
+          }}>{t("search.assets")}</span>
           {open && (
             <span style={{
               fontFamily:"IBM Plex Mono", fontSize:"9px", color:"var(--t3)",
@@ -187,16 +189,17 @@ function Sidebar({ onCmdOpen }: { onCmdOpen: () => void }) {
             opacity:open?1:0, transform:open?"translateX(0)":"translateX(-6px)",
             transition:"opacity 150ms ease, transform 150ms ease",
             transitionDelay:open?"80ms":"0ms",
-          }}>CanlÃ½ baÃ°lÃ½</span>
+          }}>{t("status.liveConnected")}</span>
         </div>
       </div>
     </aside>
   );
 }
 
-/* Â¦Â¦Â¦ Mobile drawer Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Mobile drawer */
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const path = usePathname();
+  const { t } = useI18n();
   useEffect(() => { if (open) document.body.style.overflow = "hidden"; else document.body.style.overflow = ""; return () => { document.body.style.overflow = ""; }; }, [open]);
 
   return (
@@ -231,7 +234,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
           </button>
         </div>
         <div style={{flex:1,padding:"8px",display:"flex",flexDirection:"column",gap:2}}>
-          {NAV.map(({ href, Icon, label, pro }) => {
+          {NAV.map(({ href, Icon, labelKey, pro }) => {
             const active = path === href || path.startsWith(href + "/");
             return (
               <Link key={href} href={href} onClick={onClose} style={{
@@ -245,7 +248,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                 fontFamily:"DM Sans",
               }}>
                 <Icon size={17} strokeWidth={active?2.2:1.7}/>
-                <span style={{flex:1}}>{label}</span>
+                <span style={{flex:1}}>{t(labelKey)}</span>
                 {pro && <span style={{fontSize:"8px",background:"var(--gold-dim)",color:"var(--gold)",border:"1px solid var(--gold-border)",padding:"1px 5px",borderRadius:3,fontFamily:"IBM Plex Mono",fontWeight:700}}>PRO</span>}
               </Link>
             );
@@ -257,7 +260,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 
-/* Â¦Â¦Â¦ Demo Mode Banner Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Demo Mode Banner */
 function DemoBanner() {
   const { demo, totalValue, totalPnlUSD, totalPnlPct } = useDemo();
   const [guest, setGuest] = React.useState(false);
@@ -303,17 +306,18 @@ function DemoBanner() {
         onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background="var(--gold-dim)";}}
         onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background="transparent";}}
       >
-        GERÃ‡EK HESAP AÃ‡ Â›
+        GERÇEK HESAP AÇ {" >"}
       </a>
     </div>
   );
 }
 
-/* Â¦Â¦Â¦ TopBar Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* TopBar */
 function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: () => void }) {
   const path = usePathname();
   const clock = useClock();
   const router = useRouter();
+  const { t } = useI18n();
   const [authState, setAuthState] = React.useState<{loggedIn:boolean;name:string;tier:string}>({ loggedIn:false, name:"", tier:"free" });
 
   React.useEffect(() => {
@@ -329,18 +333,19 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
   }
 
   const TITLES: Record<string, string> = {
-    "/dashboard":"Komuta Merkezi", "/market":"Piyasalar", "/signals":"Sinyaller",
-    "/portfolio":"Portfoy", "/alarms":"Alarmlar", "/copilot":"AI Copilot",
-    "/social":"Sosyal Radar", "/trades":"Islemlerim", "/profile":"Profil",
-    "/scenario":"Senaryo", "/performance":"Performans",
-    "/account":"Hesabim", "/subscribe":"Plan Sec",
+    "/dashboard":"nav.dashboard", "/market":"nav.market", "/signals":"nav.signals",
+    "/portfolio":"nav.portfolio", "/alarms":"nav.alarms", "/copilot":"nav.copilot",
+    "/social":"nav.social", "/trades":"nav.trades", "/profile":"nav.profile",
+    "/scenario":"nav.scenario", "/performance":"nav.performance",
+    "/account":"nav.profile", "/subscribe":"profile.subscription",
   };
-  const title = Object.entries(TITLES).find(([k]) => path.startsWith(k))?.[1] ?? "AYC Global Market";
+  const titleKey = Object.entries(TITLES).find(([k]) => path.startsWith(k))?.[1];
+  const title = titleKey ? t(titleKey) : "AYC Global Market";
   const tierColor = authState.tier === "elite" ? "var(--gold)" : authState.tier === "pro" ? "#8b5cf6" : "var(--t3)";
   const tierLabel = authState.tier === "elite" ? "ELITE" : authState.tier === "pro" ? "PRO" : "FREE";
 
   return (
-    <header style={{
+    <header className="app-topbar" style={{
       height:44, display:"flex", alignItems:"center", justifyContent:"space-between",
       padding:"0 12px", gap:10,
       background:"var(--bg-panel)", borderBottom:"1px solid var(--b1)",
@@ -357,7 +362,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
       </span>
       <button onClick={onCmdOpen} className="topbar-search" style={{maxWidth:280,flex:1}}>
         <Search size={12} style={{color:"var(--t3)",flexShrink:0}}/>
-        <span className="topbar-search-hint">Ara veya sayfaya git...</span>
+        <span className="topbar-search-hint">{t("search.placeholder")}</span>
         <span className="topbar-kbd">Ctrl K</span>
       </button>
       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
@@ -373,7 +378,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
         </div>
         <div className="topbar-pill pill-live">
           <span className="pulse-dot green"/>
-          <span>Canli</span>
+          <span>{t("status.live")}</span>
         </div>
         {authState.loggedIn ? (
           <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -388,12 +393,12 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
               </div>
               <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}} className="topbar-user-name">
                 <span style={{fontSize:11,fontWeight:700,color:"var(--t1)",maxWidth:80,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
-                  {authState.name || "Kullanici"}
+                  {authState.name || "User"}
                 </span>
                 <span style={{fontSize:9,fontWeight:700,color:tierColor,letterSpacing:"0.08em"}}>{tierLabel}</span>
               </div>
             </Link>
-            <button onClick={handleLogout} title="Cikis Yap" style={{
+            <button onClick={handleLogout} title={t("auth.logout")} style={{
               background:"none", border:"1px solid var(--b1)", borderRadius:6,
               color:"var(--t3)", cursor:"pointer", padding:"4px 8px", fontSize:11,
               fontFamily:"var(--font-body)", fontWeight:600, display:"flex", alignItems:"center", gap:4,
@@ -401,7 +406,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
               onMouseEnter={e => { const el=e.currentTarget as HTMLElement; el.style.borderColor="rgba(239,68,68,0.5)"; el.style.color="#ef4444"; }}
               onMouseLeave={e => { const el=e.currentTarget as HTMLElement; el.style.borderColor="var(--b1)"; el.style.color="var(--t3)"; }}
             >
-              <UserCircle2 size={13}/><span className="topbar-logout-text">Cikis</span>
+              <UserCircle2 size={13}/><span className="topbar-logout-text">{t("auth.logout")}</span>
             </button>
           </div>
         ) : (
@@ -412,7 +417,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
               fontSize:11, fontWeight:600, color:"var(--t2)",
               fontFamily:"var(--font-body)", whiteSpace:"nowrap",
             }}>
-              Giris Yap
+              {t("auth.login")}
             </Link>
             <Link href="/signup" style={{
               textDecoration:"none", padding:"5px 9px",
@@ -421,7 +426,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
               fontFamily:"var(--font-body)", whiteSpace:"nowrap",
               boxShadow:"0 2px 8px rgba(212,175,55,0.25)",
             }}>
-              Kayit Ol
+              {t("auth.signup")}
             </Link>
           </div>
         )}
@@ -432,7 +437,7 @@ function TopBar({ onCmdOpen, onMenuOpen }: { onCmdOpen: () => void; onMenuOpen: 
 
 
 
-/* Â¦Â¦Â¦ DemoModeWrapper (shows banner if demo/guest) Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* DemoModeWrapper (shows banner if demo/guest) */
 function DemoModeWrapper() {
   const [show, setShow] = React.useState(false);
   React.useEffect(() => {
@@ -443,7 +448,7 @@ function DemoModeWrapper() {
   return <DemoBanner />;
 }
 
-/* Â¦Â¦Â¦ Root layout Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦Â¦ */
+/* Root layout */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -464,9 +469,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <div className="app-root" style={{display:"flex",flexDirection:"column",height:"100dvh",overflow:"hidden"}}>
         {/* Demo mode banner */}
-        <DemoModeWrapper/>
-        {/* Ticker Â— full width */}
-        <div style={{height:32,flexShrink:0}}><MarketTicker/></div>
+        <div className="app-demo-banner"><DemoModeWrapper/></div>
+        {/* Ticker - full width */}
+        <div className="app-ticker" style={{height:32,flexShrink:0}}><MarketTicker/></div>
 
         {/* TopBar */}
         <TopBar onCmdOpen={() => setCmdOpen(true)} onMenuOpen={() => setDrawerOpen(true)}/>
@@ -486,10 +491,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="bottom-nav" style={{display:"none"}}>
-        {BOTTOM.map(({ href, Icon, label }) => {
+        {BOTTOM.map(({ href, Icon, labelKey }) => {
           // active class handled by CSS but need pathname
           return (
-            <BottomNavLink key={href} href={href} Icon={Icon} label={label}/>
+            <BottomNavLink key={href} href={href} Icon={Icon} labelKey={labelKey}/>
           );
         })}
       </nav>
@@ -498,16 +503,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function BottomNavLink({ href, Icon, label }: { href:string; Icon:any; label:string }) {
+function BottomNavLink({ href, Icon, labelKey }: { href:string; Icon:any; labelKey:string }) {
   const path = usePathname();
+  const { t } = useI18n();
   const active = path === href || path.startsWith(href + "/");
   return (
     <Link href={href} className={`bn-btn${active ? " active" : ""}`}>
       <Icon size={20} strokeWidth={active ? 2.2 : 1.6}/>
-      <span>{label}</span>
+      <span>{t(labelKey)}</span>
     </Link>
   );
 }
+
+
 
 
 

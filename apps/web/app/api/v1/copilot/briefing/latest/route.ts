@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
-const FH_KEY = process.env.FINNHUB_API_KEY || 'd7pp429r01qosaapdudgd7pp429r01qosaapdue0';
+const FH_KEY = process.env.FINNHUB_API_KEY || '';
 
 async function getMarketSnapshot() {
+  if (!FH_KEY) return {};
   try {
     const makeReq = (url: string) => {
       const ctrl = new AbortController();

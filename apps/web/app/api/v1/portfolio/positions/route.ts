@@ -10,7 +10,12 @@ export async function GET(req: NextRequest) {
   const payload = await getUserFromAuthHeader(req);
   const userId = payload?.sub || "guest";
   const positions = globalThis.__AYC_POSITIONS.filter((p: any) => p.user_id === userId);
-  return NextResponse.json({ positions, count: positions.length });
+  return NextResponse.json({
+    positions,
+    count: positions.length,
+    persistent: false,
+    storage_warning: "Position state is stored in-memory and will be lost on cold start or redeploy.",
+  });
 }
 
 export async function POST(req: NextRequest) {

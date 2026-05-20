@@ -8,7 +8,14 @@ import httpx
 
 log = logging.getLogger("coingecko")
 
-COINGECKO_KEY = os.environ.get("COINGECKO_API_KEY", "CG-MoxLLAjSA3r2JHXanw9fotD5")
+COINGECKO_KEY = os.environ.get("COINGECKO_API_KEY", "").strip()
+
+
+def _coingecko_headers() -> dict:
+    headers: dict = {"Accept": "application/json"}
+    if COINGECKO_KEY:
+        headers["x-cg-demo-api-key"] = COINGECKO_KEY
+    return headers
 
 COINGECKO_COINS = [
     "bitcoin", "ethereum", "solana", "binancecoin", "ripple",
@@ -33,10 +40,9 @@ async def fetch_coingecko_batch(coins: list[str] | None = None) -> list[dict]:
         "sparkline": False,
         "price_change_percentage": "24h",
     }
-    headers = {"x-cg-demo-api-key": COINGECKO_KEY}
     async with httpx.AsyncClient(timeout=15) as client:
         try:
-            resp = await client.get(url, params=params, headers=headers)
+            resp = await client.get(url, params=params, headers=_coingecko_headers())
             resp.raise_for_status()
             data = resp.json()
             results = []

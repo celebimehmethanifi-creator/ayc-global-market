@@ -4,7 +4,5 @@ packages:
   - "packages/*"
 
 allowBuilds:
-  unrs-resolver: set this to true or false
-
-onlyBuiltDependencies:
-  - unrs-resolver
+  '@shopify/react-native-skia': true
+  unrs-resolver: true

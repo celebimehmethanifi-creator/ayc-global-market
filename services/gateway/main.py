@@ -1,5 +1,6 @@
 ﻿"""AYC Global Market - API Gateway v2"""
 from __future__ import annotations
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -7,6 +8,8 @@ from database import init_db
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _env = Path(__file__).parent / ".env"
 if _env.exists():
@@ -30,6 +33,36 @@ from news_router import router as news_router
 from price_router import router as price_router
 from auth_router    import router as auth_router
 from billing_router import router as billing_router
+
+
+def _is_production() -> bool:
+    env = (
+        os.getenv("APP_ENV")
+        or os.getenv("ENVIRONMENT")
+        or os.getenv("NODE_ENV")
+        or ""
+    ).lower()
+    return env in {"production", "prod"}
+
+
+def _mock_routes_enabled() -> bool:
+    return (
+        os.getenv("AYC_ENABLE_MOCK_ROUTES", "").lower() == "true"
+        and not _is_production()
+    )
+
+
+def _parse_cors_origins() -> list[str]:
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if raw:
+        origins = [item.strip() for item in raw.split(",") if item.strip()]
+    else:
+        if _is_production():
+            raise RuntimeError("CORS_ORIGINS must be configured in production.")
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if _is_production() and not origins:
+        raise RuntimeError("CORS_ORIGINS must be configured in production.")
+    return origins
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,16 +95,20 @@ async def _startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_parse_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Signature", "Stripe-Signature"],
 )
 
 PREFIX = "/api/v1"
 app.include_router(auth_router,         prefix=PREFIX)
 app.include_router(billing_router,      prefix=PREFIX)
-app.include_router(mock_router,    prefix=PREFIX)
+if _mock_routes_enabled():
+    app.include_router(mock_router, prefix=PREFIX)
+    logger.info("Mock routes ENABLED (AYC_ENABLE_MOCK_ROUTES=true, non-production)")
+else:
+    logger.info("Mock routes DISABLED — fake profile/signal/PnL endpoints not mounted")
 app.include_router(brain_router,   prefix=PREFIX)
 app.include_router(consensus_router, prefix=f"{PREFIX}/brain")
 app.include_router(copilot_router,   prefix=PREFIX)   # Real AI: GPT-4o + Claude + Gemini
@@ -187,8 +224,34 @@ async def get_ohlcv(symbol: str, tf: str = "1M"):
 
 
 @app.get("/health")
-async def health():
-    return {"status":"ok","service":"ayc-global-market","version":"2.1.0"}
+async def health(request: Request):
+    redis = getattr(request.app.state, "redis", None)
+    warnings: list[str] = []
+    persistent = False
+    storage = "memory"
+    status = "ok"
+
+    if redis is None:
+        warnings.append("Redis unavailable; using in-memory fallback. State may be lost on restart.")
+        status = "degraded"
+    else:
+        try:
+            await redis.ping()
+            persistent = True
+            storage = "redis"
+        except Exception:
+            warnings.append("Redis ping failed; using in-memory fallback. State may be lost on restart.")
+            status = "degraded"
+
+    return {
+        "status": status,
+        "service": "ayc-global-market",
+        "version": "2.1.0",
+        "persistent": persistent,
+        "storage": storage,
+        "warnings": warnings,
+        "mockRoutesEnabled": _mock_routes_enabled(),
+    }
 
 @app.get("/")
 async def root():
@@ -196,7 +259,16 @@ async def root():
 
 @app.exception_handler(Exception)
 async def global_error_handler(request: Request, exc: Exception):
-    return JSONResponse(status_code=500, content={"error":"Internal server error","detail":str(exc)})
+    if _is_production():
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "detail": str(exc),
+            "path": request.url.path,
+        },
+    )
 
 
 
